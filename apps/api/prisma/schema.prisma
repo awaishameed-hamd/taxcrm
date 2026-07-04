@@ -1,0 +1,998 @@
+// CA Firm CRM — Prisma Schema
+// PostgreSQL database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  PARTNER
+  MANAGER
+  TEAM_LEAD
+  TRAINEE
+  CLIENT
+  REPRESENTATIVE
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  IMAGE
+  AUDIO
+}
+
+enum NotificationType {
+  STATUS_CHANGE
+  NEW_MESSAGE
+  DOCUMENT
+  SYSTEM
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  LEAVE
+  HOLIDAY
+}
+
+enum SalesTaxTaskStatus {
+  DATA_COLLECTION
+  DRAFT_PREPARATION
+  CLIENT_REVIEW
+  ANNEXURE_UPLOAD
+  INCHARGE_REVIEW
+  CHALLAN_GENERATED
+  SUBMISSION_APPROVAL
+  FILED
+  COMPLETED
+  SENT_BACK
+}
+
+enum CustomStepApprover {
+  TRAINEE
+  MANAGER
+}
+
+enum DayType {
+  WORKING_DAY
+  WEEKEND
+  HOLIDAY
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User (all roles: Partner, Manager, Trainee, Client)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  // Permanent, human-readable identifier (P001, M001, T001, C-0000001).
+  // Auto-generated once at creation — never editable. All future linking
+  // (filters, reports, assignment) must reference this, not name/email.
+  userCode     String   @unique
+  email        String   @unique
+  phone        String?
+  password     String
+  fullName     String
+  role         Role
+  isActive        Boolean   @default(true)
+  hasPortalAccess Boolean   @default(false)
+  inviteToken     String?   @unique
+  inviteTokenExp  DateTime?
+  avatar          String?
+  lastSeenAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // ── Detailed profile fields — managed by the dynamic Profile form ──────────
+  // Admin can show/hide/reorder/relabel these via Settings > Profile Form,
+  // without touching code. See FormFieldSetting.
+  firstName            String?
+  midName              String?
+  lastName             String?
+  dateOfBirth          DateTime?
+  dateOfJoining         DateTime?
+  department           String?
+  experience           String?
+  cnic                 String?
+  permanentAddress     String?  @db.Text
+  currentAddress       String?  @db.Text
+  basicSalary          Decimal? @db.Decimal(12, 2)
+  punctualityAllowance Decimal? @db.Decimal(12, 2)
+  travellingAllowance  Decimal? @db.Decimal(12, 2)
+  otherAllowance       Decimal? @db.Decimal(12, 2)
+  bank                 String?
+  accountTitle         String?
+  bankAccountNo        String?
+  ibanNo               String?
+  // Custom admin-added fields land here as {field_key: value}
+  extraFields          Json?
+  // When true, the user cannot edit their own profile (admin override)
+  profileLocked        Boolean  @default(false)
+  // When false, attendance is NOT auto-marked and user is excluded from all attendance views
+  attendanceApplicable Boolean  @default(true)
+
+  // CLIENT role — extended profile
+  clientProfile ClientProfile?
+
+  // TRAINEE role — which team lead manages this trainee (required for TRAINEE)
+  teamLeadId   String?
+  teamLead     User?   @relation("TeamLeadTrainees", fields: [teamLeadId], references: [id])
+  teamTrainees User[]  @relation("TeamLeadTrainees")
+
+  // TRAINEE role — clients assigned to this trainee
+  assignedClients ClientProfile[] @relation("TraineeClients")
+
+  // REPRESENTATIVE — if this user is a client representative
+  representativeProfile ClientRepresentative? @relation("RepresentativeUser")
+
+  // Chat messages sent
+  messages Message[]
+
+  // Notifications received
+  notifications Notification[]
+
+  // Refresh tokens
+  refreshTokens RefreshToken[]
+
+  // Attendance
+  attendances       Attendance[]
+  editedAttendances Attendance[] @relation("AttendanceEdits")
+
+  // Sales Tax Tasks
+  salesTaxTasks        SalesTaxTask[]        @relation("TraineeSalesTaxTasks")
+  salesTaxTasksActedOn SalesTaxTaskHistory[] @relation("SalesTaxTaskHistoryActor")
+  completedCustomSteps SalesTaxCustomStep[]  @relation("CompletedCustomSteps")
+
+  // General Tasks
+  createdTasks  Task[] @relation("CreatedTasks")
+  assignedTasks Task[] @relation("AssignedTasks")
+
+  // FBR Notices & Appeals
+  fbrCasesCreated  FbrCase[]       @relation("FbrCaseCreator")
+  fbrCasesAssigned FbrCase[]       @relation("FbrCaseAssignee")
+  fbrAttachments   FbrAttachment[] @relation("FbrAttachmentUploader")
+
+  @@index([role])
+  @@index([email])
+  @@index([userCode])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SequenceCounter — atomic per-role counter backing userCode generation.
+// One row per role (e.g. key "userCode:PARTNER"); incremented via upsert,
+// which Postgres executes as a single atomic statement — safe under concurrency.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SequenceCounter {
+  key   String @id
+  value Int    @default(0)
+
+  @@map("sequence_counters")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FormFieldSetting — admin-configurable form fields (currently just 'user' /
+// Profile form). Lets an admin add/remove/relabel/reorder/resize fields and
+// toggle visible/required, all without touching code. Mirrors the Call
+// Center CRM's form_field_settings table exactly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model FormFieldSetting {
+  id            String   @id @default(cuid())
+  formType      String   // 'user' (Profile form) — extensible to 'sale' / 'client' later
+  fieldKey      String
+  label         String
+  placeholder   String?
+  isVisible     Boolean  @default(true)
+  isRequired    Boolean  @default(false)
+  fieldType     String   // text | number | select | multiselect | date | textarea | amount_pkr
+  options       Json?
+  sortOrder     Int      @default(0)
+  isCore        Boolean  @default(false) // core fields can be hidden/edited but never deleted
+  section       String?
+  colSpan       String   @default("third") // full | two_thirds | half | third (out of a 6-col grid)
+  textareaRows  Int      @default(3)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([formType, fieldKey])
+  @@index([formType])
+  @@map("form_field_settings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ClientProfile — extra info for CLIENT role users
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ClientProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Personal / legal
+  cnic          String?  @unique
+  dateOfBirth   DateTime?
+  address       String?
+  city          String?
+  province      String?
+
+  // Tax registration
+  ntn  String? @unique  // National Tax Number (FBR)
+  strn String?          // Sales Tax Registration Number
+
+  // Business info
+  businessName String?
+  businessType String?  // Individual, Sole Proprietor, Partnership, Pvt Ltd, etc.
+
+  // Assigned trainee (the staff member handling this client)
+  traineeId String?
+  trainee   User?   @relation("TraineeClients", fields: [traineeId], references: [id])
+
+  // Fiscal year end month: JUNE (Jul–Jun), SEPTEMBER (Oct–Sep), DECEMBER (Jan–Dec)
+  yearEnd String @default("DECEMBER")
+
+  // Services enabled for this client
+  // Sales Tax: which authorities are active (FBR, PRA, SRB, KPRA, BRA, AJK)
+  salesTaxAuthorities String[] @default([])
+  hasWhtService       Boolean  @default(false)
+
+  // Assigned representative
+  representativeId String?
+  representative   ClientRepresentative? @relation(fields: [representativeId], references: [id])
+
+  // Admin-added dynamic fields land here as { field_key: value }
+  extraFields Json?
+
+  salesTaxTasks    SalesTaxTask[]
+  salesTaxReturns  SalesTaxReturn[]
+  incomeTaxReturns IncomeTaxReturn[]
+  generalTasks     Task[]          @relation("TaskClient")
+  fbrCases         FbrCase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([traineeId])
+  @@index([representativeId])
+  @@map("client_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Client Representative — person who represents one or more clients
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ClientRepresentative {
+  id       String @id @default(cuid())
+  fullName String
+  email    String @unique
+  phone    String?
+  cnic     String?
+
+  // Portal access
+  isActive        Boolean @default(true)
+  hasPortalAccess Boolean @default(false)
+  userId          String? @unique
+  user            User?   @relation("RepresentativeUser", fields: [userId], references: [id])
+
+  clients ClientProfile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("client_representatives")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Conversation + Message — WhatsApp-style chat
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id String @id @default(cuid())
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  lastMessageAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+
+  lastReadAt DateTime?
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id])
+
+  content       String      @db.Text
+  type          MessageType @default(TEXT)
+  attachmentUrl String?      // relative path for file/image messages
+
+  replyToId String?
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[] @relation("MessageReplies")
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([replyToId])
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notification
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title  String
+  body   String
+  type   NotificationType
+  data   Json?
+
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RefreshToken — for JWT rotation
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WorkingDay — HR sets up each month's schedule
+// ─────────────────────────────────────────────────────────────────────────────
+
+model WorkingDay {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  dayType     DayType  @default(WORKING_DAY)
+  leaveReason String?
+
+  // Override per-day reporting time (HH:MM). Falls back to AttendanceSetting
+  reportingTimeOverride String?
+
+  attendances Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date])
+  @@index([date])
+  @@map("working_days")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Attendance — auto-marked on login; editable by manager/partner
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Attendance {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workingDayId String?
+  workingDay   WorkingDay? @relation(fields: [workingDayId], references: [id])
+
+  date      DateTime         @db.Date
+  loginTime DateTime?
+  logoutTime DateTime?
+
+  status      AttendanceStatus @default(PRESENT)
+  isLate      Boolean          @default(false)
+  lateMinutes Int?
+
+  // HR edits
+  editedById String?
+  editedBy   User?   @relation("AttendanceEdits", fields: [editedById], references: [id])
+  notes      String?
+
+  // Approval flow for leave / absent correction
+  approvalStatus String   @default("approved")
+  approvedById   String?
+  approvedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([date])
+  @@index([userId])
+  @@map("attendances")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AttendanceSetting — admin-configurable key-value settings
+// Keys: reporting_time, grace_period_minutes, cutoff_time, auto_mark_on_login, timezone
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AttendanceSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  label String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("attendance_settings")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SalesTaxTask — one task per client per tax period (month/year)
+// Auto-created on 1st of every month for clients with hasSalesTaxService=true
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SalesTaxTask {
+  id       String @id @default(cuid())
+
+  clientId String
+  client   ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  traineeId String
+  trainee   User   @relation("TraineeSalesTaxTasks", fields: [traineeId], references: [id])
+
+  // Tax period
+  periodMonth Int  // 1–12
+  periodYear  Int  // e.g. 2026
+
+  status    SalesTaxTaskStatus @default(DATA_COLLECTION)
+  dueDate   DateTime?
+
+  // Step 4 — Annexure uploads (file paths)
+  annexureA String?
+  annexureC String?
+
+  // Step 6 — Challan/PSID
+  psid          String?
+  challanAmount Decimal? @db.Decimal(12, 2)
+
+  // Step 8 — Filing
+  feeInvoiceNo     String?
+  feeInvoiceAmount Decimal? @db.Decimal(12, 2)
+  filedAt          DateTime?
+
+  priority     TaskPriority @default(MEDIUM)
+  assignerNote String?      @db.Text
+  skippedSteps String[]     @default([])
+
+  // Task type: SALES_TAX | INCOME_TAX | WHT
+  taskType   String @default("SALES_TAX")
+
+  // Tax Authority (FBR, PRA, SRB, KPRA, BRA, AJK) — only used for SALES_TAX
+  authority  String @default("FBR")
+  // Return Type (ORIGINAL / REVISED)
+  returnType String @default("ORIGINAL")
+
+  // Last manager comment (send back reason)
+  managerComment String? @db.Text
+
+  // Frozen snapshot of pipeline step config at completion time
+  stepsSnapshot  Json?
+
+  history          SalesTaxTaskHistory[]
+  customSteps      SalesTaxCustomStep[]
+  salesTaxReturn   SalesTaxReturn?
+  incomeTaxReturn  IncomeTaxReturn?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, periodMonth, periodYear, authority, returnType, taskType])
+  @@index([traineeId])
+  @@index([status])
+  @@index([periodYear, periodMonth])
+  @@map("sales_tax_tasks")
+}
+
+// ── Admin-configurable pipeline step labels per tax type ──────────────────────
+model PipelineStepConfig {
+  id           String   @id @default(cuid())
+  taskType     String   // SALES_TAX | INCOME_TAX | WHT
+  stepKey      String   // DATA_COLLECTION | DRAFT_PREPARATION | ...
+  label        String
+  description  String?  @db.Text
+  approvedBy   String   @default("TRAINEE") // TRAINEE | MANAGER
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([taskType, stepKey])
+  @@map("pipeline_step_configs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SalesTaxTaskHistory — full audit trail of every status transition
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task — general task management (create for self or assign to others)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?      @db.Text
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+
+  // Tax category: sales_tax | income_tax | wht | notices
+  taxType     String       @default("general")
+
+  // Optional client link
+  clientId    String?
+  client      ClientProfile? @relation("TaskClient", fields: [clientId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
+
+  assignedToId String
+  assignedTo   User   @relation("AssignedTasks", fields: [assignedToId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([status])
+  @@index([taxType])
+  @@map("tasks")
+}
+
+model SalesTaxCustomStep {
+  id          String             @id @default(cuid())
+  taskId      String
+  task        SalesTaxTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title       String
+  description String?            @db.Text
+  approvedBy  CustomStepApprover @default(TRAINEE)
+  insertAfter String             // fixed step key e.g. "DATA_COLLECTION"
+  isCompleted Boolean            @default(false)
+  isDeleted   Boolean            @default(false)
+  completedAt   DateTime?
+  completedById String?
+  completedBy   User?            @relation("CompletedCustomSteps", fields: [completedById], references: [id])
+  // Set when this step was seeded from a global PipelineStepConfig (null = task-specific custom step)
+  pipelineStepConfigId String?
+  createdAt   DateTime           @default(now())
+
+  @@index([taskId])
+  @@map("sales_tax_custom_steps")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RolePermission — admin-configurable per-role feature toggles
+// ─────────────────────────────────────────────────────────────────────────────
+
+model RolePermission {
+  id        String   @id @default(cuid())
+  role      String   // MANAGER, TEAM_LEAD, TRAINEE
+  feature   String   // feature key
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, feature])
+  @@map("role_permissions")
+}
+
+// ── SalesTaxReturn — summary data entered when FILED step is completed ────────
+model SalesTaxReturn {
+  id          String        @id @default(cuid())
+  clientId    String
+  client      ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taskId      String?       @unique
+  task        SalesTaxTask? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  periodMonth Int
+  periodYear  Int
+  authority   String  @default("FBR")
+  returnType  String  @default("ORIGINAL")
+
+  // Sales
+  standardSales        Decimal? @db.Decimal(14, 2)
+  outputTaxStandard    Decimal? @db.Decimal(14, 2)
+  reducedRateSales     Decimal? @db.Decimal(14, 2)
+  outputTaxReduced     Decimal? @db.Decimal(14, 2)
+  exemptSales          Decimal? @db.Decimal(14, 2)
+  zeroRatedSales       Decimal? @db.Decimal(14, 2)
+
+  // Purchases
+  standardPurchases     Decimal? @db.Decimal(14, 2)
+  inputTaxStandard      Decimal? @db.Decimal(14, 2)
+  reducedRatePurchases  Decimal? @db.Decimal(14, 2)
+  inputTaxReduced       Decimal? @db.Decimal(14, 2)
+  unregisteredPurchases Decimal? @db.Decimal(14, 2)
+  exemptPurchases       Decimal? @db.Decimal(14, 2)
+  zeroRatedPurchases    Decimal? @db.Decimal(14, 2)
+
+  // Tax computation
+  normalTaxPayable  Decimal? @db.Decimal(14, 2)
+  furtherTaxPayable Decimal? @db.Decimal(14, 2)
+  taxCarryForward   Decimal? @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, periodMonth, periodYear, authority, returnType])
+  @@index([clientId])
+  @@map("sales_tax_returns")
+}
+
+// ── IncomeTaxReturn — summary data entered when INCOME_TAX FILED step completes ─
+model IncomeTaxReturn {
+  id         String        @id @default(cuid())
+  clientId   String
+  client     ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taskId     String?       @unique
+  task       SalesTaxTask? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  periodYear Int
+
+  totalProfitLoss        Decimal? @db.Decimal(14, 2)
+  profitLossExempt       Decimal? @db.Decimal(14, 2)
+  amountSubjectNormal    Decimal? @db.Decimal(14, 2)
+  normalIncomeTax        Decimal? @db.Decimal(14, 2)
+  turnoverTax            Decimal? @db.Decimal(14, 2)
+  taxOnAccountingProfit  Decimal? @db.Decimal(14, 2)
+  differenceMinimumTax   Decimal? @db.Decimal(14, 2)
+  superTax               Decimal? @db.Decimal(14, 2)
+  taxChargeable          Decimal? @db.Decimal(14, 2)
+  admittedIncomeTax      Decimal? @db.Decimal(14, 2)
+  refundableIncomeTax    Decimal? @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, periodYear])
+  @@index([clientId])
+  @@map("income_tax_returns")
+}
+
+model SalesTaxTaskHistory {
+  id     String       @id @default(cuid())
+  taskId String
+  task   SalesTaxTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  fromStatus SalesTaxTaskStatus?
+  toStatus   SalesTaxTaskStatus
+
+  actedById String
+  actedBy   User   @relation("SalesTaxTaskHistoryActor", fields: [actedById], references: [id])
+
+  comment    String? @db.Text
+  attachment String?
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@map("sales_tax_task_history")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FBR Notices & Appeals — case management
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum FbrEntryPoint {
+  FRESH_NOTICE
+  FURTHER_NOTICE_ONLY
+  DIRECT_APPEAL
+  HEARING_ONLY
+}
+
+enum FbrCaseStage {
+  NOTICE
+  APPEAL
+  STAY
+  HIGHER_FORUM
+  CLOSED
+}
+
+enum FbrSubmissionMethod {
+  IRIS
+  MANUAL
+}
+
+enum FbrNoticeOutcome {
+  PENDING
+  ACCEPTED
+  FURTHER_NOTICE
+  ORDER_AGAINST
+}
+
+enum FbrAppealType {
+  CIR_APPEALS
+  ATIR
+  HIGH_COURT
+}
+
+enum FbrAppealOutcome {
+  PENDING
+  IN_FAVOR
+  AGAINST
+  HIGHER_FORUM
+}
+
+enum FbrStayOutcome {
+  PENDING
+  GRANTED
+  REJECTED
+}
+
+enum FbrHearingOutcome {
+  PENDING
+  ADJOURNED
+  DECIDED
+}
+
+model FbrCase {
+  id         String @id @default(cuid())
+  caseNumber String @unique
+
+  clientId String
+  client   ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  entryPoint   FbrEntryPoint
+  currentStage FbrCaseStage @default(NOTICE)
+  taxType       String
+  taxYear       String?
+  noticeSection String?
+  noticeNumber  String?
+  description  String? @db.Text
+
+  assignedToId String?
+  assignedTo   User?   @relation("FbrCaseAssignee", fields: [assignedToId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("FbrCaseCreator", fields: [createdById], references: [id])
+
+  noticeRounds     FbrNoticeRound[]
+  appeal           FbrAppeal?
+  stayApplications FbrStayApplication[]
+  hearings         FbrHearing[]
+
+  closedAt     DateTime?
+  closedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([currentStage])
+  @@map("fbr_cases")
+}
+
+model FbrNoticeRound {
+  id     String  @id @default(cuid())
+  caseId String
+  case   FbrCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  roundNumber Int @default(1)
+
+  noticeDate         DateTime?
+  dueDate            DateTime?
+  adjournmentApplied Boolean   @default(false)
+  adjournmentDate    DateTime?
+
+  docListCreatedAt    DateTime?
+  docListApprovedAt   DateTime?
+  docListApprovedById String?
+  draftPreparedAt     DateTime?
+  internalReviewedAt  DateTime?
+  internalReviewById  String?
+  partnerApprovedAt   DateTime?
+  partnerApprovedById String?
+
+  submissionMethod FbrSubmissionMethod?
+  submittedAt      DateTime?
+  submissionRef    String?
+
+  outcome       FbrNoticeOutcome @default(PENDING)
+  orderDate     DateTime?
+  challanPaid   Boolean          @default(false)
+  challanPaidAt DateTime?
+  challanRef    String?
+
+  notes       String? @db.Text
+  attachments FbrAttachment[]
+
+  closedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@map("fbr_notice_rounds")
+}
+
+model FbrAppeal {
+  id     String  @id @default(cuid())
+  caseId String  @unique
+  case   FbrCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  appealType       FbrAppealType @default(CIR_APPEALS)
+  isLate           Boolean       @default(false)
+  condonationFiled Boolean       @default(false)
+
+  feeChallanRef String?
+  feePaidAt     DateTime?
+
+  submissionMethod    FbrSubmissionMethod?
+  groundsPreparedAt   DateTime?
+  internalReviewedAt  DateTime?
+  internalReviewById  String?
+  partnerApprovedAt   DateTime?
+  partnerApprovedById String?
+  submittedAt         DateTime?
+  submissionRef       String?
+
+  hearings    FbrHearing[]
+  attachments FbrAttachment[]
+
+  outcome       FbrAppealOutcome @default(PENDING)
+  orderDate     DateTime?
+  challanPaid   Boolean          @default(false)
+  challanPaidAt DateTime?
+  challanRef    String?
+
+  closedAt DateTime?
+  notes    String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("fbr_appeals")
+}
+
+model FbrStayApplication {
+  id     String  @id @default(cuid())
+  caseId String
+  case   FbrCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  triggeredAt DateTime @default(now())
+  reason      String?  @db.Text
+
+  reviewedAt   DateTime?
+  reviewedById String?
+
+  submissionMethod FbrSubmissionMethod?
+  submittedAt      DateTime?
+  submissionRef    String?
+
+  hearingDate DateTime?
+
+  outcome   FbrStayOutcome @default(PENDING)
+  decidedAt DateTime?
+
+  resumedAt   DateTime?
+  resumedById String?
+
+  attachments FbrAttachment[]
+  notes       String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@map("fbr_stay_applications")
+}
+
+model FbrHearing {
+  id     String  @id @default(cuid())
+  caseId String
+  case   FbrCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  appealId String?
+  appeal   FbrAppeal? @relation(fields: [appealId], references: [id], onDelete: SetNull)
+
+  scheduledDate DateTime
+  adjournedTo   DateTime?
+
+  outcome FbrHearingOutcome @default(PENDING)
+  notes   String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@map("fbr_hearings")
+}
+
+model FbrAttachment {
+  id String @id @default(cuid())
+
+  noticeRoundId String?
+  noticeRound   FbrNoticeRound? @relation(fields: [noticeRoundId], references: [id], onDelete: Cascade)
+
+  appealId String?
+  appeal   FbrAppeal? @relation(fields: [appealId], references: [id], onDelete: Cascade)
+
+  stayId String?
+  stay   FbrStayApplication? @relation(fields: [stayId], references: [id], onDelete: Cascade)
+
+  label    String?
+  url      String
+  fileType String @default("other")
+
+  uploadedById String
+  uploadedBy   User   @relation("FbrAttachmentUploader", fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([noticeRoundId])
+  @@index([appealId])
+  @@index([stayId])
+  @@map("fbr_attachments")
+}
+
+model FbrNoticeSection {
+  id        String  @id @default(cuid())
+  taxType   String
+  section   String
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([taxType, section])
+  @@index([taxType])
+  @@map("fbr_notice_sections")
+}

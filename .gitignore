@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+.next
+out
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode
+.idea
+*.swp
+
+# Turbo
+.turbo
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Uploads (local file storage)
+apps/api/uploads
+
+# PM2
+ecosystem.config.js.bak

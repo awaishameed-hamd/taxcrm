@@ -1,0 +1,427 @@
+import { Injectable, NotFoundException } from '@nestjs/common'
+import { PrismaService } from '../prisma/prisma.service'
+import { AttendanceStatus, DayType, Role } from '@prisma/client'
+import { UpdateAttendanceDto } from './dto/update-attendance.dto'
+
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+]
+
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+
+// ── Default settings (used when DB has no row) ────────────────────────────────
+export const DEFAULT_SETTINGS = {
+  reporting_time:       '09:00',  // earliest time attendance can be marked (attendance window start)
+  login_time:           '10:00',  // official office time — late is calculated relative to this
+  grace_period_minutes: '15',
+  cutoff_time:          '23:59',
+  auto_mark_on_login:   'true',
+  timezone:             'Asia/Karachi',
+}
+
+// ── Settings cache — refreshed every 5 minutes ────────────────────────────────
+let settingsCache: Record<string, string> | null = null
+let settingsCacheAt = 0
+
+@Injectable()
+export class AttendanceService {
+  constructor(private prisma: PrismaService) {}
+
+  // ── Settings helpers ────────────────────────────────────────────────────────
+
+  async getSettings(): Promise<Record<string, string>> {
+    const now = Date.now()
+    if (settingsCache && now - settingsCacheAt < 5 * 60 * 1000) return settingsCache
+
+    const rows = await this.prisma.attendanceSetting.findMany()
+    const map: Record<string, string> = { ...DEFAULT_SETTINGS }
+    for (const r of rows) map[r.key] = r.value
+    settingsCache   = map
+    settingsCacheAt = now
+    return map
+  }
+
+  async updateSetting(key: string, value: string, label?: string) {
+    settingsCache = null  // invalidate cache
+
+    const result = await this.prisma.attendanceSetting.upsert({
+      where:  { key },
+      update: { value, ...(label ? { label } : {}) },
+      create: { key, value, label: label ?? key },
+    })
+
+    // When login_time changes, propagate to all future working days
+    if (key === 'login_time') {
+      const todayUtc = new Date()
+      todayUtc.setUTCHours(0, 0, 0, 0)
+      await this.prisma.workingDay.updateMany({
+        where: { date: { gte: todayUtc } },
+        data:  { reportingTimeOverride: value },
+      })
+    }
+
+    return result
+  }
+
+  // ── Timezone-aware date helpers ─────────────────────────────────────────────
+
+  private getDateInTimezone(tz: string): { dateStr: string; timeStr: string } {
+    const now   = new Date()
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(now)
+
+    const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+    return {
+      dateStr: `${get('year')}-${get('month')}-${get('day')}`,
+      timeStr: `${get('hour')}:${get('minute')}`,
+    }
+  }
+
+  // Compare "HH:MM" strings; returns minutes difference (positive = over)
+  private minutesDiff(time: string, base: string): number {
+    const [th, tm] = time.split(':').map(Number)
+    const [bh, bm] = base.split(':').map(Number)
+    return (th * 60 + tm) - (bh * 60 + bm)
+  }
+
+  // ── Auto-mark attendance on login ───────────────────────────────────────────
+
+  // ── Applicability (which users/roles have attendance) ──────────────────────
+
+  async getApplicability() {
+    const users = await this.prisma.user.findMany({
+      where: { role: { notIn: [Role.CLIENT] }, isActive: true },
+      select: { id: true, fullName: true, userCode: true, role: true, attendanceApplicable: true },
+      orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
+    })
+    // Group by role
+    const grouped: Record<string, { id: string; fullName: string; userCode: string; role: string; attendanceApplicable: boolean }[]> = {}
+    for (const u of users) {
+      if (!grouped[u.role]) grouped[u.role] = []
+      grouped[u.role].push(u)
+    }
+    return grouped
+  }
+
+  async setUserApplicability(userId: string, applicable: boolean) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data:  { attendanceApplicable: applicable },
+      select: { id: true, attendanceApplicable: true },
+    })
+  }
+
+  async setRoleApplicability(role: Role, applicable: boolean) {
+    await this.prisma.user.updateMany({
+      where: { role, isActive: true },
+      data:  { attendanceApplicable: applicable },
+    })
+    return { role, attendanceApplicable: applicable }
+  }
+
+  async autoMarkOnLogin(userId: string, userRole: Role) {
+    // Clients don't have attendance
+    if (userRole === Role.CLIENT) return null
+
+    // Check if attendance is applicable for this user
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { attendanceApplicable: true } })
+    if (!user?.attendanceApplicable) return null
+
+    const settings = await this.getSettings()
+    if (settings.auto_mark_on_login !== 'true') return null
+
+    const tz                    = settings.timezone
+    const { dateStr, timeStr }  = this.getDateInTimezone(tz)
+    const cutoff                = settings.cutoff_time
+
+    // Past cutoff — do not auto-mark
+    if (this.minutesDiff(timeStr, cutoff) > 0) return null
+
+    // Parse date for DB query
+    const today = new Date(dateStr + 'T00:00:00Z')
+
+    // Check if already marked today
+    const existing = await this.prisma.attendance.findUnique({
+      where: { userId_date: { userId, date: today } },
+    })
+    if (existing) return null
+
+    // Check if today is a working day (fall back to calendar if no DB record)
+    const workingDay = await this.prisma.workingDay.findUnique({ where: { date: today } })
+    const dayOfWeek  = today.getDay()
+    const resolvedType = workingDay?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
+    if (resolvedType !== DayType.WORKING_DAY) return null
+
+    // attendance_from = earliest time a mark is allowed (global setting)
+    const attendanceFrom    = settings.reporting_time
+    // officialLoginTime = per-day override if set, else global login_time
+    const officialLoginTime = workingDay?.reportingTimeOverride ?? settings.login_time ?? '10:00'
+    const graceMins         = parseInt(settings.grace_period_minutes, 10) || 15
+
+    // Before attendance window start → do not mark yet
+    if (this.minutesDiff(timeStr, attendanceFrom) < 0) return null
+
+    // Late is measured from the official login time, not the attendance window start
+    const diffFromLoginTime = this.minutesDiff(timeStr, officialLoginTime)
+    const isLate            = diffFromLoginTime > graceMins
+    const lateMinutes       = isLate ? diffFromLoginTime - graceMins : null
+
+    const attendance = await this.prisma.attendance.create({
+      data: {
+        userId,
+        workingDayId: workingDay?.id ?? undefined,
+        date:         today,
+        loginTime:    new Date(),
+        status:       isLate ? AttendanceStatus.LATE : AttendanceStatus.PRESENT,
+        isLate,
+        lateMinutes,
+        approvalStatus: 'pending',
+      },
+    })
+
+    return {
+      date:        dateStr,
+      loginTime:   timeStr,
+      isLate,
+      lateMinutes,
+      status:      attendance.status,
+    }
+  }
+
+  // ── My attendance (calendar + summary) ─────────────────────────────────────
+
+  async getMyAttendance(userId: string, month: number, year: number) {
+    const startDate = new Date(`${year}-${String(month).padStart(2,'0')}-01T00:00:00Z`)
+    const endDate   = new Date(year, month, 1)
+
+    // Get all attendance records for this user/month
+    const records = await this.prisma.attendance.findMany({
+      where: {
+        userId,
+        date: { gte: startDate, lt: endDate },
+      },
+      orderBy: { date: 'asc' },
+    })
+
+    // Get working days for this month
+    const workingDays = await this.prisma.workingDay.findMany({
+      where: { date: { gte: startDate, lt: endDate } },
+      orderBy: { date: 'asc' },
+    })
+
+    const wdMap = new Map(workingDays.map(d => [d.date.toISOString().split('T')[0], d]))
+    const attMap = new Map(records.map(r => [r.date.toISOString().split('T')[0], r]))
+
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const today       = new Date().toISOString().split('T')[0]
+
+    const calendar = []
+    const summary  = { present: 0, absent: 0, late: 0, leave: 0, weekend: 0, working_days: 0 }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr  = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+      const dayOfWeek = new Date(dateStr).getDay()
+      const wd       = wdMap.get(dateStr)
+      const att      = attMap.get(dateStr)
+      const isUpcoming = dateStr > today
+
+      let status: string
+
+      if (!wd) {
+        // No working day config: weekends show as weekend, weekdays as upcoming/absent
+        status = dayOfWeek === 0 || dayOfWeek === 6 ? 'weekend' : (isUpcoming ? 'upcoming' : 'absent')
+      } else if (wd.dayType === DayType.WEEKEND) {
+        status = 'weekend'
+      } else if (wd.dayType === DayType.HOLIDAY) {
+        status = 'leave'
+      } else {
+        // Working day
+        if (isUpcoming) status = 'upcoming'
+        else if (!att)  status = 'absent'
+        else if (att.status === AttendanceStatus.LATE) status = 'late'
+        else if (att.status === AttendanceStatus.LEAVE) status = 'leave'
+        else status = 'present'
+      }
+
+      if (status === 'present')  summary.present++
+      else if (status === 'absent') summary.absent++
+      else if (status === 'late') { summary.late++; summary.present++ }
+      else if (status === 'leave') summary.leave++
+      else if (status === 'weekend') summary.weekend++
+
+      const resolvedType = wd?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
+      if (resolvedType === DayType.WORKING_DAY) summary.working_days++
+
+      calendar.push({
+        date:           dateStr,
+        day_name:       DAY_NAMES[dayOfWeek],
+        status,
+        login_time:     att?.loginTime
+          ? new Date(att.loginTime).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false })
+          : null,
+        is_late:        att?.isLate ?? false,
+        late_minutes:   att?.lateMinutes ?? null,
+        approval_status: att?.approvalStatus ?? null,
+        manually_edited: att?.editedById != null,
+      })
+    }
+
+    // Get user's joining date
+    const user = await this.prisma.user.findUnique({
+      where:  { id: userId },
+      select: { createdAt: true },
+    })
+
+    return {
+      calendar,
+      summary,
+      joining_date: user?.createdAt?.toISOString().split('T')[0] ?? null,
+    }
+  }
+
+  // ── Attendance report (all users, manager/partner) ──────────────────────────
+
+  async getReport(month: number, year: number, actorRole: Role, targetUserId?: string) {
+    const startDate = new Date(`${year}-${String(month).padStart(2,'0')}-01T00:00:00Z`)
+    const endDate   = new Date(year, month, 1)
+
+    const where: any = { date: { gte: startDate, lt: endDate }, user: { attendanceApplicable: true } }
+    if (targetUserId) where.userId = targetUserId
+
+    const records = await this.prisma.attendance.findMany({
+      where,
+      include: {
+        user: { select: { id: true, fullName: true, role: true } },
+      },
+      orderBy: [{ date: 'asc' }, { user: { fullName: 'asc' } }],
+    })
+
+    return records.map(r => ({
+      id:          r.id,
+      userId:      r.userId,
+      userName:    r.user.fullName,
+      userRole:    r.user.role,
+      date:        r.date.toISOString().split('T')[0],
+      loginTime:   r.loginTime
+        ? new Date(r.loginTime).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false })
+        : null,
+      status:      r.status,
+      isLate:      r.isLate,
+      lateMinutes: r.lateMinutes,
+      approvalStatus: r.approvalStatus,
+      notes:       r.notes,
+    }))
+  }
+
+  // ── Daily attendance (snapshot of who's in today) ───────────────────────────
+
+  async getDailyAttendance(date: string, actorRole: Role) {
+    const day       = new Date(date + 'T00:00:00Z')
+    const nextDay   = new Date(day.getTime() + 24 * 60 * 60 * 1000)
+    const dayOfWeek = day.getDay()
+
+    // Get all internal users where attendance is applicable
+    const users = await this.prisma.user.findMany({
+      where:   { role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] }, isActive: true, attendanceApplicable: true },
+      select:  { id: true, fullName: true, role: true },
+      orderBy: { fullName: 'asc' },
+    })
+
+    const records = await this.prisma.attendance.findMany({
+      where: { date: { gte: day, lt: nextDay } },
+    })
+    const attMap = new Map(records.map(r => [r.userId, r]))
+
+    const workingDay = await this.prisma.workingDay.findUnique({ where: { date: day } })
+
+    const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6
+    const resolvedDayType = workingDay?.dayType ?? (isWeekday ? DayType.WORKING_DAY : DayType.WEEKEND)
+
+    return {
+      date,
+      dayName:    DAY_NAMES[dayOfWeek],
+      isWorkingDay: resolvedDayType === DayType.WORKING_DAY,
+      dayType:    resolvedDayType,
+      users: users.map(u => {
+        const att = attMap.get(u.id)
+        return {
+          userId:      u.id,
+          fullName:    u.fullName,
+          role:        u.role,
+          status:      att?.status ?? (resolvedDayType === DayType.WORKING_DAY ? 'ABSENT' : 'N/A'),
+          loginTime:   att?.loginTime
+            ? new Date(att.loginTime).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false })
+            : null,
+          isLate:      att?.isLate ?? false,
+          lateMinutes: att?.lateMinutes ?? null,
+        }
+      }),
+    }
+  }
+
+  // ── Edit attendance (manager/partner) ───────────────────────────────────────
+
+  async createAttendance(userId: string, date: string, dto: UpdateAttendanceDto, editorId: string) {
+    const existing = await this.prisma.attendance.findFirst({ where: { userId, date: new Date(date) } })
+    if (existing) return this.updateAttendance(existing.id, dto, editorId)
+
+    const data: any = {
+      userId,
+      date:       new Date(date),
+      status:     dto.status ?? 'PRESENT',
+      isLate:     dto.isLate ?? false,
+      lateMinutes: dto.lateMinutes ?? 0,
+      notes:      dto.notes,
+      editedById: editorId,
+    }
+    if (dto.loginTime) {
+      const [h, m] = dto.loginTime.split(':').map(Number)
+      const d      = new Date(date)
+      d.setUTCHours(h - 5, m, 0, 0)
+      data.loginTime = d
+    }
+    return this.prisma.attendance.create({ data })
+  }
+
+  async updateAttendance(id: string, dto: UpdateAttendanceDto, editorId: string) {
+    const att = await this.prisma.attendance.findUnique({ where: { id } })
+    if (!att) throw new NotFoundException('Attendance record not found')
+
+    const data: any = { editedById: editorId }
+    if (dto.status !== undefined)      data.status      = dto.status
+    if (dto.isLate !== undefined)      data.isLate      = dto.isLate
+    if (dto.lateMinutes !== undefined) data.lateMinutes = dto.lateMinutes
+    if (dto.notes !== undefined)       data.notes       = dto.notes
+    if (dto.loginTime !== undefined) {
+      // Parse HH:MM and rebuild DateTime using attendance date
+      const [h, m] = dto.loginTime.split(':').map(Number)
+      const d      = new Date(att.date)
+      d.setUTCHours(h - 5, m, 0, 0)  // PKT→UTC
+      data.loginTime = d
+    }
+
+    return this.prisma.attendance.update({ where: { id }, data })
+  }
+
+  // ── Approve leave/correction request ───────────────────────────────────────
+
+  async approveAttendance(id: string, approverId: string, approve: boolean) {
+    const att = await this.prisma.attendance.findUnique({ where: { id } })
+    if (!att) throw new NotFoundException('Attendance record not found')
+
+    return this.prisma.attendance.update({
+      where: { id },
+      data: {
+        approvalStatus: approve ? 'approved' : 'rejected',
+        approvedById:   approverId,
+        approvedAt:     new Date(),
+        // Marking absent on reject — manager is overriding the claimed login
+        ...(approve ? {} : { status: AttendanceStatus.ABSENT, isLate: false, lateMinutes: null }),
+      },
+    })
+  }
+}
