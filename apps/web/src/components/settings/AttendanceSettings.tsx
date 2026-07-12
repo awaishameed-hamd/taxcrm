@@ -187,10 +187,11 @@ function TimeCard({
 
 // ── Grace period (minutes) card ────────────────────────────────────────────────
 function GraceCard({
-  initVal, onSave,
+  initVal, onSave, settingKey = 'grace_period_minutes',
 }: {
   initVal: string
   onSave: (key: string, val: string) => Promise<void>
+  settingKey?: string
 }) {
   const [minutes, setMinutes] = useState(initVal || '15')
   const [saving,  setSaving]  = useState(false)
@@ -204,7 +205,7 @@ function GraceCard({
     const val = parseInt(minutes, 10)
     if (isNaN(val) || val < 1 || val > 120) return
     setSaving(true)
-    try { await onSave('grace_period_minutes', String(val)) }
+    try { await onSave(settingKey, String(val)) }
     finally { setSaving(false) }
   }
 
@@ -264,9 +265,10 @@ function GraceCard({
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AttendanceSettings() {
-  const [settings, setSettings] = useState<Record<string, string>>({})
-  const [loading,  setLoading]  = useState(true)
-  const [toast,    setToast]    = useState<{ msg: string; ok: boolean } | null>(null)
+  const [settings,    setSettings]    = useState<Record<string, string>>({})
+  const [loading,     setLoading]     = useState(true)
+  const [toast,       setToast]       = useState<{ msg: string; ok: boolean } | null>(null)
+  const [weekendDay,  setWeekendDay]  = useState<'saturday' | 'sunday'>('saturday')
 
   useEffect(() => {
     api.get('/attendance/settings')
@@ -293,11 +295,21 @@ export default function AttendanceSettings() {
     )
   }
 
+  const dayPrefix = weekendDay // 'saturday' | 'sunday'
+
   return (
     <div className="max-w-xl">
       {toast && <Toast msg={toast.msg} ok={toast.ok} onDone={() => setToast(null)} />}
 
-      {/* Attendance Time (window start — no mark before this) */}
+      {/* ── Weekday Settings ───────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+        <span style={{ fontFamily: '"Aptos", sans-serif', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#94A3B8', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          Weekday Settings
+        </span>
+        <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+      </div>
+
       <TimeCard
         settingKey="reporting_time"
         initVal={settings.reporting_time ?? '09:00'}
@@ -311,7 +323,6 @@ export default function AttendanceSettings() {
         onSave={handleSave}
       />
 
-      {/* Login Time (official office time — late calculated from this) */}
       <div className="mt-4">
         <TimeCard
           settingKey="login_time"
@@ -328,8 +339,78 @@ export default function AttendanceSettings() {
         />
       </div>
 
-      {/* Grace Period */}
       <GraceCard initVal={settings.grace_period_minutes ?? '15'} onSave={handleSave} />
+
+      {/* ── Weekend Settings ───────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '32px 0 16px' }}>
+        <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+        <span style={{ fontFamily: '"Aptos", sans-serif', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#94A3B8', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          Weekend Settings
+        </span>
+        <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+      </div>
+
+      {/* Day toggle */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {(['saturday', 'sunday'] as const).map(day => {
+          const active = weekendDay === day
+          return (
+            <button key={day} onClick={() => setWeekendDay(day)}
+              style={{
+                padding: '8px 24px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontFamily: '"Aptos", sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: '0.04em',
+                textTransform: 'capitalize',
+                background: active ? `linear-gradient(135deg, ${NAVY}, ${TEAL})` : '#fff',
+                color: active ? '#fff' : '#64748B',
+                boxShadow: active ? '0 2px 8px rgba(30,132,150,0.3)' : '0 1px 4px rgba(0,0,0,0.08)',
+                transition: 'all 0.15s',
+              }}>
+              {day.charAt(0).toUpperCase() + day.slice(1)}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Weekend Attendance Time */}
+      <TimeCard
+        key={`${dayPrefix}_reporting_time`}
+        settingKey={`${dayPrefix}_reporting_time`}
+        initVal={settings[`${dayPrefix}_reporting_time`] ?? settings.reporting_time ?? '09:00'}
+        title="ATTENDANCE TIME"
+        subtitle={`Attendance window start for ${weekendDay === 'saturday' ? 'Saturdays' : 'Sundays'}`}
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        }
+        onSave={handleSave}
+      />
+
+      {/* Weekend Login Time */}
+      <div className="mt-4">
+        <TimeCard
+          key={`${dayPrefix}_login_time`}
+          settingKey={`${dayPrefix}_login_time`}
+          initVal={settings[`${dayPrefix}_login_time`] ?? settings.login_time ?? '10:00'}
+          title="LOGIN TIME"
+          subtitle={`Official start time for ${weekendDay === 'saturday' ? 'Saturdays' : 'Sundays'} — late calculated from here`}
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          }
+          onSave={handleSave}
+        />
+      </div>
+
+      {/* Weekend Grace Period */}
+      <GraceCard
+        key={`${dayPrefix}_grace`}
+        settingKey={`${dayPrefix}_grace_period_minutes`}
+        initVal={settings[`${dayPrefix}_grace_period_minutes`] ?? settings.grace_period_minutes ?? '15'}
+        onSave={handleSave}
+      />
     </div>
   )
 }

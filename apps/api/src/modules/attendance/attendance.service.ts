@@ -224,9 +224,22 @@ export class AttendanceService {
       }
     }
 
-    const workingDay        = await this.prisma.workingDay.findUnique({ where: { date: today } })
-    const officialLoginTime = workingDay?.reportingTimeOverride ?? settings.login_time ?? '10:00'
-    const graceMins         = parseInt(settings.grace_period_minutes, 10) || 15
+    const workingDay = await this.prisma.workingDay.findUnique({ where: { date: today } })
+    const dayOfWeek  = today.getDay() // 0=Sunday, 6=Saturday
+
+    let officialLoginTime: string
+    let graceMins: number
+
+    if (dayOfWeek === 6) {
+      officialLoginTime = workingDay?.reportingTimeOverride ?? settings.saturday_login_time ?? settings.login_time ?? '10:00'
+      graceMins = parseInt(settings.saturday_grace_period_minutes ?? settings.grace_period_minutes, 10) || 15
+    } else if (dayOfWeek === 0) {
+      officialLoginTime = workingDay?.reportingTimeOverride ?? settings.sunday_login_time ?? settings.login_time ?? '10:00'
+      graceMins = parseInt(settings.sunday_grace_period_minutes ?? settings.grace_period_minutes, 10) || 15
+    } else {
+      officialLoginTime = workingDay?.reportingTimeOverride ?? settings.login_time ?? '10:00'
+      graceMins = parseInt(settings.grace_period_minutes, 10) || 15
+    }
 
     const diffFromLoginTime = this.minutesDiff(timeStr, officialLoginTime)
     const isLate            = diffFromLoginTime > graceMins
