@@ -350,7 +350,7 @@ export default function AttendanceSettings() {
         <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
       </div>
 
-      {/* Day toggle */}
+      {/* Day selector */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {(['saturday', 'sunday'] as const).map(day => {
           const active = weekendDay === day
@@ -371,46 +371,92 @@ export default function AttendanceSettings() {
         })}
       </div>
 
-      {/* Weekend Attendance Time */}
-      <TimeCard
-        key={`${dayPrefix}_reporting_time`}
-        settingKey={`${dayPrefix}_reporting_time`}
-        initVal={settings[`${dayPrefix}_reporting_time`] ?? settings.reporting_time ?? '09:00'}
-        title="ATTENDANCE TIME"
-        subtitle={`Attendance window start for ${weekendDay === 'saturday' ? 'Saturdays' : 'Sundays'}`}
-        icon={
-          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-        }
-        onSave={handleSave}
-      />
+      {/* Enable/disable toggle card */}
+      {(() => {
+        const enableKey = `${dayPrefix}_attendance_enabled`
+        const isEnabled = settings[enableKey] === 'true'
+        const dayLabel  = weekendDay === 'saturday' ? 'Saturday' : 'Sunday'
 
-      {/* Weekend Login Time */}
-      <div className="mt-4">
-        <TimeCard
-          key={`${dayPrefix}_login_time`}
-          settingKey={`${dayPrefix}_login_time`}
-          initVal={settings[`${dayPrefix}_login_time`] ?? settings.login_time ?? '10:00'}
-          title="LOGIN TIME"
-          subtitle={`Official start time for ${weekendDay === 'saturday' ? 'Saturdays' : 'Sundays'} — late calculated from here`}
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-          }
-          onSave={handleSave}
-        />
-      </div>
+        return (
+          <div className="rounded-2xl overflow-hidden mb-4" style={{ background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
+            <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontFamily: '"Aptos", sans-serif', fontWeight: 700, fontSize: 13, color: NAVY, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  {dayLabel} Attendance
+                </div>
+                <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                  {isEnabled
+                    ? `Attendance is tracked on ${dayLabel}s — login time & late marking active`
+                    : `${dayLabel} is treated as a day off — no attendance marked`}
+                </div>
+              </div>
+              {/* Toggle switch */}
+              <button
+                onClick={async () => {
+                  const newVal = isEnabled ? 'false' : 'true'
+                  await handleSave(enableKey, newVal)
+                }}
+                style={{
+                  width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+                  background: isEnabled ? TEAL : '#CBD5E1',
+                  position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                  padding: 0,
+                }}>
+                <span style={{
+                  position: 'absolute', top: 3, left: isEnabled ? 25 : 3,
+                  width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  transition: 'left 0.2s',
+                  display: 'block',
+                }} />
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
-      {/* Weekend Grace Period */}
-      <GraceCard
-        key={`${dayPrefix}_grace`}
-        settingKey={`${dayPrefix}_grace_period_minutes`}
-        initVal={settings[`${dayPrefix}_grace_period_minutes`] ?? settings.grace_period_minutes ?? '15'}
-        onSave={handleSave}
-      />
+      {/* Time settings — only shown when this day is enabled */}
+      {settings[`${dayPrefix}_attendance_enabled`] === 'true' && (
+        <>
+          <TimeCard
+            key={`${dayPrefix}_reporting_time`}
+            settingKey={`${dayPrefix}_reporting_time`}
+            initVal={settings[`${dayPrefix}_reporting_time`] ?? settings.reporting_time ?? '09:00'}
+            title="ATTENDANCE TIME"
+            subtitle={`Attendance window start for ${weekendDay === 'saturday' ? 'Saturdays' : 'Sundays'}`}
+            icon={
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            }
+            onSave={handleSave}
+          />
+
+          <div className="mt-4">
+            <TimeCard
+              key={`${dayPrefix}_login_time`}
+              settingKey={`${dayPrefix}_login_time`}
+              initVal={settings[`${dayPrefix}_login_time`] ?? settings.login_time ?? '10:00'}
+              title="LOGIN TIME"
+              subtitle={`Official start time for ${weekendDay === 'saturday' ? 'Saturdays' : 'Sundays'} — late calculated from here`}
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              }
+              onSave={handleSave}
+            />
+          </div>
+
+          <GraceCard
+            key={`${dayPrefix}_grace`}
+            settingKey={`${dayPrefix}_grace_period_minutes`}
+            initVal={settings[`${dayPrefix}_grace_period_minutes`] ?? settings.grace_period_minutes ?? '15'}
+            onSave={handleSave}
+          />
+        </>
+      )}
     </div>
   )
 }

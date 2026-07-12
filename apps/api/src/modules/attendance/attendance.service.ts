@@ -154,7 +154,13 @@ export class AttendanceService {
     const workingDay = await this.prisma.workingDay.findUnique({ where: { date: today } })
     const dayOfWeek  = today.getDay()
     const resolvedType = workingDay?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
-    if (resolvedType !== DayType.WORKING_DAY) return { isWeekendSkip: true } as const
+    if (resolvedType !== DayType.WORKING_DAY) {
+      const satEnabled = settings.saturday_attendance_enabled === 'true'
+      const sunEnabled = settings.sunday_attendance_enabled === 'true'
+      if (dayOfWeek === 6 && satEnabled) return { isWeekendSkip: true } as const
+      if (dayOfWeek === 0 && sunEnabled) return { isWeekendSkip: true } as const
+      return null
+    }
 
     // attendance_from = earliest time a mark is allowed (global setting)
     const attendanceFrom    = settings.reporting_time
@@ -206,7 +212,12 @@ export class AttendanceService {
 
     if (this.minutesDiff(timeStr, cutoff) > 0) return null
 
-    const today = new Date(dateStr + 'T00:00:00Z')
+    const today      = new Date(dateStr + 'T00:00:00Z')
+    const dayOfWeek  = today.getDay()
+
+    // Respect per-day weekend enable/disable setting
+    if (dayOfWeek === 6 && settings.saturday_attendance_enabled !== 'true') return null
+    if (dayOfWeek === 0 && settings.sunday_attendance_enabled   !== 'true') return null
 
     const existing = await this.prisma.attendance.findUnique({
       where: { userId_date: { userId, date: today } },
