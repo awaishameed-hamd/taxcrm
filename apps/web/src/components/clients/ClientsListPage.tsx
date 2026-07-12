@@ -1431,7 +1431,7 @@ export default function ClientsListPage() {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 52, marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontFamily: "'Ethnocentric Rg', sans-serif", fontWeight: 300, fontSize: 18, color: P.navy, margin: 0 }}>
+        <h1 style={{ fontFamily: "'Angelos', sans-serif", fontSize: 22, color: P.navy, margin: 0, display: 'inline-block', transform: 'skewX(12deg)' }}>
           {activeTab === 'clients' ? 'Clients' : 'Client Representatives'}
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

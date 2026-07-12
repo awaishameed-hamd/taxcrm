@@ -181,6 +181,18 @@ export class FbrService {
     })
   }
 
+  async reopenCase(id: string) {
+    return this.prisma.fbrCase.update({
+      where: { id },
+      data:  { currentStage: 'NOTICE', closedAt: null, closedReason: null },
+      select: FULL_CASE_SELECT,
+    })
+  }
+
+  async deleteCase(id: string) {
+    return this.prisma.fbrCase.delete({ where: { id } })
+  }
+
   // â”€â”€ Notice Rounds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async addNoticeRound(caseId: string, dto: CreateNoticeRoundDto) {
     const last = await this.prisma.fbrNoticeRound.findFirst({

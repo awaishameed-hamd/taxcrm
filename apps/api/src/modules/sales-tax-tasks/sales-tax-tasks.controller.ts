@@ -44,8 +44,8 @@ export class SalesTaxTasksController {
   // ── Summary counts for tab badges ─────────────────────────────────────────
   @Get('summary-counts')
   @Roles(Role.TRAINEE, Role.MANAGER, Role.ADMIN, Role.PARTNER, Role.TEAM_LEAD)
-  summaryCounts() {
-    return this.service.summaryCounts()
+  summaryCounts(@Req() req: any) {
+    return this.service.summaryCounts(req.user.id, req.user.role)
   }
 
   // ── Any role: list tasks assigned to me ───────────────────────────────────

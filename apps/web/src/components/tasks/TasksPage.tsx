@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
@@ -15,6 +15,7 @@ const TAX_TABS = [
   { key: 'income_tax', label: 'Income Tax',        color: '#7B2D8E', bg: '#F3E8F7' },
   { key: 'wht',        label: 'Withholding Tax',   color: '#C25A1F', bg: '#F5E0D2' },
   { key: 'notices',    label: 'Notices & Appeals', color: '#1565C0', bg: '#E3F0FB' },
+  { key: 'general',    label: 'General Tasks',     color: '#374151', bg: '#F3F4F6' },
 ]
 
 // ── Pipeline constants ────────────────────────────────────────────────────────
@@ -33,8 +34,8 @@ const PIPE_STATUS: Record<string, { label: string; color: string; bg: string }> 
 }
 const ADVANCE_LABEL: Record<string,string> = {
   DATA_COLLECTION:'Mark Data Collected', DRAFT_PREPARATION:'Send to Client for Review',
-  CLIENT_REVIEW:'Client Reviewed — Move Forward', ANNEXURE_UPLOAD:'Annexures Uploaded — Submit to Manager',
-  CHALLAN_GENERATED:'Challan Attached — Request Final Approval', FILED:'Mark as Filed & Issue Invoice',
+  CLIENT_REVIEW:'Client Reviewed, Move Forward', ANNEXURE_UPLOAD:'Annexures Uploaded, Submit to Manager',
+  CHALLAN_GENERATED:'Challan Attached, Request Final Approval', FILED:'Mark as Filed & Issue Invoice',
 }
 
 type StepDef = { key: string; label: string; by: string }
@@ -149,6 +150,9 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   const [adminDeleteConfirm, setAdminDeleteConfirm] = useState(false)
   const [adminRevertConfirm, setAdminRevertConfirm] = useState(false)
   const [adminActionLoading, setAdminActionLoading] = useState(false)
+  const [fbrDeleteConfirm,   setFbrDeleteConfirm]   = useState(false)
+  const [fbrRevertConfirm,   setFbrRevertConfirm]   = useState(false)
+  const [fbrActionLoading,   setFbrActionLoading]   = useState(false)
 
   // Assign task modal (manager/admin only)
   const [assignModal,     setAssignModal]     = useState(false)
@@ -183,17 +187,25 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   // Pipeline on Sales Tax / Income Tax / WHT tabs for all roles
   const isPipelineView = (activeTax === 'sales_tax' || activeTax === 'income_tax' || activeTax === 'wht') && (role === 'trainee' || role === 'admin' || incompleteOnly || role === 'manager' || role === 'team_lead')
   const isFbrView      = activeTax === 'notices'
+  const isGenView      = activeTax === 'general'
   const isSalesTaxTab  = activeTax === 'sales_tax'
   const activeTab      = TAX_TABS.find(t => t.key === activeTax)!
 
   const showToast = (msg: string, ok = true) => { setToast({msg,ok}); setTimeout(()=>setToast(null),3000) }
+
+  // ── Restore last active tab from sessionStorage (after hydration) ──────────
+  const tabStorageKey = completedOnly ? 'ca_active_tab_completed' : incompleteOnly ? 'ca_active_tab_incomplete' : 'ca_active_tab'
+  useEffect(() => {
+    const saved = sessionStorage.getItem(tabStorageKey)
+    if (saved) setActiveTax(saved)
+  }, [])
 
   // ── Fetch tab summary counts ────────────────────────────────────────────────
   useEffect(() => {
     api.get('/sales-tax-tasks/summary-counts')
       .then(r => {
         const d = r.data?.data ?? r.data
-        setTabCounts({ sales_tax: d.SALES_TAX ?? 0, income_tax: d.INCOME_TAX ?? 0, wht: d.WHT ?? 0 })
+        setTabCounts(prev => ({ ...prev, sales_tax: d.SALES_TAX ?? 0, income_tax: d.INCOME_TAX ?? 0, wht: d.WHT ?? 0, notices: d.NOTICES ?? 0 }))
       })
       .catch(() => {})
   }, [])
@@ -216,11 +228,13 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   const fetchGenTasks = useCallback(async () => {
     setGenLoading(true)
     try {
-      const { data } = await api.get('/tasks', { params: { taxType: activeTax } })
-      setGenTasks(Array.isArray(data) ? data : data.data ?? [])
+      const { data } = await api.get('/tasks', { params: { taxType: 'general' } })
+      const all = Array.isArray(data) ? data : data.data ?? []
+      setGenTasks(all)
+      setTabCounts(prev => ({ ...prev, general: all.filter((t:any) => t.status !== 'DONE').length }))
     } catch { setGenTasks([]) }
     finally { setGenLoading(false) }
-  }, [activeTax])
+  }, [])
 
   // ── Fetch FBR cases (Notices & Appeals tab) ─────────────────────────────────
   const fetchFbrCases = useCallback(async () => {
@@ -434,6 +448,34 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     finally { setAdminActionLoading(false) }
   }
 
+  // ── FBR case: delete / reopen ───────────────────────────────────────────────
+  const handleFbrDelete = async () => {
+    if (!selectedFbr) return
+    setFbrActionLoading(true)
+    try {
+      await api.delete(`/fbr/cases/${selectedFbr.id}`)
+      setFbrDeleteConfirm(false)
+      setSelectedFbr(null)
+      setFbrCases(p => p.filter(c => c.id !== selectedFbr.id))
+      showToast('Case deleted')
+    } catch (e:any) { showToast(e?.response?.data?.message ?? 'Failed to delete', false) }
+    finally { setFbrActionLoading(false) }
+  }
+
+  const handleFbrReopen = async () => {
+    if (!selectedFbr) return
+    setFbrActionLoading(true)
+    try {
+      const res = await api.post(`/fbr/cases/${selectedFbr.id}/reopen`, {})
+      const updated = res.data?.data ?? res.data
+      setFbrRevertConfirm(false)
+      setSelectedFbr(updated)
+      setFbrCases(p => p.map(c => c.id === updated.id ? updated : c))
+      showToast('Case marked as incomplete')
+    } catch (e:any) { showToast(e?.response?.data?.message ?? 'Failed to reopen', false) }
+    finally { setFbrActionLoading(false) }
+  }
+
   // ── Custom step actions ─────────────────────────────────────────────────────
   const refreshPipe = async (id: string) => {
     const res = await api.get(`/sales-tax-tasks/${id}`)
@@ -475,6 +517,10 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   }
 
   // ── General task actions ────────────────────────────────────────────────────
+  const [genNewStep,        setGenNewStep]        = useState('')
+  const [genStepLoading,    setGenStepLoading]    = useState(false)
+  const [genDeleteConfirm,  setGenDeleteConfirm]  = useState(false)
+
   const handleGenStatus = async (status: string) => {
     if (!selectedGen) return
     setGenActLoading(true)
@@ -487,6 +533,63 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     finally { setGenActLoading(false) }
   }
 
+  const refreshSelectedGen = async () => {
+    if (!selectedGen) return
+    try {
+      const res = await api.get(`/tasks`, { params: { taxType: 'general' } })
+      const all = Array.isArray(res.data) ? res.data : res.data?.data ?? []
+      const updated = all.find((t: any) => t.id === selectedGen.id)
+      if (updated) { setSelectedGen(updated); setGenTasks(all) }
+    } catch {}
+  }
+
+  const handleGenAddStep = async () => {
+    if (!selectedGen || !genNewStep.trim()) return
+    setGenStepLoading(true)
+    try {
+      await api.post(`/tasks/${selectedGen.id}/steps`, { title: genNewStep.trim() })
+      setGenNewStep('')
+      await refreshSelectedGen()
+    } catch { showToast('Failed to add step', false) }
+    finally { setGenStepLoading(false) }
+  }
+
+  const handleGenToggleStep = async (stepId: string) => {
+    if (!selectedGen) return
+    setGenStepLoading(true)
+    try {
+      const res = await api.patch(`/tasks/${selectedGen.id}/steps/${stepId}/toggle`, {})
+      const task = uw(res.data)
+      setSelectedGen(task); setGenTasks(p => p.map(t => t.id === task.id ? task : t))
+    } catch { showToast('Failed', false) }
+    finally { setGenStepLoading(false) }
+  }
+
+  const handleGenDeleteStep = async (stepId: string) => {
+    if (!selectedGen) return
+    setGenStepLoading(true)
+    try {
+      const res = await api.delete(`/tasks/${selectedGen.id}/steps/${stepId}`)
+      const task = uw(res.data)
+      setSelectedGen(task); setGenTasks(p => p.map(t => t.id === task.id ? task : t))
+    } catch { showToast('Failed', false) }
+    finally { setGenStepLoading(false) }
+  }
+
+  const handleGenDelete = async () => {
+    if (!selectedGen) return
+    setGenActLoading(true)
+    try {
+      await api.delete(`/tasks/${selectedGen.id}`)
+      setGenDeleteConfirm(false)
+      setGenTasks(p => p.filter(t => t.id !== selectedGen.id))
+      setSelectedGen(null)
+      showToast('Task deleted')
+    } catch { showToast('Failed to delete', false) }
+    finally { setGenActLoading(false) }
+  }
+
+
   // ── Filtered lists ──────────────────────────────────────────────────────────
   // Derive unique trainees from loaded pipeline tasks (for completed/incomplete filter)
   const completedTraineeOptions: { id: string; name: string }[] = []
@@ -495,7 +598,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     pipeTasks.forEach((t: any) => {
       if (t.trainee?.id && !seen.has(t.trainee.id)) {
         seen.add(t.trainee.id)
-        completedTraineeOptions.push({ id: t.trainee.id, name: t.trainee.fullName ?? '—' })
+        completedTraineeOptions.push({ id: t.trainee.id, name: t.trainee.fullName ?? '' })
       }
     })
   }
@@ -533,12 +636,15 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     return true
   })
   const filteredGen = genTasks.filter(t => {
+    if (!completedOnly && !incompleteOnly && t.status === 'DONE') return false
     const q = search.toLowerCase()
     const matchSearch = !search || t.title?.toLowerCase().includes(q) || t.client?.businessName?.toLowerCase().includes(q) || t.assignedTo?.fullName?.toLowerCase().includes(q)
     if (!matchSearch) return false
     return true
   })
   const filteredFbr = fbrCases.filter(c => {
+    // In normal view: hide closed cases (they live in Completed Tasks)
+    if (!completedOnly && !incompleteOnly && c.currentStage === 'CLOSED') return false
     const q = search.toLowerCase()
     if (!search) return true
     return c.caseNumber?.toLowerCase().includes(q) ||
@@ -549,22 +655,25 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
 
   // ── Pills row ───────────────────────────────────────────────────────────────
   const PillsRow = (
-    <div style={{ flexShrink:0 }}>
-      <div style={{ display:'flex', justifyContent:'center', padding:'10px 24px 8px', background:'#f7f8fa' }}>
-        <div style={{ display:'flex', gap:2, background:'#fff', border:`1px solid ${P.border}`, borderRadius:8, padding:3 }}>
+    <div style={{ flexShrink:0, overflow:'visible' }}>
+      <div style={{ display:'flex', justifyContent:'center', padding:'14px 24px 8px', background:'#f7f8fa', overflow:'visible' }}>
+        <div style={{ display:'flex', gap:2, background:'#fff', border:`1px solid ${P.border}`, borderRadius:8, padding:3, overflow:'visible' }}>
           {TAX_TABS.map(tab => {
             const active = activeTax === tab.key
             const cnt    = tabCounts[tab.key] ?? 0
             return (
               <button key={tab.key}
-                onClick={() => { setActiveTax(tab.key); if (tab.key === 'sales_tax' && (role === 'manager' || role === 'team_lead')) setManagerView(defaultManagerView) }}
-                style={{ flexShrink:0, padding:'5px 14px', borderRadius:6, cursor:'pointer', fontFamily:"'Aptos',sans-serif", fontSize:12, fontWeight: active ? 700 : 500, transition:'all .15s', border:'none', background: active ? tab.color : 'transparent', color: active ? '#fff' : '#5C5C5C', whiteSpace:'nowrap', position:'relative', display:'flex', alignItems:'center', gap:5 }}
+                onClick={() => { setActiveTax(tab.key); sessionStorage.setItem(tabStorageKey, tab.key); if (tab.key === 'sales_tax' && (role === 'manager' || role === 'team_lead')) setManagerView(defaultManagerView) }}
+                style={{ flexShrink:0, paddingTop:5, paddingBottom:5, paddingLeft:14, paddingRight: cnt > 0 ? 4 : 14, borderRadius:6, cursor:'pointer', fontFamily:"'Aptos',sans-serif", fontSize:12, fontWeight: active ? 700 : 500, transition:'all .15s', border:'none', background: active ? tab.color : 'transparent', color: active ? '#fff' : '#5C5C5C', whiteSpace:'nowrap', display:'flex', alignItems:'stretch', gap:5 }}
               >
-                {tab.label}
+                <span style={{ display:'flex', alignItems:'center' }}>{tab.label}</span>
                 {cnt > 0 && (
-                  <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', minWidth:16, height:16, borderRadius:8, background: active ? 'rgba(255,255,255,0.35)' : tab.color, color: active ? '#fff' : '#fff', fontSize:10, fontWeight:700, padding:'0 4px', lineHeight:1 }}>
-                    {cnt > 99 ? '99+' : cnt}
-                  </span>
+                  <span style={{
+                    background: active ? 'rgba(255,255,255,0.25)' : tab.color,
+                    color: '#fff', fontSize:10, fontWeight:700,
+                    padding:'0 6px', borderRadius:3, lineHeight:1,
+                    display:'flex', alignItems:'center',
+                  }}>{cnt > 99 ? '99+' : cnt}</span>
                 )}
               </button>
             )
@@ -600,21 +709,21 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
         h.toStatus === nextKey || (nextKey === undefined && h.toStatus === 'COMPLETED')
       )
       if (!h) return null
-      return { at: new Date(h.createdAt), by: h.actedBy?.fullName ?? '—' }
+      return { at: new Date(h.createdAt), by: h.actedBy?.fullName ?? '' }
     }
 
     const stepComment = (key: string) => {
       if (key === 'INCHARGE_REVIEW' && isSentBack && selectedPipe.managerComment) return selectedPipe.managerComment
       const nextKey = stepOrder[stepOrder.indexOf(key) + 1]
       const h = selectedPipe.history?.find((h:any) => h.toStatus === nextKey || (nextKey === undefined && h.toStatus === 'COMPLETED'))
-      return h?.comment || '—'
+      return h?.comment || ''
     }
     const stepAttachment = (key: string) => {
       if (key === 'CHALLAN_GENERATED' && selectedPipe.psid) return `PSID: ${selectedPipe.psid}${selectedPipe.challanAmount ? ` · Rs ${selectedPipe.challanAmount}` : ''}`
       if (key === 'FILED' && selectedPipe.feeInvoiceNo) return `Inv: ${selectedPipe.feeInvoiceNo}${selectedPipe.feeInvoiceAmount ? ` · Rs ${selectedPipe.feeInvoiceAmount}` : ''}`
       const nextKey = stepOrder[stepOrder.indexOf(key) + 1]
       const h = selectedPipe.history?.find((h:any) => h.toStatus === nextKey || (nextKey === undefined && h.toStatus === 'COMPLETED'))
-      return h?.attachment || '—'
+      return h?.attachment || ''
     }
     const triggerStep = (key: string) => {
       if (key === 'INCHARGE_REVIEW')     return handleManagerApprove
@@ -672,7 +781,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                 <div style={{ height:1, background:'#F1F5F9', margin:'12px 0' }} />
                 <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
                   {[
-                    { label: role === 'manager' && defaultManagerView === 'my' ? 'Manager' : role === 'team_lead' && defaultManagerView === 'my' ? 'Team Lead' : 'Trainee', val: selectedPipe.trainee?.fullName ?? '—' },
+                    { label: role === 'manager' && defaultManagerView === 'my' ? 'Manager' : role === 'team_lead' && defaultManagerView === 'my' ? 'Team Lead' : 'Trainee', val: selectedPipe.trainee?.fullName ?? '' },
                   ].map(({ label, val }) => (
                     <span key={label} style={{ fontSize:11, color:'#334155', background:'#EFF6FF', border:'1px solid #BFDBFE', padding:'3px 10px', borderRadius:6 }}>
                       <span style={{ color:'#94A3B8', fontWeight:600 }}>{label}: </span>{val}
@@ -883,10 +992,10 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                         </div>
                       </div>
                     )}
-                    {(isDone || isSentBackRow) && (cmt && cmt !== '—' || att && att !== '—') && (
+                    {(isDone || isSentBackRow) && (!!cmt || !!att) && (
                       <div style={{ display:'flex', gap:14, marginTop:8, paddingTop:8, borderTop:'1px solid #E2E8F0', flexWrap:'wrap' }}>
-                        {cmt && cmt !== '—' && <span style={{ fontSize:11, color:'#475569' }}><span style={{ fontWeight:600, color:'#94A3B8' }}>Note: </span>{cmt}</span>}
-                        {att && att !== '—' && (
+                        {!!cmt && <span style={{ fontSize:11, color:'#475569' }}><span style={{ fontWeight:600, color:'#94A3B8' }}>Note: </span>{cmt}</span>}
+                        {!!att && (
                           att.startsWith('/uploads') ? (
                             <a href={`http://localhost:4000${att}`} target="_blank" rel="noreferrer"
                               style={{ fontSize:11, color:TEAL, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:4 }}>
@@ -962,12 +1071,12 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
           {/* Header + tax pills on same row */}
           <div style={{ background:'#EDF0F3', flexShrink:0 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 20px 8px', gap:12 }}>
-              <h2 style={{ margin:0, fontSize:18, fontWeight:300, fontFamily:"'Ethnocentric Rg', sans-serif", color:NAVY, flexShrink:0 }}>{incompleteOnly ? 'Incomplete Tasks' : 'Completed Tasks'}</h2>
+              <h2 style={{ margin:0, fontSize:22, fontFamily:"'Angelos', sans-serif", color:NAVY, flexShrink:0, display:'inline-block', transform:'skewX(12deg)' }}>{incompleteOnly ? 'Incomplete Tasks' : 'Completed Tasks'}</h2>
               <div style={{ display:'flex', gap:2, background:'#fff', border:`1px solid ${P.border}`, borderRadius:8, padding:3, flexShrink:0 }}>
                 {TAX_TABS.map(tab => {
                   const isActive = activeTax === tab.key
                   return (
-                    <button key={tab.key} onClick={() => setActiveTax(tab.key)}
+                    <button key={tab.key} onClick={() => { setActiveTax(tab.key); sessionStorage.setItem(tabStorageKey, tab.key) }}
                       style={{ flexShrink:0, padding:'5px 14px', borderRadius:6, cursor:'pointer', fontFamily:"'Aptos',sans-serif", fontSize:12, fontWeight: isActive ? 700 : 500, transition:'all .15s', border:'none', background: isActive ? tab.color : 'transparent', color: isActive ? '#fff' : '#5C5C5C', whiteSpace:'nowrap' }}>
                       {tab.label}
                     </button>
@@ -1095,9 +1204,19 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                 {/* Header row */}
                 {(() => {
                   if (isFbrView) {
-                    const hdrs = ['#', 'Client', 'Case No.', 'Tax Type', 'Tax Year', 'Stage', incompleteOnly ? 'Status' : 'Closed On', '']
+                    const hdrs = ['#', 'Client', 'Section', 'Tax Type', 'Tax Year', 'Stage', incompleteOnly ? 'Status' : 'Closed On', '']
                     return (
-                      <div style={{ display:'grid', gridTemplateColumns:'40px 1fr 130px 120px 90px 120px 150px 75px', background:'#1565C0', padding:'7px 18px', alignItems:'center' }}>
+                      <div style={{ display:'grid', gridTemplateColumns:'40px 1fr 130px 120px 90px 120px 150px 75px', background:'#F2AC18', padding:'7px 18px', alignItems:'center' }}>
+                        {hdrs.map(h => (
+                          <span key={h} style={{ fontSize:12, fontWeight:600, color:'#1a1a1a', textTransform:'uppercase', letterSpacing:'0.07em', fontFamily:'"Aptos", sans-serif' }}>{h}</span>
+                        ))}
+                      </div>
+                    )
+                  }
+                  if (isGenView) {
+                    const hdrs = ['#', 'Task', 'Assigned To', 'Client', 'Due Date', incompleteOnly ? 'Status' : 'Completed On', '']
+                    return (
+                      <div style={{ display:'grid', gridTemplateColumns:'40px 1fr 160px 130px 120px 150px 75px', background:'#374151', padding:'7px 18px', alignItems:'center' }}>
                         {hdrs.map(h => (
                           <span key={h} style={{ fontSize:12, fontWeight:600, color:'#fff', textTransform:'uppercase', letterSpacing:'0.07em', fontFamily:'"Aptos", sans-serif' }}>{h}</span>
                         ))}
@@ -1145,7 +1264,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background='#fff' }}>
                         <span style={{ fontSize:12, fontWeight:700, color:NAVY }}>{idx + 1}</span>
                         <span style={{ fontSize:13, fontWeight:700, color:NAVY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', paddingRight:12 }}>{clientName}</span>
-                        <span style={{ fontSize:11, fontWeight:700, color:'#1565C0', background:'#E3F0FB', padding:'2px 8px', borderRadius:5, width:'fit-content' }}>{c.caseNumber}</span>
+                        <span style={{ fontSize:11, fontWeight:700, color:'#7B2D8E', background:'#F3E8F7', padding:'2px 8px', borderRadius:5, width:'fit-content' }}>{c.noticeSection || 'N/A'}</span>
                         <span style={{ fontSize:12, color:'#475569' }}>{c.taxType?.replace(/_/g,' ')}</span>
                         <span style={{ fontSize:12, color:'#475569' }}>{c.taxYear || 'N/A'}</span>
                         <span style={{ fontSize:11, fontWeight:700, color: stage.color, background: stage.bg, padding:'2px 8px', borderRadius:5, width:'fit-content' }}>{stage.label}</span>
@@ -1208,9 +1327,12 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                 })()}
 
                 {/* General task rows */}
-                {!isPipelineView && !isFbrView && (() => {
-                  const rows = filteredGen.filter(t => t.status === 'DONE')
-                  if (rows.length === 0) return <div style={{ padding:32, textAlign:'center', color:P.textMuted, fontSize:13 }}>No completed {activeTab.label} tasks yet.</div>
+                {isGenView && (() => {
+                  const rows = incompleteOnly
+                    ? filteredGen.filter(t => t.status !== 'DONE')
+                    : filteredGen.filter(t => t.status === 'DONE')
+                  const emptyLabel = incompleteOnly ? 'No incomplete General Tasks.' : 'No completed General Tasks yet.'
+                  if (rows.length === 0) return <div style={{ padding:32, textAlign:'center', color:P.textMuted, fontSize:13 }}>{emptyLabel}</div>
                   return rows.map((t: any, idx: number) => {
                     const clientName = t.client?.businessName ?? t.client?.user?.fullName ?? 'N/A'
                     const dueStr = t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'N/A'
@@ -1218,17 +1340,25 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                     const completedStr = updAt
                       ? `${updAt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} ${updAt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true})}`
                       : 'N/A'
+                    const sm = GEN_STATUS[t.status] ?? { label: t.status, color: NAVY, bg: '#eee' }
+                    const isSelected = selectedGen?.id === t.id
                     return (
-                      <div key={t.id} style={{ display:'grid', gridTemplateColumns:'50px 1fr 160px 110px 110px 140px 80px', padding:'6px 18px', borderBottom:'1px solid #F1F5F9', alignItems:'center', background:'#fff', transition:'background .15s' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background='#fff' }}>
+                      <div key={t.id} style={{ display:'grid', gridTemplateColumns:'40px 1fr 160px 130px 120px 150px 75px', padding:'6px 18px', borderBottom:'1px solid #F1F5F9', alignItems:'center', background: isSelected ? '#EBF4FF' : '#fff', transition:'background .15s', cursor:'default' }}
+                        onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}
+                        onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background='#fff' }}>
                         <span style={{ fontSize:12, fontWeight:700, color:NAVY }}>{idx + 1}</span>
                         <span style={{ fontSize:13, fontWeight:700, color:NAVY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', paddingRight:12 }}>{t.title}</span>
                         <span style={{ fontSize:12, color:'#475569', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.assignedTo?.fullName ?? 'N/A'}</span>
-                        <span style={{ fontSize:12, color:'#475569' }}>{clientName}</span>
+                        <span style={{ fontSize:12, color:'#475569', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
                         <span style={{ fontSize:12, color:'#475569' }}>{dueStr}</span>
-                        <span style={{ fontSize:11, color:'#16a34a', fontWeight:600 }}>{completedStr}</span>
-                        <span style={{ fontSize:11, fontWeight:600, color:'#3A6B3A', background:'#DCFCE7', padding:'3px 10px', borderRadius:20, width:'fit-content' }}>Done</span>
+                        {incompleteOnly
+                          ? <span style={{ fontSize:11, fontWeight:700, color:sm.color, background:sm.bg, padding:'2px 8px', borderRadius:5, width:'fit-content' }}>{sm.label}</span>
+                          : <span style={{ fontSize:11, color:'#16a34a', fontWeight:600 }}>{completedStr}</span>
+                        }
+                        <button onClick={() => setSelectedGen(t)}
+                          style={{ padding:'5px 14px', borderRadius:7, border:'1.5px solid #374151', background:'#F3F4F6', color:'#374151', fontSize:12, fontWeight:700, cursor:'pointer', width:'fit-content' }}>
+                          View
+                        </button>
                       </div>
                     )
                   })
@@ -1255,6 +1385,131 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
         </div>
       )}
 
+      {/* Gen task detail modal (completedOnly / incompleteOnly) */}
+      {(completedOnly || incompleteOnly) && selectedGen && (() => {
+        const F = "'Inter','DM Sans',-apple-system,sans-serif"
+        const sm = GEN_STATUS[selectedGen.status] ?? { label: selectedGen.status, color: NAVY, bg: '#eee' }
+        const isDone = selectedGen.status === 'DONE'
+        const steps: any[] = selectedGen.steps ?? []
+        const doneCount = steps.filter((s:any) => s.isDone).length
+        const pctW = steps.length > 0 ? `${Math.round((doneCount / steps.length) * 100)}%` : '0%'
+        const priColor: Record<string,string> = { HIGH:'#DC2626', URGENT:'#BE123C', LOW:'#16a34a', MEDIUM:'#1D4ED8' }
+        const priBg:    Record<string,string> = { HIGH:'#FEE2E2', URGENT:'#FFE4E6', LOW:'#F0FDF4', MEDIUM:'#EFF6FF' }
+        const pri = (selectedGen.priority ?? 'MEDIUM') as string
+        return (
+          <div style={{ position:'fixed', inset:0, zIndex:500, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+            <div style={{ width:'min(720px,95vw)', height:'90vh', background:'#f7f8fa', borderRadius:16, overflow:'hidden', display:'flex', flexDirection:'column', position:'relative', boxShadow:'0 20px 60px rgba(0,0,0,0.25)' }}>
+              <button onClick={() => setSelectedGen(null)}
+                style={{ position:'absolute', top:12, right:12, zIndex:10, width:30, height:30, borderRadius:8, border:'none', cursor:'pointer', background:'#F1F5F9', color:'#64748B', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 8px rgba(0,0,0,0.1)' }}>
+                <svg width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+              <div style={{ flex:1, overflowY:'auto', fontFamily:F }}>
+                <div style={{ background:'#fff', border:'1px solid #E2E8F0', borderRadius:12, overflow:'hidden', margin:'12px 16px 4px' }}>
+                  <div style={{ padding:'14px 16px 12px' }}>
+                    <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
+                      <div style={{ width:42, height:42, borderRadius:10, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'#fff', fontSize:14, fontWeight:700 }}>
+                        {selectedGen.title.split(' ').slice(0,2).map((w:string)=>w[0]).join('').toUpperCase()}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                          <h2 style={{ margin:0, fontSize:16, fontWeight:700, color:NAVY, letterSpacing:'-0.02em', lineHeight:1.2, fontFamily:F }}>{selectedGen.title}</h2>
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, color:sm.color, background:sm.bg, padding:'3px 10px', borderRadius:20, flexShrink:0, marginRight:36 }}>
+                            <span style={{ width:6, height:6, borderRadius:'50%', background:sm.color }} />{sm.label}
+                          </span>
+                        </div>
+                        <p style={{ margin:'2px 0 0', fontSize:12, color:'#64748B', fontFamily:F }}>General Task</p>
+                      </div>
+                    </div>
+                    <div style={{ height:1, background:'#F1F5F9', margin:'12px 0' }} />
+                    <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+                      {selectedGen.assignedTo?.fullName && (
+                        <span style={{ fontSize:11, color:'#334155', background:'#EFF6FF', border:'1px solid #BFDBFE', padding:'3px 10px', borderRadius:6 }}>
+                          <span style={{ color:'#94A3B8', fontWeight:600 }}>Assigned: </span>{selectedGen.assignedTo.fullName}
+                        </span>
+                      )}
+                      {selectedGen.client && (
+                        <span style={{ fontSize:11, color:'#334155', background:'#EFF6FF', border:'1px solid #BFDBFE', padding:'3px 10px', borderRadius:6 }}>
+                          <span style={{ color:'#94A3B8', fontWeight:600 }}>Client: </span>{selectedGen.client.businessName ?? selectedGen.client.user?.fullName}
+                        </span>
+                      )}
+                      {selectedGen.dueDate && (
+                        <span style={{ fontSize:11, color:'#334155', background:'#F0FAFB', border:'1px solid #A5F3FC', padding:'3px 10px', borderRadius:6 }}>
+                          <span style={{ color:'#94A3B8', fontWeight:600 }}>Due: </span>{new Date(selectedGen.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}
+                        </span>
+                      )}
+                      <span style={{ fontSize:11, color:priColor[pri]??'#1D4ED8', background:priBg[pri]??'#EFF6FF', border:`1px solid ${priColor[pri]??'#1D4ED8'}22`, padding:'3px 10px', borderRadius:6 }}>
+                        <span style={{ color:'#94A3B8', fontWeight:600 }}>Priority: </span><span style={{ fontWeight:700 }}>{pri}</span>
+                      </span>
+                      {!isDone && (
+                        <button onClick={() => handleGenStatus('DONE')} disabled={genActLoading}
+                          style={{ padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', border:'1.5px solid #16a34a', background:'#F0FDF4', color:'#16a34a', lineHeight:1 }}>
+                          ✓ Mark Complete
+                        </button>
+                      )}
+                      {isDone && canMarkIncomplete && (
+                        <button onClick={() => handleGenStatus('IN_PROGRESS')} disabled={genActLoading}
+                          style={{ padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', border:'1.5px dashed #D97706', background:'#FFFBEB', color:'#D97706', lineHeight:1 }}>
+                          ↩ Mark Incomplete
+                        </button>
+                      )}
+                      {canDeleteTask && (
+                        <button onClick={() => setGenDeleteConfirm(true)}
+                          style={{ padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', border:'1.5px dashed #DC2626', background:'#FEF2F2', color:'#DC2626', lineHeight:1 }}>
+                          🗑 Delete Task
+                        </button>
+                      )}
+                    </div>
+                    {steps.length > 0 && (
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <div style={{ flex:1, height:6, background:'#E2E8F0', borderRadius:3, overflow:'hidden' }}>
+                          <div style={{ height:'100%', borderRadius:3, width:pctW, background: isDone ? '#22C55E' : TEAL, transition:'width .4s' }} />
+                        </div>
+                        <span style={{ fontSize:11, color:'#94A3B8', flexShrink:0, whiteSpace:'nowrap', fontWeight:500 }}>{doneCount} / {steps.length} steps</span>
+                      </div>
+                    )}
+                  </div>
+                  {selectedGen.description && (
+                    <div style={{ borderTop:'1px solid #F1F5F9', padding:'7px 16px', background:'#FAFBFF', fontSize:11, color:'#475569', fontFamily:F }}>{selectedGen.description}</div>
+                  )}
+                </div>
+                <div style={{ padding:'10px 16px' }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:NAVY, fontFamily:F, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.06em' }}>Steps</div>
+                  {steps.length === 0 && <div style={{ fontSize:12, color:'#94A3B8', fontFamily:F, padding:'8px 0' }}>No steps added yet.</div>}
+                  {steps.map((step:any) => (
+                    <div key={step.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'#fff', borderRadius:8, border:'1px solid #E2E8F0', marginBottom:6 }}>
+                      <button onClick={() => handleGenToggleStep(step.id)} disabled={genStepLoading}
+                        style={{ flexShrink:0, width:20, height:20, borderRadius:5, border:`2px solid ${step.isDone ? TEAL : '#CBD5E1'}`, background: step.isDone ? TEAL : '#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
+                        {step.isDone && <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>}
+                      </button>
+                      <span style={{ flex:1, fontSize:13, color: step.isDone ? '#94A3B8' : NAVY, fontFamily:F, textDecoration: step.isDone ? 'line-through' : 'none' }}>{step.title}</span>
+                      {step.isDone && step.doneBy && <span style={{ fontSize:10, color:'#94A3B8', fontFamily:F, flexShrink:0 }}>{step.doneBy.fullName}</span>}
+                      {(role === 'admin' || role === 'manager' || role === 'team_lead') && (
+                        <button onClick={() => handleGenDeleteStep(step.id)} disabled={genStepLoading}
+                          style={{ flexShrink:0, background:'none', border:'none', cursor:'pointer', color:'#CBD5E1', padding:2 }}>
+                          <svg width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {!isDone && (
+                    <div style={{ display:'flex', gap:6, marginTop:8 }}>
+                      <input value={genNewStep} onChange={e => setGenNewStep(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleGenAddStep() }}
+                        placeholder="Add a step…"
+                        style={{ flex:1, padding:'7px 11px', borderRadius:8, border:'1.5px solid #E2E8F0', fontSize:12, fontFamily:F, outline:'none', color:NAVY }} />
+                      <button onClick={handleGenAddStep} disabled={genStepLoading || !genNewStep.trim()}
+                        style={{ padding:'7px 14px', borderRadius:8, border:'none', cursor:'pointer', background:TEAL, color:'#fff', fontSize:12, fontWeight:700, opacity: (!genNewStep.trim() || genStepLoading) ? 0.5 : 1 }}>
+                        + Add
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ── Normal split layout (non-completedOnly / non-incompleteOnly) ── */}
       <div style={{ flex:1, overflow:'hidden', display: (completedOnly || incompleteOnly) ? 'none' : 'flex' } as React.CSSProperties}>
 
@@ -1263,7 +1518,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
 
           <div style={{ flexShrink:0, borderBottom:`1px solid ${P.border}` }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', height:52, padding:'0 14px' }}>
-              <h2 style={{ margin:0, fontFamily:"'Ethnocentric Rg', sans-serif", fontWeight:300, fontSize:18, color:NAVY }}>{activeTab.label}</h2>
+              <h2 style={{ margin:0, fontFamily:"'Angelos', sans-serif", fontSize:22, color:NAVY, display:'inline-block', transform:'skewX(12deg)' }}>{activeTab.label}</h2>
               <div style={{ display:'flex', gap:6 }}>
                 <button onClick={() => setListCollapsed(true)} style={{ background:'transparent', border:'none', cursor:'pointer', color:P.iconMuted, padding:4, borderRadius:6 }}>
                   <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -1313,7 +1568,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                           return (
                             <div style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
                               {/* Sr circle */}
-                              <span style={{ flexShrink:0, width:22, height:22, borderRadius:'50%', background: isActive ? TEAL : NAVY, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:2 }}>{idx + 1}</span>
+                              <span style={{ flexShrink:0, width:22, height:22, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:2 }}>{idx + 1}</span>
 
                               {/* Right: 2 rows */}
                               <div style={{ flex:1, minWidth:0 }}>
@@ -1343,26 +1598,35 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
             )}
 
             {/* General tasks list */}
-            {!isPipelineView && !isFbrView && (
+            {isGenView && (
               <>
                 {genLoading && <div style={{ padding:24, textAlign:'center', color:P.textMuted, fontSize:12 }}>Loading…</div>}
                 {!genLoading && filteredGen.length === 0 && <div style={{ padding:24, textAlign:'center', color:P.textMuted, fontSize:12 }}>No tasks found.</div>}
-                {filteredGen.map(t => {
+                {filteredGen.map((t, idx) => {
                   const isActive = selectedGen?.id === t.id
-                  const sm = GEN_STATUS[t.status] ?? { color:NAVY, bg:'#eee' }
+                  const sm = GEN_STATUS[t.status] ?? { color:NAVY, bg:'#eee', label: t.status }
+                  const dueStr = t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'N/A'
+                  const doneSteps = (t.steps ?? []).filter((s:any) => s.isDone).length
+                  const totalSteps = (t.steps ?? []).length
                   return (
-                    <button key={t.id} onClick={() => { setSelectedGen(t) }}
-                      style={{ display:'block', width:'100%', textAlign:'left', padding:'10px 14px', border:'none', cursor:'pointer', borderBottom:`1px solid ${P.border}`, background: isActive ? '#E8EEF7' : 'transparent', borderLeft: isActive ? `3px solid ${TEAL}` : '3px solid transparent' }}
-                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#f0f3f7' }}
-                      onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='transparent' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
-                        <PriorityDot priority={t.priority} />
-                        <span style={{ fontSize:13, fontWeight:700, color:NAVY, fontFamily:"'Aptos',sans-serif", flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</span>
-                        <span style={{ fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:10, color:sm.color, background:sm.bg, fontFamily:"'Aptos',sans-serif", flexShrink:0 }}>{sm.label}</span>
-                      </div>
-                      <div style={{ fontSize:11, color:P.textMuted, fontFamily:"'Aptos',sans-serif", paddingLeft:14 }}>
-                        {t.client?.businessName ?? t.assignedTo?.fullName ?? '—'}
-                        {t.dueDate ? ` · ${new Date(t.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}` : ''}
+                    <button key={t.id} onClick={() => setSelectedGen(t)}
+                      style={{ display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', cursor:'pointer', borderBottom:`1px solid ${P.border}`, background: isActive ? '#E8EEF7' : '#F8FAFC', borderLeft: isActive ? `3px solid ${TEAL}` : '3px solid transparent' }}
+                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
+                      onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
+                      <div style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
+                        <span style={{ flexShrink:0, width:22, height:22, borderRadius:5, background:TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:2 }}>{idx + 1}</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:5 }}>
+                            <span style={{ fontSize:12, fontWeight:700, color: isActive ? TEAL : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</span>
+                            <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color:sm.color, background:sm.bg, flexShrink:0 }}>{sm.label}</span>
+                          </div>
+                          <div style={{ display:'flex', gap:5, flexWrap:'wrap' as const }}>
+                            {t.client?.businessName && <span style={{ fontSize:10, fontWeight:700, color:'#1565C0', background:'#E3F0FB', border:'1px solid #1565C022', padding:'2px 8px', borderRadius:6 }}>{t.client.businessName}</span>}
+                            {t.assignedTo?.fullName && <span style={{ fontSize:10, fontWeight:600, color:'#475569', background:'#F1F5F9', border:'1px solid #E2E8F0', padding:'2px 8px', borderRadius:6 }}>{t.assignedTo.fullName}</span>}
+                            {dueStr !== 'N/A' && <span style={{ fontSize:10, fontWeight:600, color:'#0E7490', background:'#ECFEFF', border:'1px solid #A5F3FC', padding:'2px 8px', borderRadius:6 }}>Due: {dueStr}</span>}
+                            {totalSteps > 0 && <span style={{ fontSize:10, fontWeight:600, color:'#374151', background:'#F3F4F6', border:'1px solid #D1D5DB', padding:'2px 8px', borderRadius:6 }}>{doneSteps}/{totalSteps} steps</span>}
+                          </div>
+                        </div>
                       </div>
                     </button>
                   )
@@ -1392,16 +1656,16 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
                       <div style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
-                        <span style={{ flexShrink:0, width:22, height:22, borderRadius:'50%', background: isActive ? '#1565C0' : NAVY, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:2 }}>{idx + 1}</span>
+                        <span style={{ flexShrink:0, width:22, height:22, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:2 }}>{idx + 1}</span>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:5 }}>
                             <span style={{ fontSize:12, fontWeight:700, color: isActive ? '#1565C0' : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
-                            <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color: stage.color, background: stage.bg, flexShrink:0 }}>{stage.label}</span>
+                            <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color: stage.color, background: stage.bg, flexShrink:0, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{stage.label}</span>
                           </div>
                           <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                            <span style={{ fontSize:10, fontWeight:700, color:'#1565C0', background:'#E3F0FB', border:'1px solid #1565C022', padding:'2px 8px', borderRadius:6 }}>{c.caseNumber}</span>
-                            <span style={{ fontSize:10, fontWeight:600, color:'#475569', background:'#F1F5F9', padding:'2px 8px', borderRadius:6 }}>{c.taxType?.replace(/_/g,' ')}</span>
-                            {c.taxYear && <span style={{ fontSize:10, fontWeight:600, color:'#0E7490', background:'#ECFEFF', padding:'2px 8px', borderRadius:6 }}>FY {c.taxYear}</span>}
+                            {c.taxType && <span style={{ fontSize:10, fontWeight:700, color:'#1565C0', background:'#E3F0FB', border:'1px solid #1565C022', padding:'2px 8px', borderRadius:6, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{c.taxType.replace(/_/g,' ')}</span>}
+                            {c.taxYear && <span style={{ fontSize:10, fontWeight:600, color:'#0E7490', background:'#ECFEFF', border:'1px solid #A5F3FC', padding:'2px 8px', borderRadius:6, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>FY {c.taxYear}</span>}
+                            {c.noticeSection && <span style={{ fontSize:10, fontWeight:700, color:'#7B2D8E', background:'#F3E8F7', border:'1px solid #7B2D8E22', padding:'2px 8px', borderRadius:6, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>Sec {c.noticeSection}</span>}
                           </div>
                         </div>
                       </div>
@@ -1460,57 +1724,138 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
             )}
 
             {/* ── General task detail ── */}
-            {!isPipelineView && !isFbrView && selectedGen && (
-              <div style={{ padding:'20px 24px', maxWidth:720, margin:'0 auto' }}>
-                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:16 }}>
-                  <div style={{ flex:1, minWidth:0, paddingRight:16 }}>
-                    <h2 style={{ margin:0, fontSize:20, fontWeight:900, color:NAVY, fontFamily:"'Aptos',sans-serif" }}>{selectedGen.title}</h2>
-                    <p style={{ margin:'4px 0 0', fontSize:12, color:P.textMuted, fontFamily:"'Aptos',sans-serif" }}>
-                      {activeTab.label} {selectedGen.client ? `· ${selectedGen.client.businessName ?? selectedGen.client.user?.fullName}` : ''}
-                    </p>
-                  </div>
-                  <button onClick={() => { setSelectedGen(null); setListCollapsed(false) }} style={{ background:'transparent', border:'none', cursor:'pointer', color:P.textMuted, padding:4, flexShrink:0 }}>
-                    <svg width={16} height={16} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-
-                <div style={{ display:'flex', gap:6, marginBottom:18 }}>
-                  {Object.entries(GEN_STATUS).map(([key, meta]) => (
-                    <button key={key} onClick={() => handleGenStatus(key)} disabled={genActLoading}
-                      style={{ padding:'7px 16px', borderRadius:8, border:'none', cursor:'pointer', fontFamily:"'Aptos',sans-serif", fontSize:12, fontWeight:700, transition:'all .15s',
-                        background: selectedGen.status === key ? meta.color : meta.bg,
-                        color: selectedGen.status === key ? '#fff' : meta.color,
-                        opacity: genActLoading ? 0.6 : 1,
-                        boxShadow: selectedGen.status === key ? `0 2px 8px ${meta.color}44` : 'none',
-                      }}>{meta.label}</button>
-                  ))}
-                </div>
-
-                <div style={{ background:'#fff', borderRadius:12, border:`1px solid ${P.border}`, padding:'16px 20px', marginBottom:16 }}>
-                  <p style={{ margin:'0 0 12px', fontSize:11, fontWeight:700, color:P.textLabel, textTransform:'uppercase', letterSpacing:'0.07em', fontFamily:"'Aptos',sans-serif" }}>Task Info</p>
-                  {[
-                    ['Assigned To', selectedGen.assignedTo?.fullName],
-                    ['Created By', selectedGen.createdBy?.fullName],
-                    ['Priority', GEN_PRIORITY[selectedGen.priority]?.label ?? selectedGen.priority],
-                    ['Due Date', selectedGen.dueDate ? new Date(selectedGen.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'],
-                    ['Client', selectedGen.client ? (selectedGen.client.businessName ?? selectedGen.client.user?.fullName ?? '—') : '—'],
-                    ['Created', new Date(selectedGen.createdAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})],
-                  ].map(([label, value]) => (
-                    <div key={label} style={{ display:'flex', gap:12, paddingBottom:8, marginBottom:8, borderBottom:`1px solid ${P.gridLine}` }}>
-                      <span style={{ minWidth:110, fontSize:12, color:P.textMuted, fontFamily:"'Aptos',sans-serif", fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{label}</span>
-                      <span style={{ fontSize:13, color:NAVY, fontFamily:"'Aptos',sans-serif" }}>{value ?? '—'}</span>
+            {isGenView && selectedGen && (() => {
+              const F = "'Inter','DM Sans',-apple-system,sans-serif"
+              const sm = GEN_STATUS[selectedGen.status] ?? { label: selectedGen.status, color: NAVY, bg: '#eee' }
+              const isDone = selectedGen.status === 'DONE'
+              const steps: any[] = selectedGen.steps ?? []
+              const doneCount = steps.filter((s:any) => s.isDone).length
+              const pctW = steps.length > 0 ? `${Math.round((doneCount / steps.length) * 100)}%` : '0%'
+              const priColor: Record<string,string> = { HIGH:'#DC2626', URGENT:'#BE123C', LOW:'#16a34a', MEDIUM:'#1D4ED8' }
+              const priBg:    Record<string,string> = { HIGH:'#FEE2E2', URGENT:'#FFE4E6', LOW:'#F0FDF4', MEDIUM:'#EFF6FF' }
+              const pri = (selectedGen.priority ?? 'MEDIUM') as string
+              return (
+                <div style={{ fontFamily:F, minHeight:'100%' }}>
+                  {/* Header card */}
+                  <div style={{ background:'#fff', border:'1px solid #E2E8F0', borderRadius:12, overflow:'hidden', margin:'12px 16px 4px' }}>
+                    <div style={{ padding:'14px 16px 12px' }}>
+                      <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
+                        <div style={{ width:42, height:42, borderRadius:10, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'#fff', fontSize:14, fontWeight:700, letterSpacing:'0.05em' }}>
+                          {selectedGen.title.split(' ').slice(0,2).map((w:string)=>w[0]).join('').toUpperCase()}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                            <h2 style={{ margin:0, fontSize:16, fontWeight:700, color:NAVY, letterSpacing:'-0.02em', lineHeight:1.2, fontFamily:F }}>{selectedGen.title}</h2>
+                            <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, color:sm.color, background:sm.bg, padding:'3px 10px', borderRadius:20 }}>
+                                <span style={{ width:6, height:6, borderRadius:'50%', background:sm.color, flexShrink:0 }} />{sm.label}
+                              </span>
+                              <button onClick={() => { setSelectedGen(null); setListCollapsed(false) }}
+                                style={{ background:'#F1F5F9', border:'none', cursor:'pointer', color:'#64748B', width:24, height:24, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                <svg width={10} height={10} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            </div>
+                          </div>
+                          <p style={{ margin:'2px 0 0', fontSize:12, color:'#64748B', fontFamily:F }}>General Task</p>
+                        </div>
+                      </div>
+                      <div style={{ height:1, background:'#F1F5F9', margin:'12px 0' }} />
+                      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+                        {selectedGen.assignedTo?.fullName && (
+                          <span style={{ fontSize:11, color:'#334155', background:'#EFF6FF', border:'1px solid #BFDBFE', padding:'3px 10px', borderRadius:6 }}>
+                            <span style={{ color:'#94A3B8', fontWeight:600 }}>Assigned: </span>{selectedGen.assignedTo.fullName}
+                          </span>
+                        )}
+                        {selectedGen.client && (
+                          <span style={{ fontSize:11, color:'#334155', background:'#EFF6FF', border:'1px solid #BFDBFE', padding:'3px 10px', borderRadius:6 }}>
+                            <span style={{ color:'#94A3B8', fontWeight:600 }}>Client: </span>{selectedGen.client.businessName ?? selectedGen.client.user?.fullName}
+                          </span>
+                        )}
+                        {selectedGen.dueDate && (
+                          <span style={{ fontSize:11, color:'#334155', background:'#F0FAFB', border:'1px solid #A5F3FC', padding:'3px 10px', borderRadius:6 }}>
+                            <span style={{ color:'#94A3B8', fontWeight:600 }}>Due: </span>{new Date(selectedGen.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}
+                          </span>
+                        )}
+                        <span style={{ fontSize:11, color:priColor[pri]??'#1D4ED8', background:priBg[pri]??'#EFF6FF', border:`1px solid ${priColor[pri]??'#1D4ED8'}22`, padding:'3px 10px', borderRadius:6 }}>
+                          <span style={{ color:'#94A3B8', fontWeight:600 }}>Priority: </span><span style={{ fontWeight:700 }}>{pri}</span>
+                        </span>
+                        {!isDone && (
+                          <button onClick={() => handleGenStatus('DONE')} disabled={genActLoading}
+                            style={{ padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', border:'1.5px solid #16a34a', background:'#F0FDF4', color:'#16a34a', lineHeight:1 }}>
+                            ✓ Mark Complete
+                          </button>
+                        )}
+                        {isDone && canMarkIncomplete && (
+                          <button onClick={() => handleGenStatus('IN_PROGRESS')} disabled={genActLoading}
+                            style={{ padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', border:'1.5px dashed #D97706', background:'#FFFBEB', color:'#D97706', lineHeight:1 }}>
+                            ↩ Mark Incomplete
+                          </button>
+                        )}
+                        {canDeleteTask && (
+                          <button onClick={() => setGenDeleteConfirm(true)}
+                            style={{ padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', border:'1.5px dashed #DC2626', background:'#FEF2F2', color:'#DC2626', lineHeight:1 }}>
+                            🗑 Delete Task
+                          </button>
+                        )}
+                      </div>
+                      {steps.length > 0 && (
+                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          <div style={{ flex:1, height:6, background:'#E2E8F0', borderRadius:3, overflow:'hidden' }}>
+                            <div style={{ height:'100%', borderRadius:3, width:pctW, background: isDone ? '#22C55E' : TEAL, transition:'width .4s' }} />
+                          </div>
+                          <span style={{ fontSize:11, color:'#94A3B8', flexShrink:0, whiteSpace:'nowrap', fontWeight:500 }}>{doneCount} / {steps.length} steps</span>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-
-                {selectedGen.description && (
-                  <div style={{ background:'#fff', borderRadius:12, border:`1px solid ${P.border}`, padding:'16px 20px' }}>
-                    <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:P.textLabel, textTransform:'uppercase', letterSpacing:'0.07em', fontFamily:"'Aptos',sans-serif" }}>Description</p>
-                    <p style={{ margin:0, fontSize:13, color:NAVY, fontFamily:"'Aptos',sans-serif", lineHeight:1.6, whiteSpace:'pre-wrap' }}>{selectedGen.description}</p>
+                    {selectedGen.description && (
+                      <div style={{ borderTop:'1px solid #F1F5F9', padding:'7px 16px', background:'#FAFBFF', fontSize:11, color:'#475569', fontFamily:F }}>{selectedGen.description}</div>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
+
+                  {/* Steps */}
+                  <div style={{ padding:'10px 16px' }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:NAVY, fontFamily:F, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.06em' }}>Steps</div>
+
+                    {steps.length === 0 && (
+                      <div style={{ fontSize:12, color:'#94A3B8', fontFamily:F, padding:'8px 0' }}>No steps added yet.</div>
+                    )}
+
+                    {steps.map((step:any) => (
+                      <div key={step.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'#fff', borderRadius:8, border:'1px solid #E2E8F0', marginBottom:6 }}>
+                        <button onClick={() => handleGenToggleStep(step.id)} disabled={genStepLoading}
+                          style={{ flexShrink:0, width:20, height:20, borderRadius:5, border:`2px solid ${step.isDone ? TEAL : '#CBD5E1'}`, background: step.isDone ? TEAL : '#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
+                          {step.isDone && <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>}
+                        </button>
+                        <span style={{ flex:1, fontSize:13, color: step.isDone ? '#94A3B8' : NAVY, fontFamily:F, textDecoration: step.isDone ? 'line-through' : 'none' }}>{step.title}</span>
+                        {step.isDone && step.doneBy && (
+                          <span style={{ fontSize:10, color:'#94A3B8', fontFamily:F, flexShrink:0 }}>{step.doneBy.fullName}</span>
+                        )}
+                        {(role === 'admin' || role === 'manager' || role === 'team_lead') && (
+                          <button onClick={() => handleGenDeleteStep(step.id)} disabled={genStepLoading}
+                            style={{ flexShrink:0, background:'none', border:'none', cursor:'pointer', color:'#CBD5E1', padding:2, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                            <svg width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Add step input */}
+                    {!isDone && (
+                      <div style={{ display:'flex', gap:6, marginTop:8 }}>
+                        <input value={genNewStep} onChange={e => setGenNewStep(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleGenAddStep() }}
+                          placeholder="Add a step…"
+                          style={{ flex:1, padding:'7px 11px', borderRadius:8, border:'1.5px solid #E2E8F0', fontSize:12, fontFamily:F, outline:'none', color:NAVY }} />
+                        <button onClick={handleGenAddStep} disabled={genStepLoading || !genNewStep.trim()}
+                          style={{ padding:'7px 14px', borderRadius:8, border:'none', cursor:'pointer', background:TEAL, color:'#fff', fontSize:12, fontWeight:700, fontFamily:F, opacity: (!genNewStep.trim() || genStepLoading) ? 0.5 : 1 }}>
+                          + Add
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
 
           </div>
         </div>
@@ -1608,7 +1953,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
               <div style={{ background:'#7EC8D0', padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
                 <div>
                   <div style={{ fontSize:14, fontWeight:300, color:NAVY, fontFamily:"'Ethnocentric Rg', sans-serif", letterSpacing:'0.04em' }}>Add Income Tax Entry</div>
-                  <div style={{ fontSize:12, color:NAVY, fontFamily:F, marginTop:3, fontWeight:600, opacity:0.75 }}>{clientName} — {selectedPipe.periodYear}</div>
+                  <div style={{ fontSize:12, color:NAVY, fontFamily:F, marginTop:3, fontWeight:600, opacity:0.75 }}>{clientName} · {selectedPipe.periodYear}</div>
                 </div>
                 <button onClick={() => { setAdvanceModal(false); setAdvanceForm({}) }} style={{ background:'rgba(255,255,255,0.35)', border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:NAVY, fontSize:18, fontWeight:700 }}>×</button>
               </div>
@@ -1650,7 +1995,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
             <h3 style={{ margin:'0 0 4px', fontSize:16, fontWeight:900, color:NAVY, fontFamily:"'Aptos',sans-serif" }}>
               {selectedPipe.status === 'SENT_BACK' ? 'Re-submit to Manager' : (ADVANCE_LABEL[selectedPipe.status] ?? 'Move Forward')}
             </h3>
-            <p style={{ margin:'0 0 16px', fontSize:12, color:P.textMuted, fontFamily:"'Aptos',sans-serif" }}>{selectedPipe.client?.user?.fullName} — {periodLabel(selectedPipe.taskType, selectedPipe.periodMonth, selectedPipe.periodYear)}</p>
+            <p style={{ margin:'0 0 16px', fontSize:12, color:P.textMuted, fontFamily:"'Aptos',sans-serif" }}>{selectedPipe.client?.user?.fullName} · {periodLabel(selectedPipe.taskType, selectedPipe.periodMonth, selectedPipe.periodYear)}</p>
             {selectedPipe.status === 'CHALLAN_GENERATED' && (
               <div style={{ marginBottom:12 }}>
                 <label style={{ display:'block', fontSize:11, fontWeight:700, color:P.textLabel, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em', fontFamily:"'Aptos',sans-serif" }}>PSID</label>
@@ -1763,7 +2108,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
               <StyledSelect
                 value={assignForm.traineeId}
                 onChange={val => setAssignForm(p => ({...p, traineeId:val}))}
-                options={traineeList.map((u:any) => ({ value: u.id, label: `${u.fullName}${u.userCode ? ` (${u.userCode})` : ''}${u.role !== 'TRAINEE' ? ` — ${u.role.charAt(0) + u.role.slice(1).toLowerCase()}` : ''}` }))}
+                options={traineeList.map((u:any) => ({ value: u.id, label: `${u.fullName}${u.userCode ? ` (${u.userCode})` : ''}${u.role !== 'TRAINEE' ? ` (${u.role.charAt(0) + u.role.slice(1).toLowerCase()})` : ''}` }))}
                 placeholder="Select user…"
               />
             </div>
@@ -1917,7 +2262,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
           .map((cs:any) => ({
             value: `custom:${cs.id}`,
             label: cs.title,
-            sub: `Custom (${cs.approvedBy}) — after: ${pipelineSteps.find(s=>s.key===cs.insertAfter)?.label?.slice(0,30) ?? cs.insertAfter}`,
+            sub: `Custom (${cs.approvedBy}) after: ${pipelineSteps.find(s=>s.key===cs.insertAfter)?.label?.slice(0,30) ?? cs.insertAfter}`,
           }))
 
         const allDeletable = [...fixedDeletable, ...customDeletable]
@@ -1977,7 +2322,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
           <div style={{ background:'#fff', borderRadius:14, padding:24, width:'100%', maxWidth:420, boxShadow:'0 8px 40px rgba(0,0,0,0.18)' }}>
             <h3 style={{ margin:'0 0 4px', fontSize:16, fontWeight:900, color:'#D62828', fontFamily:"'Aptos',sans-serif" }}>Send Back to Trainee</h3>
-            <p style={{ margin:'0 0 16px', fontSize:12, color:P.textMuted, fontFamily:"'Aptos',sans-serif" }}>A reason is required — the trainee will see this comment.</p>
+            <p style={{ margin:'0 0 16px', fontSize:12, color:P.textMuted, fontFamily:"'Aptos',sans-serif" }}>A reason is required. The trainee will see this comment.</p>
             <textarea value={sendBackComment} onChange={e => setSendBackComment(e.target.value)} rows={4} placeholder="Explain what needs to be fixed…" style={{ width:'100%', boxSizing:'border-box', padding:'9px 12px', borderRadius:8, border:`1px solid ${P.border}`, fontSize:13, fontFamily:"'Aptos',sans-serif", outline:'none', resize:'none', marginBottom:16 }} />
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button onClick={() => { setSendBackModal(false); setSendBackComment('') }} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${P.border}`, background:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Aptos',sans-serif", color:P.textLabel }}>Cancel</button>
@@ -2026,7 +2371,63 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                     if (d) setSelectedFbr(d)
                   }).catch(() => {})
                 }}
+                onMarkIncomplete={canMarkIncomplete ? () => setFbrRevertConfirm(true) : undefined}
+                onDelete={canDeleteTask ? () => setFbrDeleteConfirm(true) : undefined}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FBR: Mark Incomplete confirm */}
+      {fbrRevertConfirm && selectedFbr && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:14, padding:24, width:'100%', maxWidth:380, boxShadow:'0 8px 40px rgba(0,0,0,0.18)' }}>
+            <h3 style={{ margin:'0 0 8px', fontSize:16, fontWeight:900, color:'#D97706', fontFamily:"'Aptos',sans-serif" }}>Mark as Incomplete?</h3>
+            <p style={{ margin:'0 0 20px', fontSize:13, color:P.textMuted, fontFamily:"'Aptos',sans-serif", lineHeight:1.5 }}>
+              This will reopen the case back to <strong>Notice</strong> stage. All history will be kept.
+            </p>
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={() => setFbrRevertConfirm(false)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${P.border}`, background:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Aptos',sans-serif", color:P.textLabel }}>Cancel</button>
+              <button onClick={handleFbrReopen} disabled={fbrActionLoading} style={{ padding:'8px 18px', borderRadius:8, border:'none', cursor:'pointer', background:'#D97706', color:'#fff', fontSize:13, fontWeight:700, fontFamily:"'Aptos',sans-serif", opacity:fbrActionLoading ? 0.6 : 1 }}>
+                {fbrActionLoading ? 'Reverting…' : 'Yes, Mark Incomplete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FBR: Delete case confirm */}
+      {fbrDeleteConfirm && selectedFbr && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:14, padding:24, width:'100%', maxWidth:380, boxShadow:'0 8px 40px rgba(0,0,0,0.18)' }}>
+            <h3 style={{ margin:'0 0 8px', fontSize:16, fontWeight:900, color:'#DC2626', fontFamily:"'Aptos',sans-serif" }}>Delete Case?</h3>
+            <p style={{ margin:'0 0 20px', fontSize:13, color:P.textMuted, fontFamily:"'Aptos',sans-serif", lineHeight:1.5 }}>
+              This will <strong>permanently delete</strong> this case and all its history. This action cannot be undone.
+            </p>
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={() => setFbrDeleteConfirm(false)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${P.border}`, background:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Aptos',sans-serif", color:P.textLabel }}>Cancel</button>
+              <button onClick={handleFbrDelete} disabled={fbrActionLoading} style={{ padding:'8px 18px', borderRadius:8, border:'none', cursor:'pointer', background:'#DC2626', color:'#fff', fontSize:13, fontWeight:700, fontFamily:"'Aptos',sans-serif", opacity:fbrActionLoading ? 0.6 : 1 }}>
+                {fbrActionLoading ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gen: Delete task confirm */}
+      {genDeleteConfirm && selectedGen && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:14, padding:24, width:'100%', maxWidth:380, boxShadow:'0 8px 40px rgba(0,0,0,0.18)' }}>
+            <h3 style={{ margin:'0 0 8px', fontSize:16, fontWeight:900, color:'#DC2626', fontFamily:"'Aptos',sans-serif" }}>Delete Task?</h3>
+            <p style={{ margin:'0 0 20px', fontSize:13, color:P.textMuted, fontFamily:"'Aptos',sans-serif", lineHeight:1.5 }}>
+              This will <strong>permanently delete</strong> &quot;{selectedGen.title}&quot; and all its steps. This action cannot be undone.
+            </p>
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={() => setGenDeleteConfirm(false)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${P.border}`, background:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'Aptos',sans-serif", color:P.textLabel }}>Cancel</button>
+              <button onClick={handleGenDelete} disabled={genActLoading} style={{ padding:'8px 18px', borderRadius:8, border:'none', cursor:'pointer', background:'#DC2626', color:'#fff', fontSize:13, fontWeight:700, fontFamily:"'Aptos',sans-serif", opacity:genActLoading ? 0.6 : 1 }}>
+                {genActLoading ? 'Deleting…' : 'Yes, Delete'}
+              </button>
             </div>
           </div>
         </div>
@@ -2053,3 +2454,4 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     </div>
   )
 }
+

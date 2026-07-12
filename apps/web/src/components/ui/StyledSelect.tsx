@@ -10,13 +10,14 @@ const inputStyle: React.CSSProperties = {
   outline: 'none', color: NAVY, background: '#fff',
 }
 
-export default function StyledSelect({ value, onChange, options, placeholder, loading, borderColor }: {
+export default function StyledSelect({ value, onChange, options, placeholder, loading, borderColor, disabled }: {
   value: string
   onChange: (val: string) => void
   options: { value: string; label: string }[]
   placeholder?: string
   loading?: boolean
   borderColor?: string
+  disabled?: boolean
 }) {
   const [query,   setQuery]   = useState('')
   const [open,    setOpen]    = useState(false)
@@ -50,11 +51,12 @@ export default function StyledSelect({ value, onChange, options, placeholder, lo
       <div style={{ position: 'relative' }}>
         <input
           value={displayVal}
-          onChange={e => { setQuery(e.target.value); setOpen(true) }}
-          onFocus={() => { setFocused(true); setQuery(''); setOpen(true) }}
+          onChange={e => { if (!disabled) { setQuery(e.target.value); setOpen(true) } }}
+          onFocus={() => { if (!disabled) { setFocused(true); setQuery(''); setOpen(true) } }}
           placeholder={loading ? 'Loading…' : (placeholder ?? 'Select…')}
-          readOnly={loading}
-          style={{ ...inputStyle, borderColor: borderColor ?? '#E0DDD5', paddingRight: 30, cursor: loading ? 'wait' : 'text' }}
+          readOnly={loading || disabled}
+          disabled={disabled}
+          style={{ ...inputStyle, borderColor: borderColor ?? '#E0DDD5', paddingRight: 30, cursor: disabled ? 'not-allowed' : loading ? 'wait' : 'text', background: disabled ? '#F9FAFB' : '#fff', color: disabled ? '#9CA3AF' : NAVY }}
         />
         <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#808080' }}>
           <svg width={13} height={13} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -63,7 +65,7 @@ export default function StyledSelect({ value, onChange, options, placeholder, lo
         </span>
       </div>
 
-      {open && !loading && (
+      {open && !loading && !disabled && (
         <div style={{
           position: 'absolute', zIndex: 999, top: 'calc(100% + 3px)', left: 0, right: 0,
           background: '#fff', border: '1.5px solid #E0DDD5', borderRadius: 8,

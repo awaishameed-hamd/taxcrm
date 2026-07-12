@@ -97,6 +97,16 @@ export default function AttendanceApprovalPage() {
   const [bulkConfirm, setBulkConfirm] = useState(false)
   const [bulkActing,  setBulkActing]  = useState(false)
 
+  // ── Leave approval state ───────────────────────────────────────────────────
+  const [moduleTab,    setModuleTab]    = useState<'attendance' | 'leaves'>('attendance')
+  const [leaveRecords, setLeaveRecords] = useState<any[]>([])
+  const [leaveLoading, setLeaveLoading] = useState(false)
+  const [leaveSTab,    setLeaveSTab]    = useState('pending')
+  const [leaveSearch,  setLeaveSearch]  = useState('')
+  const [leaveConfirm, setLeaveConfirm] = useState<{ id: string; action: 'approve' | 'reject'; name: string } | null>(null)
+  const [leaveReason,  setLeaveReason]  = useState('')
+  const [leaveActing,  setLeaveActing]  = useState(false)
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -111,6 +121,16 @@ export default function AttendanceApprovalPage() {
   }, [date])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  const fetchLeaves = useCallback(async () => {
+    setLeaveLoading(true)
+    try {
+      const { data } = await api.get('/leaves/all')
+      setLeaveRecords(data.data ?? [])
+    } catch { /* ignore */ } finally { setLeaveLoading(false) }
+  }, [])
+
+  useEffect(() => { if (moduleTab === 'leaves') fetchLeaves() }, [moduleTab, fetchLeaves])
 
   // Client-side filter
   const filtered = useMemo(() => {
@@ -152,6 +172,41 @@ export default function AttendanceApprovalPage() {
     setRecords(prev => prev.map(r => r.id === id ? { ...r, loginTime: newTime } : r))
   }
 
+  async function doLeaveAction() {
+    if (!leaveConfirm) return
+    setLeaveActing(true)
+    try {
+      if (leaveConfirm.action === 'approve') {
+        await api.patch(`/leaves/${leaveConfirm.id}/approve`)
+      } else {
+        await api.patch(`/leaves/${leaveConfirm.id}/reject`, { reason: leaveReason || undefined })
+      }
+      setLeaveRecords(prev => prev.map(l => l.id === leaveConfirm.id
+        ? { ...l, status: leaveConfirm.action === 'approve' ? 'approved' : 'rejected' }
+        : l
+      ))
+      setLeaveConfirm(null)
+      setLeaveReason('')
+    } catch { /* ignore */ } finally { setLeaveActing(false) }
+  }
+
+  const leaveFiltered = leaveRecords.filter(l => {
+    if (leaveSTab !== 'all' && l.status !== leaveSTab) return false
+    if (leaveSearch.trim()) {
+      const q = leaveSearch.toLowerCase()
+      return (l.applicant?.fullName?.toLowerCase() ?? '').includes(q)
+        || (l.applicant?.userCode?.toLowerCase() ?? '').includes(q)
+    }
+    return true
+  })
+
+  const leaveSummary = {
+    total:    leaveRecords.length,
+    pending:  leaveRecords.filter(l => l.status === 'pending').length,
+    approved: leaveRecords.filter(l => l.status === 'approved').length,
+    rejected: leaveRecords.filter(l => l.status === 'rejected').length,
+  }
+
   const pendingRecords = useMemo(() => records.filter(r => r.approvalStatus === 'pending'), [records])
 
   async function doBulkApprove() {
@@ -169,11 +224,28 @@ export default function AttendanceApprovalPage() {
     <div className="flex flex-col" style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
 
       {/* Header */}
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Ethnocentric Rg', sans-serif", fontWeight: 300, fontSize: 18, color: P.navy }}>
-          Attendance Approval
+      <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginBottom: 8 }}>
+        <h1 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: P.navy }}>
+          {moduleTab === 'attendance' ? 'Attendance Approval' : 'Leave Approvals'}
         </h1>
+        {/* Module tabs */}
+        <div style={{ display: 'flex', gap: 2, background: P.navy + '15', borderRadius: 10, padding: 4 }}>
+          {[{ key: 'attendance', label: 'Attendance' }, { key: 'leaves', label: 'Leave Approvals' }].map(m => (
+            <button key={m.key} onClick={() => setModuleTab(m.key as 'attendance' | 'leaves')}
+              style={{
+                padding: '5px 14px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                fontSize: 12, fontWeight: 700, fontFamily: '"Aptos", sans-serif',
+                background: moduleTab === m.key ? P.navy : 'transparent',
+                color: moduleTab === m.key ? '#fff' : P.navy,
+                transition: 'all .15s',
+              }}>
+              {m.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {moduleTab === 'attendance' && (<>
 
       {/* Stat cards */}
       <div style={{ display: 'flex', gap: 12, flexShrink: 0, marginBottom: 16 }}>
@@ -323,6 +395,124 @@ export default function AttendanceApprovalPage() {
         </div>
       </div>
 
+      </>)} {/* end attendance section */}
+
+      {moduleTab === 'leaves' && (<>
+
+        {/* Leave Stat cards */}
+        <div style={{ display: 'flex', gap: 12, flexShrink: 0, marginBottom: 16 }}>
+          <StatCard label="Total"    value={leaveSummary.total}    border="#0891B2" fill="#A5D8DD" textColor="#111827" />
+          <StatCard label="Pending"  value={leaveSummary.pending}  border="#1565C0" fill="#BDDAF8" textColor="#111827" />
+          <StatCard label="Approved" value={leaveSummary.approved} border="#16A34A" fill="#BBF0D6" textColor="#111827" />
+          <StatCard label="Rejected" value={leaveSummary.rejected} border="#DC2626" fill="#FECACA" textColor="#111827" />
+        </div>
+
+        {/* Leave Filters */}
+        <div style={{ flexShrink: 0, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px', flexWrap: 'wrap' }}>
+            {STATUS_TABS.map(({ key, label }) => (
+              <button key={key} type="button" onClick={() => setLeaveSTab(key)}
+                style={{ flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: '"Aptos", sans-serif', transition: 'all .15s', whiteSpace: 'nowrap', background: leaveSTab === key ? P.navy : 'transparent', color: leaveSTab === key ? '#fff' : 'rgba(255,255,255,0.85)' }}>
+                {label}
+              </button>
+            ))}
+            <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
+            <div style={{ position: 'relative', flex: 1, minWidth: 160, maxWidth: 220 }}>
+              <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              <input type="text" placeholder="Search…" value={leaveSearch} onChange={e => setLeaveSearch(e.target.value)}
+                style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 28, paddingRight: 8, paddingTop: 4, paddingBottom: 4, borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 12, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: '"Aptos", sans-serif' }} />
+            </div>
+            <button onClick={fetchLeaves} disabled={leaveLoading}
+              style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '4px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: '"Aptos", sans-serif', background: 'rgba(255,255,255,0.2)', color: '#fff', opacity: leaveLoading ? 0.6 : 1 }}>
+              {leaveLoading ? 'Loading…' : 'Refresh'}
+            </button>
+          </div>
+        </div>
+
+        {/* Leave Table */}
+        <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                <tr style={{ background: '#F2AC18' }}>
+                  {['#', 'Applicant', 'Role', 'Type', 'From', 'To', 'Days', 'Reason', 'Status', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '7px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.07em', whiteSpace: 'nowrap', background: 'transparent' }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {leaveLoading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i}>
+                      {Array.from({ length: 10 }).map((_, c) => (
+                        <td key={c} style={{ padding: '8px 14px', borderBottom: '1px solid #F1F5F9' }}>
+                          <div style={{ height: 12, background: '#F1F5F9', borderRadius: 4, width: '75%' }} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : leaveFiltered.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} style={{ padding: '48px 14px', textAlign: 'center', color: '#94A3B8', fontSize: 13, fontFamily: '"Aptos", sans-serif' }}>
+                      No leave applications found.
+                    </td>
+                  </tr>
+                ) : leaveFiltered.map((l, idx) => {
+                  const roleStyle = l.applicant?.role === 'PARTNER'
+                    ? { bg: '#FEF3C7', color: '#92400E' }
+                    : l.applicant?.role === 'MANAGER' ? { bg: '#DBEAFE', color: '#1D4ED8' }
+                    : l.applicant?.role === 'TEAM_LEAD' ? { bg: '#F0FDF4', color: '#15803D' }
+                    : { bg: '#CFFAFE', color: '#0E7490' }
+                  const statusStyle =
+                    l.status === 'approved' ? { bg: '#F0FDF4', color: '#16A34A' } :
+                    l.status === 'rejected'  ? { bg: '#FEF2F2', color: '#DC2626' } :
+                    { bg: '#F1F5F9', color: '#64748B' }
+                  const tdS: React.CSSProperties = { padding: '7px 14px', borderBottom: '1px solid #F1F5F9', fontSize: 13, fontFamily: '"Aptos", sans-serif', color: P.navy }
+                  return (
+                    <tr key={l.id} style={{ background: '#fff', transition: 'background .15s' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F8FAFC'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#fff'}>
+                      <td style={{ ...tdS, color: '#94A3B8', width: 36 }}>{idx + 1}</td>
+                      <td style={{ ...tdS, fontWeight: 700 }}>{l.applicant?.fullName}</td>
+                      <td style={tdS}>
+                        <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: roleStyle.bg, color: roleStyle.color }}>{l.applicant?.role}</span>
+                      </td>
+                      <td style={{ ...tdS, textTransform: 'capitalize' }}>{l.leaveType}</td>
+                      <td style={{ ...tdS, whiteSpace: 'nowrap' }}>{l.fromDate?.split('T')[0]}</td>
+                      <td style={{ ...tdS, whiteSpace: 'nowrap' }}>{l.toDate?.split('T')[0]}</td>
+                      <td style={{ ...tdS, fontWeight: 700 }}>{l.days}</td>
+                      <td style={{ ...tdS, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.reason}</td>
+                      <td style={tdS}>
+                        <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: statusStyle.bg, color: statusStyle.color, textTransform: 'capitalize' }}>{l.status}</span>
+                      </td>
+                      <td style={tdS}>
+                        {l.status === 'pending' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button onClick={() => setLeaveConfirm({ id: l.id, action: 'approve', name: l.applicant?.fullName })}
+                              style={{ padding: '3px 10px', borderRadius: 6, background: '#16A34A', color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
+                              Approve
+                            </button>
+                            <button onClick={() => { setLeaveConfirm({ id: l.id, action: 'reject', name: l.applicant?.fullName }); setLeaveReason('') }}
+                              style={{ padding: '3px 10px', borderRadius: 6, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </>)} {/* end leaves section */}
+
       {/* Bulk Approve confirm dialog */}
       {bulkConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -390,6 +580,48 @@ export default function AttendanceApprovalPage() {
           </div>
         </div>
       )}
+
+      {/* Leave confirm dialog */}
+      {leaveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !leaveActing && setLeaveConfirm(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-gray-200">
+            <div className="text-3xl mb-3 text-center">{leaveConfirm.action === 'approve' ? '✅' : '🚫'}</div>
+            <h3 className="text-base font-bold text-gray-800 mb-2 text-center" style={{ fontFamily: '"Aptos", sans-serif' }}>
+              {leaveConfirm.action === 'approve' ? 'Approve Leave' : 'Reject Leave'}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4 text-center">
+              {leaveConfirm.action === 'approve'
+                ? `Approve leave application for ${leaveConfirm.name}?`
+                : `Reject leave application for ${leaveConfirm.name}?`}
+            </p>
+            {leaveConfirm.action === 'reject' && (
+              <div className="mb-4">
+                <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Rejection Reason (optional)</label>
+                <textarea
+                  rows={2}
+                  value={leaveReason}
+                  onChange={e => setLeaveReason(e.target.value)}
+                  placeholder="Enter reason…"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none resize-none focus:border-red-400"
+                  style={{ fontFamily: '"Aptos", sans-serif' }}
+                />
+              </div>
+            )}
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => setLeaveConfirm(null)} disabled={leaveActing}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={doLeaveAction} disabled={leaveActing}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 text-white ${leaveConfirm.action === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                {leaveActing ? 'Processing…' : leaveConfirm.action === 'approve' ? 'Approve' : 'Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

@@ -35,6 +35,24 @@ export class TasksController {
     return this.service.deleteTask(id, req.user.id, req.user.role)
   }
 
+  @Post(':id/steps')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
+  addStep(@Param('id') id: string, @Body('title') title: string) {
+    return this.service.addStep(id, title)
+  }
+
+  @Patch(':id/steps/:stepId/toggle')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
+  toggleStep(@Param('id') id: string, @Param('stepId') stepId: string, @Req() req: any) {
+    return this.service.toggleStep(id, stepId, req.user.id)
+  }
+
+  @Delete(':id/steps/:stepId')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  deleteStep(@Param('id') id: string, @Param('stepId') stepId: string) {
+    return this.service.deleteStep(id, stepId)
+  }
+
   @Get('assignable-users')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
   assignableUsers(@Req() req: any) {

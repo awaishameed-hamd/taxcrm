@@ -21,6 +21,7 @@ const USER_SELECT = {
   avatar:     true,
   isActive:   true,
   teamLeadId: true,
+  teamLead:   { select: { id: true, fullName: true } },
   createdAt:  true,
   updatedAt:  true,
 }
@@ -128,7 +129,7 @@ export class UsersService {
     return this.prisma.user.create({
       data: {
         userCode,
-        fullName, email, phone, password: hashed, role,
+        fullName: fullName ?? '', email, phone, password: hashed, role,
         ...(teamLeadId    ? { teamLeadId }                                          : {}),
         ...(dateOfBirth   ? { dateOfBirth:  new Date(dateOfBirth) }                 : {}),
         ...(dateOfJoining ? { dateOfJoining: new Date(dateOfJoining) }              : {}),

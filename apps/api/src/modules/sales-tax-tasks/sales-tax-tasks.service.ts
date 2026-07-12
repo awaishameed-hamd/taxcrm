@@ -366,13 +366,41 @@ export class SalesTaxTasksService {
     return task
   }
 
-  async summaryCounts() {
-    const [st, it, wht] = await Promise.all([
-      this.prisma.salesTaxTask.count({ where: { taskType: 'SALES_TAX',  status: { not: SalesTaxTaskStatus.COMPLETED } } }),
-      this.prisma.salesTaxTask.count({ where: { taskType: 'INCOME_TAX', status: { not: SalesTaxTaskStatus.COMPLETED } } }),
-      this.prisma.salesTaxTask.count({ where: { taskType: 'WHT',        status: { not: SalesTaxTaskStatus.COMPLETED } } }),
+  async summaryCounts(userId: string, role: string) {
+    const approvalStatuses = [
+      SalesTaxTaskStatus.INCHARGE_REVIEW,
+      SalesTaxTaskStatus.SUBMISSION_APPROVAL,
+      SalesTaxTaskStatus.SENT_BACK,
+    ]
+
+    let taxWhere: Record<string, any>
+    let fbrWhere: Record<string, any>
+
+    if (role === 'TRAINEE') {
+      // Trainee: only their own assigned tasks
+      taxWhere = { traineeId: userId, status: { not: SalesTaxTaskStatus.COMPLETED } }
+      fbrWhere = { assignedToId: userId, currentStage: { not: 'CLOSED' } }
+    } else if (role === 'MANAGER') {
+      // Manager: tasks pending their approval
+      taxWhere = { status: { in: approvalStatuses } }
+      fbrWhere = { currentStage: { not: 'CLOSED' } }
+    } else if (role === 'TEAM_LEAD') {
+      // Team lead: tasks from their team pending approval
+      taxWhere = { status: { in: approvalStatuses }, trainee: { teamLeadId: userId } }
+      fbrWhere = { currentStage: { not: 'CLOSED' }, assignedTo: { teamLeadId: userId } }
+    } else {
+      // Admin / Partner: all active tasks
+      taxWhere = { status: { not: SalesTaxTaskStatus.COMPLETED } }
+      fbrWhere = { currentStage: { not: 'CLOSED' } }
+    }
+
+    const [st, it, wht, notices] = await Promise.all([
+      this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'SALES_TAX'  } }),
+      this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'INCOME_TAX' } }),
+      this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'WHT'        } }),
+      this.prisma.fbrCase.count({ where: fbrWhere }),
     ])
-    return { SALES_TAX: st, INCOME_TAX: it, WHT: wht }
+    return { SALES_TAX: st, INCOME_TAX: it, WHT: wht, NOTICES: notices }
   }
 
   // ── Admin/Partner/Manager: delete any task ────────────────────────────────────

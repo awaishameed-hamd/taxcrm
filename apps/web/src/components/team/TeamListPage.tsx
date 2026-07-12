@@ -16,6 +16,7 @@ interface TeamUser {
   role:      string
   isActive:  boolean
   createdAt: string
+  teamLead?: { id: string; fullName: string } | null
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -31,13 +32,14 @@ const ROLE_BADGE: Record<string, { bg: string; color: string; label: string }> =
 }
 
 const ALL_COLS = [
-  { key: 'userCode',  label: 'User ID'  },
-  { key: 'name',      label: 'Name'     },
-  { key: 'role',      label: 'Role'     },
-  { key: 'email',     label: 'Email'    },
-  { key: 'phone',     label: 'Phone'    },
-  { key: 'joined',    label: 'Joined'   },
-  { key: 'status',    label: 'Status'   },
+  { key: 'userCode',  label: 'User ID'   },
+  { key: 'name',      label: 'Name'      },
+  { key: 'role',      label: 'Role'      },
+  { key: 'teamLead',  label: 'Team Lead' },
+  { key: 'email',     label: 'Email'     },
+  { key: 'phone',     label: 'Phone'     },
+  { key: 'joined',    label: 'Joined'    },
+  { key: 'status',    label: 'Status'    },
 ]
 const ALL_COL_KEYS = ALL_COLS.map(c => c.key)
 
@@ -155,7 +157,7 @@ export default function TeamListPage() {
 
   // Resizable columns
   const COL_DEFAULT_WIDTHS: Record<string, number> = {
-    userCode: 100, name: 180, role: 110, email: 200, phone: 130, joined: 120, status: 90,
+    userCode: 100, name: 180, role: 110, teamLead: 150, email: 200, phone: 130, joined: 120, status: 90,
   }
   const [colWidths, setColWidths] = useState<Record<string, number>>(COL_DEFAULT_WIDTHS)
   const resizingCol = useRef<{ key: string; startX: number; startW: number } | null>(null)
@@ -202,7 +204,11 @@ export default function TeamListPage() {
       if (search)     params.search = search
       const { data } = await api.get('/users', { params })
       const list = Array.isArray(data) ? data : (data?.data ?? [])
-      setUsers(list.filter((u: TeamUser) => u.role !== 'CLIENT'))
+      const filtered = list.filter((u: TeamUser) => u.role !== 'CLIENT')
+      filtered.sort((a: TeamUser, b: TeamUser) =>
+        ROLE_HIERARCHY.indexOf(a.role) - ROLE_HIERARCHY.indexOf(b.role)
+      )
+      setUsers(filtered)
     } catch {
       setToast({ msg: 'Failed to load team members.', ok: false })
     } finally {
@@ -286,12 +292,12 @@ export default function TeamListPage() {
       {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 52, marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 300, color: P.navy, fontFamily: "'Ethnocentric Rg', sans-serif" }}>
+          <h1 style={{ margin: 0, fontSize: 22, color: P.navy, fontFamily: "'Angelos', sans-serif", display: 'inline-block', transform: 'skewX(12deg)' }}>
             MY TEAM
           </h1>
         </div>
         {canCreate && (
-          <button onClick={() => { setShowCreate(true); setFormError('') }}
+          <button onClick={() => setShowCreate(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '9px 18px', borderRadius: 9, border: 0,
@@ -457,12 +463,18 @@ export default function TeamListPage() {
                           </td>
                         )}
 
+                        {visibleCols.includes('teamLead') && (
+                          <td style={{ padding: '6px 14px', color: P.textMuted, fontSize: 12 }}>
+                            {u.teamLead?.fullName ?? ''}
+                          </td>
+                        )}
+
                         {visibleCols.includes('email') && (
                           <td style={{ padding: '6px 14px', color: P.textMuted, fontSize: 12 }}>{u.email}</td>
                         )}
 
                         {visibleCols.includes('phone') && (
-                          <td style={{ padding: '6px 14px', color: P.textMuted, fontSize: 12 }}>{u.phone ?? 'N/A'}</td>
+                          <td style={{ padding: '6px 14px', color: P.textMuted, fontSize: 12 }}>{u.phone ?? ''}</td>
                         )}
 
                         {visibleCols.includes('joined') && (
@@ -543,3 +555,4 @@ export default function TeamListPage() {
     </div>
   )
 }
+

@@ -62,6 +62,18 @@ export class FbrController {
     return this.svc.closeCase(id, reason)
   }
 
+  @Post('cases/:id/reopen')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
+  reopenCase(@Param('id') id: string) {
+    return this.svc.reopenCase(id)
+  }
+
+  @Delete('cases/:id')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
+  deleteCase(@Param('id') id: string) {
+    return this.svc.deleteCase(id)
+  }
+
   // ── Notice Rounds ─────────────────────────────────────────────────────────
   @Post('cases/:id/notice-rounds')
   @Roles(...ALL)

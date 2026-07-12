@@ -221,15 +221,12 @@ export default function LoginPage() {
         <header style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Asif Associates" style={{ width: 150, height: 'auto', filter: 'drop-shadow(0 12px 22px rgba(74,90,99,.3))' }} />
+            <img src="/logo.png" alt="Asif Associates" style={{ width: 190, height: 'auto', filter: 'drop-shadow(0 12px 22px rgba(74,90,99,.3))' }} />
           </div>
 
           <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 38, fontWeight: 700, letterSpacing: '-.02em', color: '#4a5a63', lineHeight: 1.05, margin: 0 }}>
             User Login
           </h1>
-          <p style={{ marginTop: 16, fontSize: 13, letterSpacing: '.22em', textTransform: 'uppercase', color: '#8a9aa2', fontWeight: 700 }}>
-            Welcome to Asif Associates
-          </p>
         </header>
 
         {/* Error */}

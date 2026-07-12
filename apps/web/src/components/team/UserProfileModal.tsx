@@ -35,6 +35,30 @@ function formatCNIC(raw: string) {
 
 function toDateStr(v: unknown) { return v ? String(v).slice(0, 10) : '' }
 
+function calcRemainingArticles(dateOfJoining: string, articlesType: string): string {
+  if (!dateOfJoining || !articlesType) return ''
+  const match = articlesType.match(/(\d+(?:\.\d+)?)/)
+  if (!match) return ''
+  const totalYears = parseFloat(match[1])
+  const start = new Date(dateOfJoining)
+  const end   = new Date(start)
+  end.setFullYear(end.getFullYear() + Math.floor(totalYears))
+  end.setMonth(end.getMonth() + Math.round((totalYears % 1) * 12))
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  if (today >= end) return 'Articles completed'
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+  const days        = daysInMonth - today.getDate()
+  const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+  const months = (end.getFullYear() - nextMonthStart.getFullYear()) * 12 + (end.getMonth() - nextMonthStart.getMonth())
+  const years  = Math.floor(months / 12)
+  const remMon = months % 12
+  const parts: string[] = []
+  if (years  > 0) parts.push(`${years} year${years  !== 1 ? 's' : ''}`)
+  if (remMon > 0) parts.push(`${remMon} month${remMon !== 1 ? 's' : ''}`)
+  if (days   > 0) parts.push(`${days} day${days   !== 1 ? 's' : ''}`)
+  return parts.length ? parts.join(', ') : 'Articles ending today'
+}
+
 // ── Dynamic field (same logic as ProfilePage) ─────────────────────────────────
 function DynamicField({ field, value, onChange, error }: {
   field: FieldConfig; value: string
@@ -99,8 +123,8 @@ function DynamicField({ field, value, onChange, error }: {
 // ── Section card ──────────────────────────────────────────────────────────────
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="px-5 py-2.5 border-b border-gray-200" style={{ background: 'linear-gradient(90deg, #E4E9F0, #EDF0F5)' }}>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm" style={{ overflow: 'visible' }}>
+      <div className="px-5 py-2.5 border-b border-gray-200" style={{ background: 'linear-gradient(90deg, #E4E9F0, #EDF0F5)', borderRadius: '12px 12px 0 0' }}>
         <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: P.textMuted }}>{title}</h3>
       </div>
       <div className="px-5 py-3">{children}</div>
@@ -258,7 +282,6 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
           return
         }
         const payload: any = {
-          fullName:   form.fullName,
           email:      form.email,
           phone:      form.phone || null,
           password:   form.password,
@@ -290,11 +313,21 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
     const fields = grouped[sectionName] ?? []
     if (fields.length === 0) return null
 
-    // Salary section — show editable grid (admin can set salary)
+    const empType     = extraFields['employmentType'] ?? String(form['employmentType'] ?? '')
+    const isCaTrainee = empType === 'CA Trainee'
+    const CA_TRAINEE_ONLY = new Set(['articlesType', 'dateOfJoining'])
+    const remaining   = sectionName === 'Personal Information' && isCaTrainee
+      ? calcRemainingArticles(String(form.dateOfJoining ?? ''), extraFields['articlesType'] ?? '')
+      : ''
+
+    const visibleFields = sectionName === 'Personal Information'
+      ? fields.filter(f => isCaTrainee || !CA_TRAINEE_ONLY.has(f.fieldKey))
+      : fields
+
     return (
       <SectionCard key={sectionName} title={sectionName}>
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
-          {fields.map(field => (
+          {visibleFields.map(field => (
             <DynamicField
               key={field.fieldKey}
               field={field}
@@ -303,6 +336,17 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
               error={errors[field.fieldKey]}
             />
           ))}
+          {sectionName === 'Personal Information' && isCaTrainee && (
+            <div style={{ gridColumn: 'span 2' }}>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                Remaining Articles Time
+              </label>
+              <div className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-gray-500"
+                style={{ fontSize: 13, lineHeight: '1.4', wordBreak: 'break-word' }}>
+                {remaining || <span className="text-gray-400">Set CA Articles Start Date &amp; Articles Type</span>}
+              </div>
+            </div>
+          )}
         </div>
       </SectionCard>
     )
@@ -365,7 +409,7 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
                       <div>
                         <label style={labelStyle}>User Code</label>
                         <div style={{ ...iStyle, background: '#F8FAFC', color: P.teal, fontWeight: 700, fontFamily: '"Aptos", sans-serif', letterSpacing: '0.06em' }}>
-                          {form.userCode ?? '—'}
+                          {form.userCode ?? ''}
                         </div>
                       </div>
                       <div>
@@ -378,7 +422,7 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
                           />
                         ) : (
                           <div style={{ ...iStyle, background: '#F8FAFC', color: P.textHeading, fontWeight: 600 }}>
-                            {ROLE_LABELS[form.role] ?? form.role ?? '—'}
+                            {ROLE_LABELS[form.role] ?? form.role ?? ''}
                           </div>
                         )}
                       </div>
@@ -392,7 +436,7 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
                           value={teamLeadId}
                           onChange={val => setTeamLeadId(val)}
                           placeholder="Select Team Lead"
-                          options={teamLeads.map(tl => ({ value: tl.id, label: `${tl.fullName} (${tl.userCode})` }))}
+                          options={teamLeads.map(tl => ({ value: tl.id, label: tl.fullName }))}
                         />
                       </div>
                     )}
@@ -400,7 +444,7 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
                 ) : (
                   /* Create: role selector + auto code + required fields */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label style={labelStyle}>Role *</label>
                         <StyledSelect
@@ -412,28 +456,22 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
                       <div>
                         <label style={labelStyle}>User Code (Auto)</label>
                         <div style={{ ...iStyle, background: '#F8FAFC', color: P.teal, fontWeight: 700, fontFamily: '"Aptos", sans-serif', letterSpacing: '0.06em' }}>
-                          {codeLoad ? 'Loading…' : (nextCode ?? '—')}
+                          {codeLoad ? 'Loading…' : (nextCode ?? '')}
                         </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label style={labelStyle}>Email *</label>
+                        <input style={iStyle} type="email" required value={form.email ?? ''}
+                          onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                          placeholder="name@cafirm.com" />
                       </div>
                       <div>
                         <label style={labelStyle}>Password *</label>
                         <input style={iStyle} type="text" required minLength={8} value={form.password ?? ''}
                           onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                           placeholder="Min 8 characters" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label style={labelStyle}>Full Name *</label>
-                        <input style={iStyle} required value={form.fullName ?? ''}
-                          onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))}
-                          placeholder="e.g. Ahmed Ali" />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Email *</label>
-                        <input style={iStyle} type="email" required value={form.email ?? ''}
-                          onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                          placeholder="name@cafirm.com" />
                       </div>
                     </div>
 
@@ -445,7 +483,7 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
                           value={teamLeadId}
                           onChange={val => setTeamLeadId(val)}
                           placeholder="Select Team Lead"
-                          options={teamLeads.map(tl => ({ value: tl.id, label: `${tl.fullName} (${tl.userCode})` }))}
+                          options={teamLeads.map(tl => ({ value: tl.id, label: tl.fullName }))}
                         />
                         {teamLeads.length === 0 && (
                           <p style={{ fontSize: 11, color: '#DC2626', marginTop: 4, fontFamily: '"Aptos", sans-serif' }}>

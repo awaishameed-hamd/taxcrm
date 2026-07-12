@@ -44,6 +44,7 @@ const LABEL_GRAD: Record<string, { border: string; icon: string }> = {
   taxSummary:     { border: '#7B2D8E', icon: '#7B2D8E' },
   completedTasks: { border: '#0D9488', icon: '#0D9488' },
   notices:        { border: '#DC2626', icon: '#DC2626' },
+  myLeaves:       { border: '#D7A520', icon: '#D7A520' },
 }
 
 const ICONS: Record<string, string> = {
@@ -87,6 +88,8 @@ const ICONS: Record<string, string> = {
     'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z',
   logout:
     'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75',
+  myLeaves:
+    'M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0z',
 }
 
 interface NavItem { label: string; href: string; icon: string; key: string; permission?: string }
@@ -142,6 +145,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'My Team',             href: '/manager/team',             icon: 'team',           key: 'team',           permission: 'team'                },
     { label: 'Chats',               href: '/manager/messages',         icon: 'messages',       key: 'messages',       permission: 'messages'            },
     { label: 'My Attendance',       href: '/manager/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
+    { label: 'My Leaves',           href: '/manager/my-leaves',        icon: 'myLeaves',       key: 'myLeaves'                                                    },
     { label: 'Attendance Report',   href: '/manager/att-report',       icon: 'attReport',      key: 'attReport',      permission: 'attendance_report'   },
     { label: 'Attendance Approval', href: '/manager/att-approval',     icon: 'attApproval',    key: 'attApproval',    permission: 'attendance_approval' },
     { label: 'Daily Attendance',    href: '/manager/daily-attendance', icon: 'dailyAtt',       key: 'dailyAtt',       permission: 'daily_attendance'    },
@@ -160,6 +164,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'My Team',             href: '/team-lead/team',             icon: 'team',           key: 'team',           permission: 'team'                },
     { label: 'Chats',               href: '/team-lead/messages',         icon: 'messages',       key: 'messages',       permission: 'messages'            },
     { label: 'My Attendance',       href: '/team-lead/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
+    { label: 'My Leaves',           href: '/team-lead/my-leaves',        icon: 'myLeaves',       key: 'myLeaves'                                                    },
     { label: 'Attendance Report',   href: '/team-lead/att-report',       icon: 'attReport',      key: 'attReport',      permission: 'attendance_report'   },
     { label: 'Attendance Approval', href: '/team-lead/att-approval',     icon: 'attApproval',    key: 'attApproval',    permission: 'attendance_approval' },
     { label: 'Daily Attendance',    href: '/team-lead/daily-attendance', icon: 'dailyAtt',       key: 'dailyAtt',       permission: 'daily_attendance'    },
@@ -175,6 +180,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Completed Tasks',  href: '/trainee/completed-tasks',   icon: 'completedTasks', key: 'completedTasks', permission: 'completed_tasks'},
     { label: 'Chats',            href: '/trainee/messages',          icon: 'messages',       key: 'messages',       permission: 'messages'       },
     { label: 'My Attendance',    href: '/trainee/attendance',        icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'  },
+    { label: 'My Leaves',        href: '/trainee/my-leaves',         icon: 'myLeaves',       key: 'myLeaves'                                       },
     { label: 'My Profile',       href: '/trainee/profile',           icon: 'profile',        key: 'profile',        permission: 'my_profile'     },
   ],
   [Role.CLIENT]: [
@@ -398,7 +404,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <p style={{
           margin:        0,
           fontFamily:    "'Ethnocentric Rg', sans-serif",
-          fontStyle:     'italic',
           fontWeight:    300,
           fontSize:      '1.15rem',
           marginLeft:    '-6px',
@@ -432,31 +437,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             {roleLabel}
           </p>
         </div>
-        {/* Bell button */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <button onClick={() => setShowNotifs(v => !v)} title="Notifications"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 28, height: 28, borderRadius: 6, border: 0, background: showNotifs ? C.tealDim : 'transparent',
-              color: showNotifs ? C.teal : C.gray, cursor: 'pointer', transition: 'color .2s, background .2s', position: 'relative',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = C.teal; e.currentTarget.style.background = C.tealDim }}
-            onMouseLeave={e => { if (!showNotifs) { e.currentTarget.style.color = C.gray; e.currentTarget.style.background = 'transparent' } }}>
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            {unreadCount > 0 && (
-              <span style={{
-                position: 'absolute', top: 2, right: 2,
-                minWidth: 14, height: 14, borderRadius: 7,
-                background: '#E53935', color: '#fff',
-                fontSize: 9, fontWeight: 700, lineHeight: 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
-              }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
-            )}
-          </button>
-        </div>
-
         <button onClick={onToggle} title="Hide sidebar"
           style={{
             flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -470,43 +450,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </svg>
         </button>
       </div>
-
-      {/* ── Notification dropdown panel ── */}
-      {showNotifs && (
-        <div style={{
-          position: 'relative', zIndex: 200, minWidth: 256, flexShrink: 0,
-          background: '#fff', borderBottom: `1px solid ${C.border}`, maxHeight: 320, display: 'flex', flexDirection: 'column',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px 6px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', sans-serif" }}>Notifications</span>
-            {unreadCount > 0 && (
-              <button onClick={markAllRead} style={{ fontSize: 10, color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Aptos', sans-serif", padding: 0 }}>
-                Mark all read
-              </button>
-            )}
-          </div>
-          <div style={{ overflowY: 'auto', flex: 1 }}>
-            {notifs.length === 0 ? (
-              <p style={{ margin: 0, padding: '14px 12px', fontSize: 12, color: C.gray, fontFamily: "'Aptos', sans-serif", textAlign: 'center' }}>No notifications</p>
-            ) : notifs.map(n => (
-              <div key={n.id} style={{
-                padding: '8px 12px', borderBottom: `1px solid #f0f0f0`,
-                background: n.isRead ? 'transparent' : '#EFF6FF',
-                display: 'flex', gap: 8, alignItems: 'flex-start',
-              }}>
-                <div style={{ width: 6, height: 6, borderRadius: 3, background: n.isRead ? 'transparent' : '#1E8496', flexShrink: 0, marginTop: 5 }} />
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', sans-serif" }}>{n.title}</p>
-                  <p style={{ margin: 0, fontSize: 11, color: C.slate, fontFamily: "'Aptos', sans-serif", lineHeight: 1.4, marginTop: 1 }}>{n.body}</p>
-                  <p style={{ margin: 0, fontSize: 10, color: C.gray, fontFamily: "'Aptos', sans-serif", marginTop: 2 }}>
-                    {new Date(n.createdAt).toLocaleString('en-PK', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── New Task quick button (all internal roles) ── */}
       {user?.role !== Role.CLIENT && (
@@ -557,6 +500,78 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )
         })}
       </nav>
+
+      {/* ── Notifications bell + drop-up panel ── */}
+      <div style={{ position: 'relative', padding: '0 12px', minWidth: 256, flexShrink: 0 }}>
+        {/* Drop-up panel */}
+        {showNotifs && (
+          <div style={{
+            position: 'absolute', bottom: '100%', left: 12, right: 12, zIndex: 300,
+            background: '#fff', border: `1px solid ${C.border}`,
+            borderRadius: 10, maxHeight: 320, display: 'flex', flexDirection: 'column',
+            boxShadow: '0 -8px 24px rgba(0,0,0,0.10)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px 6px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', sans-serif" }}>Notifications</span>
+              {unreadCount > 0 && (
+                <button onClick={markAllRead} style={{ fontSize: 10, color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Aptos', sans-serif", padding: 0 }}>
+                  Mark all read
+                </button>
+              )}
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {notifs.length === 0 ? (
+                <p style={{ margin: 0, padding: '14px 12px', fontSize: 12, color: C.gray, fontFamily: "'Aptos', sans-serif", textAlign: 'center' }}>No notifications</p>
+              ) : notifs.map(n => (
+                <div key={n.id} style={{
+                  padding: '8px 12px', borderBottom: `1px solid #f0f0f0`,
+                  background: n.isRead ? 'transparent' : '#EFF6FF',
+                  display: 'flex', gap: 8, alignItems: 'flex-start',
+                }}>
+                  <div style={{ width: 6, height: 6, borderRadius: 3, background: n.isRead ? 'transparent' : C.teal, flexShrink: 0, marginTop: 5 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', sans-serif" }}>{n.title}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: C.slate, fontFamily: "'Aptos', sans-serif", lineHeight: 1.4, marginTop: 1 }}>{n.body}</p>
+                    <p style={{ margin: 0, fontSize: 10, color: C.gray, fontFamily: "'Aptos', sans-serif", marginTop: 2 }}>
+                      {new Date(n.createdAt).toLocaleString('en-PK', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bell button row */}
+        <button onClick={() => setShowNotifs(v => !v)} title="Notifications"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+            padding: '0.5rem 0.75rem', borderRadius: 8, border: 0,
+            background: showNotifs ? C.tealDim : 'transparent',
+            cursor: 'pointer', fontSize: 16,
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.03em',
+            color: showNotifs ? C.teal : C.slate,
+            transition: 'background .15s, color .15s', position: 'relative',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = C.tealDim; e.currentTarget.style.color = C.teal }}
+          onMouseLeave={e => { if (!showNotifs) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.slate } }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -6,
+                minWidth: 14, height: 14, borderRadius: 7,
+                background: '#E53935', color: '#fff',
+                fontSize: 9, fontWeight: 700, lineHeight: 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+              }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+            )}
+          </div>
+          Notifications
+        </button>
+      </div>
 
       {/* ── Logout ── */}
       <div style={{ padding: '4px 12px 16px', minWidth: 256 }}>

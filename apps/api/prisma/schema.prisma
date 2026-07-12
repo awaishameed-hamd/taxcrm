@@ -158,8 +158,9 @@ model User {
   refreshTokens RefreshToken[]
 
   // Attendance
-  attendances       Attendance[]
-  editedAttendances Attendance[] @relation("AttendanceEdits")
+  attendances        Attendance[]
+  editedAttendances  Attendance[] @relation("AttendanceEdits")
+  attendanceOpening  AttendanceOpening?
 
   // Sales Tax Tasks
   salesTaxTasks        SalesTaxTask[]        @relation("TraineeSalesTaxTasks")
@@ -167,13 +168,18 @@ model User {
   completedCustomSteps SalesTaxCustomStep[]  @relation("CompletedCustomSteps")
 
   // General Tasks
-  createdTasks  Task[] @relation("CreatedTasks")
-  assignedTasks Task[] @relation("AssignedTasks")
+  createdTasks    Task[]     @relation("CreatedTasks")
+  assignedTasks   Task[]     @relation("AssignedTasks")
+  taskStepsDone   TaskStep[] @relation("TaskStepDoneBy")
 
   // FBR Notices & Appeals
   fbrCasesCreated  FbrCase[]       @relation("FbrCaseCreator")
   fbrCasesAssigned FbrCase[]       @relation("FbrCaseAssignee")
   fbrAttachments   FbrAttachment[] @relation("FbrAttachmentUploader")
+
+  // Leave Applications
+  leaveApplications LeaveApplication[] @relation("LeaveApplicant")
+  leaveReviews      LeaveApplication[] @relation("LeaveReviewer")
 
   @@index([role])
   @@index([email])
@@ -448,6 +454,24 @@ model Attendance {
   @@map("attendances")
 }
 
+// AttendanceOpening — one-time historical opening balance per user
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AttendanceOpening {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  presents    Int      @default(0)
+  late        Int      @default(0)
+  absents     Int      @default(0)
+  leaves      Int      @default(0)
+  workingDays Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("attendance_openings")
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // AttendanceSetting — admin-configurable key-value settings
 // Keys: reporting_time, grace_period_minutes, cutoff_time, auto_mark_on_login, timezone
@@ -462,6 +486,35 @@ model AttendanceSetting {
   updatedAt DateTime @updatedAt
 
   @@map("attendance_settings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LeaveApplication — staff apply for leave; approved by line manager
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LeaveApplication {
+  id          String   @id @default(cuid())
+  applicantId String
+  applicant   User     @relation("LeaveApplicant", fields: [applicantId], references: [id], onDelete: Cascade)
+
+  leaveType   String   // sick | casual | annual | other
+  fromDate    DateTime @db.Date
+  toDate      DateTime @db.Date
+  days        Int
+  reason      String   @db.Text
+
+  status          String    @default("pending")  // pending | approved | rejected
+  reviewedById    String?
+  reviewedBy      User?     @relation("LeaveReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  rejectionReason String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([applicantId])
+  @@index([status])
+  @@map("leave_applications")
 }
 
 model RefreshToken {
@@ -597,6 +650,24 @@ model Task {
   @@index([status])
   @@index([taxType])
   @@map("tasks")
+
+  steps       TaskStep[]
+}
+
+model TaskStep {
+  id        String    @id @default(cuid())
+  taskId    String
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title     String
+  isDone    Boolean   @default(false)
+  order     Int       @default(0)
+  doneAt    DateTime?
+  doneById  String?
+  doneBy    User?     @relation("TaskStepDoneBy", fields: [doneById], references: [id])
+  createdAt DateTime  @default(now())
+
+  @@index([taskId])
+  @@map("task_steps")
 }
 
 model SalesTaxCustomStep {

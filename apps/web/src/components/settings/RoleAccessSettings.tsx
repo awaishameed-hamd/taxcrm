@@ -88,7 +88,7 @@ function Toggle({
     <button
       type="button"
       onClick={() => !loading && !disabled && onChange(!checked)}
-      title={disabled ? 'Not applicable for this role' : checked ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+      title={disabled ? 'Not applicable for this role' : checked ? 'Enabled, click to disable' : 'Disabled, click to enable'}
       style={{
         width: 42, height: 22, borderRadius: 11, border: 'none', padding: 0,
         background: disabled ? '#E2E8F0' : checked ? TEAL : '#CBD5E1',
@@ -151,7 +151,7 @@ export default function RoleAccessSettings() {
     setMatrix(prev => ({ ...prev, [role]: { ...(prev[role] ?? {}), [feature]: next } }))
     try {
       await api.patch(`/role-permissions/${role}/${feature}`, { enabled: next })
-      showToast(`${ROLE_LABEL[role]} — ${next ? 'enabled' : 'disabled'}`, true)
+      showToast(`${ROLE_LABEL[role]}: ${next ? 'enabled' : 'disabled'}`, true)
     } catch {
       setMatrix(prev => ({ ...prev, [role]: { ...(prev[role] ?? {}), [feature]: !next } }))
       showToast('Failed to update permission', false)

@@ -203,7 +203,7 @@ function AddFieldModal({ defaultSection, sections, onAdd, onClose }: {
               Label <span className="text-red-500">*</span>
             </label>
             <input type="text" value={form.label} onChange={e => handleLabelChange(e.target.value)}
-              placeholder="e.g. Emergency Contact"
+              placeholder="Field label shown on profile"
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
               style={{ borderColor: errors.label ? '#ef4444' : '#CBD5E1', color: NAVY }} />
             {errors.label && <p className="text-xs text-red-500 mt-1">{errors.label}</p>}
@@ -214,7 +214,7 @@ function AddFieldModal({ defaultSection, sections, onAdd, onClose }: {
               Field Key / ID <span className="text-red-500">*</span>
             </label>
             <input type="text" value={form.field_key} onChange={e => handleKeyChange(e.target.value)}
-              placeholder="e.g. emergency_contact" className="w-full rounded-lg border px-3 py-2 text-sm font-mono focus:outline-none"
+              placeholder="Auto generated from label" className="w-full rounded-lg border px-3 py-2 text-sm font-mono focus:outline-none"
               style={{ borderColor: errors.field_key ? '#ef4444' : '#CBD5E1', color: '#475569' }} />
             {errors.field_key
               ? <p className="text-xs text-red-500 mt-1">{errors.field_key}</p>
@@ -272,7 +272,7 @@ function AddFieldModal({ defaultSection, sections, onAdd, onClose }: {
             <div>
               <label className="block text-xs font-bold uppercase tracking-wide mb-1" style={{ color: NAVY }}>Placeholder</label>
               <input type="text" value={form.placeholder} onChange={e => setF('placeholder', e.target.value)}
-                placeholder="e.g. Enter value…"
+                placeholder="Hint text shown inside the input"
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                 style={{ borderColor: '#CBD5E1', color: NAVY }} />
             </div>
@@ -836,7 +836,9 @@ export default function ProfileFormSettings() {
     setLoading(true)
     try {
       const res  = await api.get('/crm/form-fields', { params: { form_type: 'user' } })
-      const data: Record<string, any>[] = res.data?.data ?? res.data ?? []
+      const data: Record<string, any>[] = (res.data?.data ?? res.data ?? []).map((f: any) =>
+        (f.fieldKey ?? f.field_key) === 'dateOfJoining' ? { ...f, label: 'CA Articles Start Date' } : f
+      )
       setFields(data)
       const order: string[] = []
       data.forEach(f => { const s = getSec(f); if (!order.includes(s)) order.push(s) })

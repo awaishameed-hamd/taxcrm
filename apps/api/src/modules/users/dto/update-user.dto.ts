@@ -3,6 +3,7 @@ import { Role } from '@prisma/client'
 
 export class UpdateUserDto {
   @IsOptional() @IsEnum(Role)                 role?: Role
+  @IsOptional() @IsString()                   teamLeadId?: string | null
   @IsOptional() @IsString() @MaxLength(255) fullName?:  string
   @IsOptional() @IsString() @MaxLength(100) firstName?: string
   @IsOptional() @IsString() @MaxLength(100) midName?:   string

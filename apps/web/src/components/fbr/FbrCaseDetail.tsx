@@ -483,7 +483,7 @@ function AppealFlow({ appeal: a, caseId, onReload }: { appeal: any; caseId: stri
       <div style={{ borderRadius: 8, background: '#FAF5FF', border: '1px solid #DDD6FE', overflow: 'hidden', marginBottom: 12 }}>
         <div style={{ padding: '8px 12px' }}>
           <span style={{ fontWeight: 700, fontSize: 13, color: PURPLE, fontFamily: F }}>
-            Appeal — {a.appealType === 'CIR_APPEALS' ? 'CIR (Appeals)' : 'ATIR'}
+            Appeal: {a.appealType === 'CIR_APPEALS' ? 'CIR (Appeals)' : 'ATIR'}
             {a.isLate ? ' (Late Filing)' : ''}
           </span>
         </div>
@@ -640,7 +640,7 @@ function StayFlow({ stay: s, onReload }: { stay: any; onReload: () => void }) {
       <div style={{ borderRadius: 8, background: '#FEF2F2', border: '1px solid #FECACA', overflow: 'hidden', marginBottom: 12 }}>
         <div style={{ padding: '8px 12px' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#7F1D1D', fontFamily: F }}>
-            Emergency — Stay Application
+            Emergency Stay Application
           </div>
           <div style={{ fontSize: 11, color: '#B91C1C', fontFamily: F, marginTop: 2 }}>
             Main case workflow is paused while this Stay Application is pending.
@@ -684,7 +684,7 @@ function StayFlow({ stay: s, onReload }: { stay: any; onReload: () => void }) {
       )}
       {!isPending && (
         <ResultCard
-          label={s.outcome==='GRANTED'?'Stay Granted — FBR Recovery Stopped':'Stay Rejected — FBR Recovery Proceeds'}
+          label={s.outcome==='GRANTED'?'Stay Granted, FBR Recovery Stopped':'Stay Rejected, FBR Recovery Proceeds'}
           color={s.outcome==='GRANTED'?GREEN:DANGER}
           onUndo={() => patch({ outcome:'PENDING', decidedAt:null })} loading={loading}
         >
@@ -702,7 +702,7 @@ function StayFlow({ stay: s, onReload }: { stay: any; onReload: () => void }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
-export default function FbrCaseDetail({ case: c, onUpdated, onReload }: { case: any; onUpdated: (u: any) => void; onReload: () => void }) {
+export default function FbrCaseDetail({ case: c, onUpdated, onReload, onMarkIncomplete, onDelete }: { case: any; onUpdated: (u: any) => void; onReload: () => void; onMarkIncomplete?: () => void; onDelete?: () => void }) {
   const [tab, setTab] = useState<'notice'|'appeal'|'stay'>('notice')
   const [showStay, setShowStay] = useState(false)
   const [stayReason, setStayReason] = useState('')
@@ -736,57 +736,75 @@ export default function FbrCaseDetail({ case: c, onUpdated, onReload }: { case: 
   ]
 
   return (
-    <div style={{ padding: '16px 24px', fontFamily: F }}>
+    <div style={{ padding: '12px 16px', fontFamily: F }}>
 
       {/* Case header */}
-      <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
-        <div style={{ padding: '14px 18px 12px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-            <div style={{ width: 46, height: 46, borderRadius: 10, background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 15, fontWeight: 700, letterSpacing: '0.05em' }}>
-              {(c.client?.businessName ?? c.client?.user?.fullName ?? '').split(' ').slice(0,2).map((w: string) => w[0]).join('').toUpperCase() || 'FBR'}
+      <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', margin: '0 0 14px' }}>
+        <div style={{ padding: '14px 16px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 10, background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 14, fontWeight: 700, letterSpacing: '0.05em' }}>
+              {(c.client?.businessName ?? c.client?.user?.fullName ?? '').split(' ').slice(0,2).map((w: string) => w[0]).join('').toUpperCase() || 'N'}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: NAVY, letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: F }}>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: NAVY, letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: F }}>
                   {c.client?.businessName ?? c.client?.user?.fullName}
                 </h2>
-                <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: c.currentStage==='CLOSED'?'#DCFCE7':'#FEF3C7', color: c.currentStage==='CLOSED'?GREEN:WARN, fontFamily: F, flexShrink: 0 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: c.currentStage==='CLOSED'?'#DCFCE7':'#FEF3C7', color: c.currentStage==='CLOSED'?GREEN:WARN, fontFamily: F, flexShrink: 0 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.currentStage==='CLOSED'?'#16a34a':'#F59E0B', flexShrink: 0 }} />
                   {c.currentStage==='CLOSED' ? 'Closed' : 'Active'}
                 </span>
               </div>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748B', fontFamily: F }}>{c.caseNumber}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748B', fontFamily: F }}>Notices &amp; Appeals</p>
             </div>
           </div>
 
           <div style={{ height: 1, background: '#F1F5F9', margin: '12px 0' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' as const }}>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
-              {[
-                c.taxType?.replace(/_/g,' '),
-                c.entryPoint?.replace(/_/g,' '),
-                c.noticeSection && `Section ${c.noticeSection}`,
-                c.taxYear && `Tax Year ${c.taxYear}`,
-                c.noticeNumber && `Notice ${c.noticeNumber}`,
-                c.assignedTo?.fullName && `Assigned: ${c.assignedTo.fullName}`,
-              ].filter(Boolean).map((v: any) => (
-                <span key={v} style={{ fontSize: 11, color: '#334155', background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '3px 10px', borderRadius: 6, fontFamily: F }}>{v}</span>
-              ))}
-            </div>
-            {c.currentStage !== 'CLOSED' && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, flexShrink: 0 }}>
-                {canAppeal && <button onClick={addAppeal} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: `1.5px solid ${PURPLE}`, background: '#FAF5FF', color: PURPLE, fontFamily: F }}>File Appeal</button>}
-                <button onClick={() => setShowStay(true)}  style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: `1.5px solid ${DANGER}`, background: '#FEF2F2', color: DANGER,    fontFamily: F }}>File Stay</button>
-                <button onClick={() => setShowClose(true)} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1.5px solid #94A3B8',  background: '#F8FAFC',   color: '#64748B', fontFamily: F }}>Close Case</button>
-              </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 10 }}>
+            {c.taxType && (
+              <span style={{ fontSize: 11, color: '#334155', background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '3px 10px', borderRadius: 6, fontFamily: F, display: 'inline-flex', alignItems: 'center' }}>
+                <span style={{ color: '#94A3B8', fontWeight: 600 }}>Type: </span>&nbsp;{c.taxType.replace(/_/g,' ')}
+              </span>
+            )}
+            {c.entryPoint && (
+              <span style={{ fontSize: 11, color: '#334155', background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '3px 10px', borderRadius: 6, fontFamily: F, display: 'inline-flex', alignItems: 'center' }}>
+                <span style={{ color: '#94A3B8', fontWeight: 600 }}>Entry: </span>&nbsp;{c.entryPoint.replace(/_/g,' ')}
+              </span>
+            )}
+            {c.noticeSection && (
+              <span style={{ fontSize: 11, color: '#334155', background: '#F0FAFB', border: '1px solid #A5F3FC', padding: '3px 10px', borderRadius: 6, fontFamily: F, display: 'inline-flex', alignItems: 'center' }}>
+                <span style={{ color: '#94A3B8', fontWeight: 600 }}>Section: </span>&nbsp;{c.noticeSection}
+              </span>
+            )}
+            {c.taxYear && (
+              <span style={{ fontSize: 11, color: '#334155', background: '#F0FAFB', border: '1px solid #A5F3FC', padding: '3px 10px', borderRadius: 6, fontFamily: F, display: 'inline-flex', alignItems: 'center' }}>
+                <span style={{ color: '#94A3B8', fontWeight: 600 }}>Year: </span>&nbsp;{c.taxYear}
+              </span>
+            )}
+            {c.noticeNumber && (
+              <span style={{ fontSize: 11, color: '#334155', background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '3px 10px', borderRadius: 6, fontFamily: F, display: 'inline-flex', alignItems: 'center' }}>
+                <span style={{ color: '#94A3B8', fontWeight: 600 }}>Notice: </span>&nbsp;{c.noticeNumber}
+              </span>
+            )}
+            {c.assignedTo?.fullName && (
+              <span style={{ fontSize: 11, color: '#334155', background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '3px 10px', borderRadius: 6, fontFamily: F, display: 'inline-flex', alignItems: 'center' }}>
+                <span style={{ color: '#94A3B8', fontWeight: 600 }}>Assigned: </span>&nbsp;{c.assignedTo.fullName}
+              </span>
+            )}
+            {c.currentStage !== 'CLOSED' && (<>
+              {canAppeal && <button onClick={addAppeal} style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: `1.5px solid ${PURPLE}`, background: '#FAF5FF', color: PURPLE, fontFamily: F, lineHeight: 1 }}>File Appeal</button>}
+              <button onClick={() => setShowStay(true)}  style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: `1.5px solid ${DANGER}`, background: '#FEF2F2', color: DANGER,    fontFamily: F, lineHeight: 1 }}>File Stay</button>
+              <button onClick={() => setShowClose(true)} style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1.5px solid #94A3B8',  background: '#F8FAFC',   color: '#64748B', fontFamily: F, lineHeight: 1 }}>Close Case</button>
+            </>)}
+            {onMarkIncomplete && c.currentStage === 'CLOSED' && (
+              <button onClick={onMarkIncomplete} style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1.5px dashed #D97706', background: '#FFFBEB', color: '#D97706', fontFamily: F, lineHeight: 1 }}>↩ Mark Incomplete</button>
+            )}
+            {onDelete && (
+              <button onClick={onDelete} style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1.5px dashed #DC2626', background: '#FEF2F2', color: '#DC2626', fontFamily: F, lineHeight: 1 }}>🗑 Delete Case</button>
             )}
           </div>
         </div>
-        {c.currentStage==='CLOSED' && c.closedReason && (
-          <div style={{ borderTop: '1px solid #F1F5F9', padding: '7px 18px', background: '#F0FDF4', fontSize: 11, color: '#166534', fontFamily: F }}>
-            Closed: {c.closedReason}
-          </div>
-        )}
       </div>
 
       {/* Stay form */}
@@ -860,7 +878,7 @@ export default function FbrCaseDetail({ case: c, onUpdated, onReload }: { case: 
 
       {canAppeal && !hasAppeal && (
         <div style={{ marginTop: 14, background: '#FAF5FF', border: '2px dashed #C4B5FD', borderRadius: 12, padding: '14px 18px', textAlign: 'center' }}>
-          <div style={{ fontSize: 13, color: PURPLE, fontWeight: 700, marginBottom: 10, fontFamily: F }}>Order Against Client — Appeal can now be filed</div>
+          <div style={{ fontSize: 13, color: PURPLE, fontWeight: 700, marginBottom: 10, fontFamily: F }}>Order Against Client, Appeal can now be filed</div>
           <Btn label="File Appeal with CIR (Appeals) or ATIR" color={PURPLE} onClick={addAppeal} />
         </div>
       )}

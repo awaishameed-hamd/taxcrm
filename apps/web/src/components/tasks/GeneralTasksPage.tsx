@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '@/lib/api'
@@ -50,7 +50,7 @@ function PriorityDot({ priority }: { priority: string }) {
 }
 
 function formatDate(d: string | null | undefined) {
-  if (!d) return '—'
+  if (!d) return ''
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
@@ -416,16 +416,16 @@ export default function GeneralTasksPage({ taxType }: Props) {
                 ['Status',      <StatusBadge key="s" status={selected.status} />],
                 ['Priority',    <span key="p" style={{ fontSize: 12, fontWeight: 700, color: PRIORITY_META[selected.priority]?.color ?? NAVY }}>{PRIORITY_META[selected.priority]?.label ?? selected.priority}</span>],
                 ['Tax Type',    TAX_TYPE_LABELS[selected.taxType] ?? selected.taxType],
-                ['Client',      selected.client ? (selected.client.businessName ?? selected.client.user?.fullName) : '—'],
+                ['Client',      selected.client ? (selected.client.businessName ?? selected.client.user?.fullName) : ''],
                 ['Assigned To', selected.assignedTo?.fullName + (selected.assignedTo?.id === user?.id ? ' (You)' : '')],
                 ['Created By',  selected.createdBy?.fullName],
                 ['Due Date',    isOverdue(selected.dueDate, selected.status)
-                  ? <span key="d" style={{ color: '#D62828', fontWeight: 700 }}>⚠ {formatDate(selected.dueDate)} — Overdue</span>
+                  ? <span key="d" style={{ color: '#D62828', fontWeight: 700 }}>⚠ {formatDate(selected.dueDate)} Overdue</span>
                   : formatDate(selected.dueDate)],
               ].map(([label, value]) => (
                 <div key={label as string} style={{ display: 'flex', gap: 12, paddingBottom: 8, marginBottom: 8, borderBottom: `1px solid ${P.gridLine}` }}>
                   <span style={{ minWidth: 110, fontSize: 12, color: P.textMuted, fontWeight: 600, fontFamily: "'Aptos', sans-serif", textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-                  <span style={{ fontSize: 13, color: NAVY, fontFamily: "'Aptos', sans-serif" }}>{value ?? '—'}</span>
+                  <span style={{ fontSize: 13, color: NAVY, fontFamily: "'Aptos', sans-serif" }}>{value ?? ''}</span>
                 </div>
               ))}
             </div>
@@ -606,7 +606,7 @@ export function TaskFormModal({
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
 
         <div style={{ background: '#7EC8D0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Ethnocentric Rg', sans-serif", fontWeight: 300, fontSize: 17, color: NAVY, letterSpacing: '0.06em' }}>{title}</span>
+          <span style={{ fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY, letterSpacing: '0.06em' }}>{title}</span>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.35)', border: 'none', borderRadius: 7, cursor: 'pointer', color: NAVY, fontSize: 20, lineHeight: 1, fontWeight: 700, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
 
@@ -624,6 +624,7 @@ export function TaskFormModal({
                   { value: 'income_tax', label: 'Income Tax' },
                   { value: 'wht',        label: 'Withholding Tax' },
                   { value: 'notices',    label: 'Notices & Appeals' },
+                  { value: 'general',    label: 'General Task' },
                 ]}
                 placeholder="Select task type…"
                 borderColor={!form.taxType ? '#F5A623' : '#E0DDD5'}
@@ -792,7 +793,7 @@ export function TaskFormModal({
             <SearchableSelect
               value={form.clientId}
               onChange={val => setForm((f: any) => ({ ...f, clientId: val }))}
-              options={clients.map(c => ({ value: c.id, label: c.businessName || c.user?.fullName || '—' }))}
+              options={clients.map(c => ({ value: c.id, label: c.businessName || c.user?.fullName || '' }))}
               placeholder="Search client…"
               loading={clientsLoading}
               borderColor={!form.clientId ? '#F5A623' : '#E0DDD5'}
@@ -883,3 +884,4 @@ const selectStyle: React.CSSProperties = {
   backgroundPosition: 'right 10px center',
   backgroundSize: '14px',
 }
+

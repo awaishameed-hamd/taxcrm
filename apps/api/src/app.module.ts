@@ -21,6 +21,7 @@ import { SalesTaxReturnsModule }  from './modules/sales-tax-returns/sales-tax-re
 import { IncomeTaxReturnsModule } from './modules/income-tax-returns/income-tax-returns.module'
 import { FilesModule }            from './modules/files/files.module'
 import { FbrModule }             from './modules/fbr/fbr.module'
+import { LeavesModule }          from './modules/leaves/leaves.module'
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { FbrModule }             from './modules/fbr/fbr.module'
     IncomeTaxReturnsModule,
     FilesModule,
     FbrModule,
+    LeavesModule,
   ],
 })
 export class AppModule {}

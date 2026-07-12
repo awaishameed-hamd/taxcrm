@@ -947,7 +947,7 @@ export default function TaxSummaryPage() {
 
           <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: '0 14px' }}>
-              <h2 style={{ margin: 0, fontFamily: "'Ethnocentric Rg', sans-serif", fontWeight: 300, fontSize: 16, color: NAVY }}>
+              <h2 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 20, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>
                 Tax Summary
               </h2>
               <button
@@ -1049,7 +1049,7 @@ export default function TaxSummaryPage() {
 
               {/* Client header */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 300, color: NAVY, fontFamily: "'Ethnocentric Rg', sans-serif", letterSpacing: '0.04em', flex: 1 }}>
+                <h2 style={{ margin: 0, fontSize: 22, color: NAVY, fontFamily: "'Angelos', sans-serif", display: 'inline-block', transform: 'skewX(12deg)', letterSpacing: '0.04em', flex: 1 }}>
                   {displayName(selected)}
                 </h2>
                 <button onClick={() => setSelected(null)}
@@ -1241,7 +1241,7 @@ export default function TaxSummaryPage() {
                         <span style={{ fontSize:12, fontWeight:700, color:'rgba(255,255,255,0.85)', fontFamily:'"Aptos",sans-serif', whiteSpace:'nowrap', paddingLeft:4 }}>Year:</span>
                         <input type="number" value={itFromYear} onChange={e => setItFromYear(e.target.value)} placeholder="From"
                           style={{ padding:'3px 8px', borderRadius:6, border:'1px solid rgba(255,255,255,0.4)', background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, fontFamily:'"Aptos",sans-serif', outline:'none', width:72, colorScheme:'dark' }} />
-                        <span style={{ color:'rgba(255,255,255,0.7)', fontSize:11, flexShrink:0 }}>—</span>
+                        <span style={{ color:'rgba(255,255,255,0.7)', fontSize:11, flexShrink:0 }}>to</span>
                         <input type="number" value={itToYear} onChange={e => setItToYear(e.target.value)} placeholder="To"
                           style={{ padding:'3px 8px', borderRadius:6, border:'1px solid rgba(255,255,255,0.4)', background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, fontFamily:'"Aptos",sans-serif', outline:'none', width:72, colorScheme:'dark' }} />
 
@@ -1409,3 +1409,4 @@ const tdStyle: React.CSSProperties = {
   borderRight: '1px solid #E2E8F0', color: '#1E293B',
   whiteSpace: 'nowrap', fontFamily: "'Aptos', sans-serif", fontSize: 12,
 }
+

@@ -2,8 +2,8 @@ import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validato
 import { Role } from '@ca-firm/shared'
 
 export class CreateUserDto {
-  @IsString()
-  fullName: string
+  @IsOptional() @IsString()
+  fullName?: string
 
   @IsEmail()
   email: string

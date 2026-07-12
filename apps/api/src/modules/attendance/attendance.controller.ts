@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, Query,
+  Controller, Get, Post, Patch, Put, Body, Param, Query,
   UseGuards, ParseIntPipe, DefaultValuePipe,
 } from '@nestjs/common'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
@@ -31,11 +31,13 @@ export class AttendanceController {
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
   getReport(
     @CurrentUser() user: any,
-    @Query('month',  new DefaultValuePipe(new Date().getMonth() + 1), ParseIntPipe) month: number,
-    @Query('year',   new DefaultValuePipe(new Date().getFullYear()),  ParseIntPipe) year:  number,
+    @Query('mode')   mode?: string,
+    @Query('month',  new DefaultValuePipe(new Date().getMonth() + 1), ParseIntPipe) month: number = 0,
+    @Query('year',   new DefaultValuePipe(new Date().getFullYear()),  ParseIntPipe) year:  number = 0,
     @Query('userId') userId?: string,
   ) {
-    return this.svc.getReport(month, year, user.role, userId)
+    const all = mode === 'all'
+    return this.svc.getReport(all ? null : month, all ? null : year, user.role, userId)
   }
 
   // ── Daily snapshot ─────────────────────────────────────────────────────────
@@ -47,6 +49,22 @@ export class AttendanceController {
   ) {
     const d = date ?? new Date().toISOString().split('T')[0]
     return this.svc.getDailyAttendance(d, user.role)
+  }
+
+  // ── Opening balance ────────────────────────────────────────────────────────
+  @Get('opening')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  getOpeningBalances() {
+    return this.svc.getOpeningBalances()
+  }
+
+  @Put('opening/:userId')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
+  upsertOpeningBalance(
+    @Param('userId') userId: string,
+    @Body() body: { presents: number; late: number; absents: number; leaves: number; workingDays: number },
+  ) {
+    return this.svc.upsertOpeningBalance(userId, body)
   }
 
   // ── Applicability settings ─────────────────────────────────────────────────

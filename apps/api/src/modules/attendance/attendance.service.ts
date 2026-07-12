@@ -285,17 +285,19 @@ export class AttendanceService {
 
   // ── Attendance report (all users, manager/partner) ──────────────────────────
 
-  async getReport(month: number, year: number, actorRole: Role, targetUserId?: string) {
-    const startDate = new Date(`${year}-${String(month).padStart(2,'0')}-01T00:00:00Z`)
-    const endDate   = new Date(year, month, 1)
-
-    const where: any = { date: { gte: startDate, lt: endDate }, user: { attendanceApplicable: true } }
+  async getReport(month: number | null, year: number | null, actorRole: Role, targetUserId?: string) {
+    const where: any = { user: { attendanceApplicable: true } }
+    if (month && year) {
+      const startDate = new Date(`${year}-${String(month).padStart(2,'0')}-01T00:00:00Z`)
+      const endDate   = new Date(year, month, 1)
+      where.date = { gte: startDate, lt: endDate }
+    }
     if (targetUserId) where.userId = targetUserId
 
     const records = await this.prisma.attendance.findMany({
       where,
       include: {
-        user: { select: { id: true, fullName: true, role: true } },
+        user: { select: { id: true, fullName: true, role: true, isActive: true } },
       },
       orderBy: [{ date: 'asc' }, { user: { fullName: 'asc' } }],
     })
@@ -305,6 +307,7 @@ export class AttendanceService {
       userId:      r.userId,
       userName:    r.user.fullName,
       userRole:    r.user.role,
+      isActive:    r.user.isActive,
       date:        r.date.toISOString().split('T')[0],
       loginTime:   r.loginTime
         ? new Date(r.loginTime).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false })
@@ -315,6 +318,22 @@ export class AttendanceService {
       approvalStatus: r.approvalStatus,
       notes:       r.notes,
     }))
+  }
+
+  // ── Opening balance (historical data before system go-live) ─────────────────
+
+  async getOpeningBalances() {
+    return this.prisma.attendanceOpening.findMany({
+      select: { userId: true, presents: true, late: true, absents: true, leaves: true, workingDays: true },
+    })
+  }
+
+  async upsertOpeningBalance(userId: string, dto: { presents: number; late: number; absents: number; leaves: number; workingDays: number }) {
+    return this.prisma.attendanceOpening.upsert({
+      where:  { userId },
+      create: { userId, ...dto },
+      update: { ...dto },
+    })
   }
 
   // ── Daily attendance (snapshot of who's in today) ───────────────────────────

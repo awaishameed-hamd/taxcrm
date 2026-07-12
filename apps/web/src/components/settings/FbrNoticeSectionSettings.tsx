@@ -100,7 +100,7 @@ export default function FbrNoticeSectionSettings() {
 
       {/* Add new section */}
       <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${BORDER}`, padding: '16px 18px', marginBottom: 20 }}>
-        <label style={labelStyle}>Add Notice Section — {activeTab.label}</label>
+        <label style={labelStyle}>Add Notice Section: {activeTab.label}</label>
         <div style={{ display: 'flex', gap: 10 }}>
           <input
             value={newSection}
@@ -120,7 +120,7 @@ export default function FbrNoticeSectionSettings() {
       <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${BORDER}`, background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: NAVY, fontFamily: "'Aptos', sans-serif", textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-            {activeTab.label} — Notice Sections
+            {activeTab.label} Notice Sections
           </span>
           <span style={{ fontSize: 12, color: '#94A3B8', fontFamily: "'Aptos', sans-serif" }}>
             {sections.length} section{sections.length !== 1 ? 's' : ''}

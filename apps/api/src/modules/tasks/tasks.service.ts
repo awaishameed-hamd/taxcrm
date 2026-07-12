@@ -14,6 +14,7 @@ export class TasksService {
     client:      { select: { id: true, businessName: true, user: { select: { id: true, fullName: true, userCode: true } } } },
     createdBy:   { select: { id: true, fullName: true, role: true, userCode: true } },
     assignedTo:  { select: { id: true, fullName: true, role: true, userCode: true } },
+    steps:       { select: { id: true, title: true, isDone: true, order: true, doneAt: true, doneBy: { select: { id: true, fullName: true } } }, orderBy: { order: 'asc' as const } },
   }
 
   // ── List tasks ────────────────────────────────────────────────────────────────
@@ -145,6 +146,43 @@ export class TasksService {
       select: { id: true, fullName: true, role: true, userCode: true },
       orderBy: { fullName: 'asc' },
     })
+  }
+
+  // ── Task Steps ────────────────────────────────────────────────────────────────
+  async addStep(taskId: string, title: string) {
+    const last = await this.prisma.taskStep.findFirst({ where: { taskId }, orderBy: { order: 'desc' }, select: { order: true } })
+    const step = await this.prisma.taskStep.create({
+      data: { taskId, title, order: (last?.order ?? 0) + 1 },
+      select: { id: true, title: true, isDone: true, order: true, doneAt: true, doneBy: { select: { id: true, fullName: true } } },
+    })
+    return step
+  }
+
+  async toggleStep(taskId: string, stepId: string, userId: string) {
+    const step = await this.prisma.taskStep.findFirst({ where: { id: stepId, taskId } })
+    if (!step) throw new NotFoundException('Step not found')
+    const isDone = !step.isDone
+    const updated = await this.prisma.taskStep.update({
+      where: { id: stepId },
+      data: { isDone, doneAt: isDone ? new Date() : null, doneById: isDone ? userId : null },
+      select: { id: true, title: true, isDone: true, order: true, doneAt: true, doneBy: { select: { id: true, fullName: true } } },
+    })
+    // Auto-complete task when all steps done
+    const total = await this.prisma.taskStep.count({ where: { taskId } })
+    const done  = await this.prisma.taskStep.count({ where: { taskId, isDone: true } })
+    if (total > 0 && done === total) {
+      await this.prisma.task.update({ where: { id: taskId }, data: { status: 'DONE' as any } })
+    } else if (isDone === false) {
+      await this.prisma.task.update({ where: { id: taskId }, data: { status: 'IN_PROGRESS' as any } })
+    }
+    return this.prisma.task.findUnique({ where: { id: taskId }, select: this.taskSelect })
+  }
+
+  async deleteStep(taskId: string, stepId: string) {
+    const step = await this.prisma.taskStep.findFirst({ where: { id: stepId, taskId } })
+    if (!step) throw new NotFoundException('Step not found')
+    await this.prisma.taskStep.delete({ where: { id: stepId } })
+    return this.prisma.task.findUnique({ where: { id: taskId }, select: this.taskSelect })
   }
 
   // ── Client dropdown ───────────────────────────────────────────────────────────

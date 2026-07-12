@@ -43,10 +43,13 @@ function calcRemainingArticles(dateOfJoining: string, articlesType: string): str
   // months = full months from next month's 1st to end's month
   const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1)
   const months = (end.getFullYear() - nextMonthStart.getFullYear()) * 12 + (end.getMonth() - nextMonthStart.getMonth())
-  const parts = []
-  if (months > 0) parts.push(`${months} month${months !== 1 ? 's' : ''}`)
+  const years  = Math.floor(months / 12)
+  const remMon = months % 12
+  const parts  = []
+  if (years  > 0) parts.push(`${years} year${years !== 1 ? 's' : ''}`)
+  if (remMon > 0) parts.push(`${remMon} month${remMon !== 1 ? 's' : ''}`)
   if (days   > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`)
-  return parts.length ? parts.join(' & ') + ' remaining' : 'Articles ending today'
+  return parts.length ? parts.join(', ') : 'Articles ending today'
 }
 
 function formatCNIC(raw: string) {
@@ -90,9 +93,9 @@ function FieldWrapper({ label, required, error, children }: {
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div style={{ padding: '6px 20px', borderBottom: '1px solid #E2E8F0', background: '#F1F5F9' }}>
-        <h3 style={{ margin: 0, fontSize: 12, fontWeight: 800, color: '#1E293B', fontFamily: "'Aptos', sans-serif", letterSpacing: '0.04em' }}>{title}</h3>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm" style={{ overflow: 'visible' }}>
+      <div className="px-5 py-2.5 border-b border-gray-200" style={{ background: 'linear-gradient(90deg, #E4E9F0, #EDF0F5)', borderRadius: '12px 12px 0 0' }}>
+        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>{title}</h3>
       </div>
       <div className="px-5 py-3">{children}</div>
     </div>
@@ -145,6 +148,7 @@ function DynamicField({ field, value, onChange, disabled, error }: {
           value={value}
           onChange={v => onChange(field.fieldKey, v)}
           placeholder="Select…"
+          disabled={disabled}
           options={[{ value: '', label: 'Select…' }, ...(field.options ?? []).map((o: string) => ({ value: o, label: o }))]}
         />
       )
@@ -200,7 +204,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     api.get('/crm/form-fields/public', { params: { form_type: 'user' } })
-      .then(res => setFieldConfigs(res.data?.data ?? res.data ?? []))
+      .then(res => {
+        const fields: FieldConfig[] = res.data?.data ?? res.data ?? []
+        setFieldConfigs(fields.map(f =>
+          f.fieldKey === 'dateOfJoining' ? { ...f, label: 'CA Articles Start Date' } : f
+        ))
+      })
       .catch(() => {})
   }, [])
 
@@ -359,35 +368,40 @@ export default function ProfilePage() {
       )
     }
 
-    const remaining = sectionName === 'Personal Information'
+    const empType   = extraFields['employmentType'] ?? String(form['employmentType'] ?? '')
+    const isCaTrainee = empType === 'CA Trainee'
+
+    const remaining = sectionName === 'Personal Information' && isCaTrainee
       ? calcRemainingArticles(
           getValue('dateOfJoining'),
           extraFields['articlesType'] ?? String(form['articlesType'] ?? ''),
         )
       : ''
 
+    const CA_TRAINEE_ONLY = new Set(['articlesType', 'dateOfJoining'])
+    const visibleFields = sectionName === 'Personal Information'
+      ? sectionFields.filter(f => isCaTrainee || !CA_TRAINEE_ONLY.has(f.fieldKey))
+      : sectionFields
+
     return (
       <SectionCard key={sectionName} title={sectionName}>
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
-          {sectionFields.map(field => (
+          {visibleFields.map(field => (
             <DynamicField key={field.fieldKey} field={field} value={getValue(field.fieldKey)}
               onChange={handleFieldChange}
               disabled={disabled || PROFILE_READONLY_KEYS.has(field.fieldKey)}
               error={err(field.fieldKey)} />
           ))}
-          {/* Computed: Remaining Articles Time — always last in Personal Information */}
-          {sectionName === 'Personal Information' && (
+          {/* Computed: Remaining Articles Time — only for CA Trainees */}
+          {sectionName === 'Personal Information' && isCaTrainee && (
             <div style={{ gridColumn: 'span 2' }}>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
                 Remaining Articles Time
               </label>
-              <input
-                readOnly
-                disabled
-                value={remaining || ''}
-                placeholder="Set joining date & articles type"
-                className={inputCls}
-              />
+              <div className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-gray-500"
+                style={{ fontSize: 13, lineHeight: '1.4', wordBreak: 'break-word' }}>
+                {remaining || <span className="text-gray-400">Set CA Articles Start Date &amp; Articles Type</span>}
+              </div>
             </div>
           )}
         </div>
@@ -417,7 +431,7 @@ export default function ProfilePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 style={{ margin: 0, fontFamily: "'Ethnocentric Rg', sans-serif", fontWeight: 300, fontSize: 18, color: NAVY }}>
+          <h1 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>
             My Profile
           </h1>
         </div>
@@ -512,3 +526,4 @@ export default function ProfilePage() {
     </div>
   )
 }
+
