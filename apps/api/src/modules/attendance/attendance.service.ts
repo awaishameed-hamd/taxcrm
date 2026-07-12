@@ -154,7 +154,7 @@ export class AttendanceService {
     const workingDay = await this.prisma.workingDay.findUnique({ where: { date: today } })
     const dayOfWeek  = today.getDay()
     const resolvedType = workingDay?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
-    if (resolvedType !== DayType.WORKING_DAY) return null
+    if (resolvedType !== DayType.WORKING_DAY) return { isWeekendSkip: true } as const
 
     // attendance_from = earliest time a mark is allowed (global setting)
     const attendanceFrom    = settings.reporting_time

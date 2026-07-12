@@ -68,11 +68,6 @@ export default function LoginPage() {
   const [weekendPrompt,  setWeekendPrompt]  = useState(false)
   const [weekendLoading, setWeekendLoading] = useState(false)
 
-  const isWeekendToday = () => {
-    const d = new Date().getDay()
-    return d === 0 || d === 6
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -87,7 +82,7 @@ export default function LoginPage() {
       if (result?.attendance) {
         setAttPopup(result.attendance)
         setPendingNav(dest)
-      } else if (isWeekendToday() && user?.role !== Role.CLIENT) {
+      } else if (result?.weekendPrompt) {
         setWeekendPrompt(true)
         setPendingNav(dest)
       } else {

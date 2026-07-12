@@ -49,6 +49,7 @@ export class AuthService {
       attendanceInfo = await this.attendance.autoMarkOnLogin(user.id, user.role)
     } catch { /* ignore attendance errors */ }
 
+    const isWeekendSkip = !!(attendanceInfo && 'isWeekendSkip' in attendanceInfo)
     return {
       accessToken:  tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -60,7 +61,8 @@ export class AuthService {
         role:     user.role,
         avatar:   user.avatar,
       },
-      attendance: attendanceInfo,  // null if not marked (already marked, weekend, etc.)
+      attendance:    isWeekendSkip ? null : attendanceInfo,
+      weekendPrompt: isWeekendSkip,
     }
   }
 

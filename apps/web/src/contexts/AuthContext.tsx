@@ -21,10 +21,11 @@ interface AuthState {
 }
 
 interface LoginResponse {
-  accessToken:  string
-  refreshToken: string
-  user:         User
-  attendance:   { date: string; loginTime: string; isLate: boolean; lateMinutes: number | null; status: string } | null
+  accessToken:   string
+  refreshToken:  string
+  user:          User
+  attendance:    { date: string; loginTime: string; isLate: boolean; lateMinutes: number | null; status: string } | null
+  weekendPrompt: boolean
 }
 
 interface AuthContextValue extends AuthState {
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (identifier: string, password: string): Promise<LoginResponse> => {
     const { data } = await api.post<{ data: LoginResponse }>('/auth/login', { identifier, password })
 
-    const { accessToken, refreshToken, user, attendance } = data.data
+    const { accessToken, refreshToken, user, attendance, weekendPrompt } = data.data
 
     sessionStorage.setItem('access_token',  accessToken)
     sessionStorage.setItem('refresh_token', refreshToken)
@@ -94,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem('permissions', JSON.stringify(perms))
     setState(s => ({ ...s, permissions: perms }))
 
-    return { accessToken, refreshToken, user, attendance }
+    return { accessToken, refreshToken, user, attendance, weekendPrompt }
   }, [])
 
   const updateUser = useCallback((patch: Partial<User>) => {

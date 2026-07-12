@@ -471,7 +471,7 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
                   {rec?.editedById && (
                     <span style={{ position: 'absolute', top: 7, right: 7, width: 6, height: 6, borderRadius: '50%', background: P.gold }} title="Edited" />
                   )}
-                  {!weekend && inEditWin && rec && (
+                  {inEditWin && rec && (
                     <button onClick={() => openEdit(rec)} style={{ position: 'absolute', bottom: 5, right: 5, display: 'flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: 'rgba(30,132,150,0.12)', color: P.teal, border: `1px solid ${P.teal}55`, cursor: 'pointer', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.04em', lineHeight: 1.4 }}
                       onMouseEnter={e => { e.currentTarget.style.background = P.teal; e.currentTarget.style.color = '#fff' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(30,132,150,0.12)'; e.currentTarget.style.color = P.teal }}>
@@ -481,7 +481,7 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
                       Edit
                     </button>
                   )}
-                  {!weekend && canCreate && dateStr >= sevenDaysAgo && dateStr <= todayStr2 && !rec && (
+                  {canCreate && dateStr >= sevenDaysAgo && dateStr <= todayStr2 && !rec && (
                     <button onClick={() => openCreate(dateStr)} style={{ position: 'absolute', bottom: 5, right: 5, display: 'flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: 'rgba(242,172,24,0.12)', color: '#b45309', border: '1px solid rgba(242,172,24,0.4)', cursor: 'pointer', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.04em', lineHeight: 1.4 }}
                       onMouseEnter={e => { e.currentTarget.style.background = '#F2AC18'; e.currentTarget.style.color = '#fff' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(242,172,24,0.12)'; e.currentTarget.style.color = '#b45309' }}>
