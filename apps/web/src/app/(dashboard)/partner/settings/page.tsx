@@ -22,7 +22,7 @@ export default function SettingsPage() {
   return (
     <div style={{ padding: '0 20px 20px', minHeight: '100vh', background: '#EDF0F3' }}>
       <div style={{ height: 52, display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: 20, color: NAVY, letterSpacing: '0.06em' }}>
+        <h1 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>
           Settings
         </h1>
       </div>
