@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Role } from '@ca-firm/shared'
 import { useAuth } from '@/contexts/AuthContext'
+import { api } from '@/lib/api'
 
 function getRoleHome(role: Role): string {
   switch (role) {
@@ -62,8 +63,15 @@ export default function LoginPage() {
   const [error,      setError]      = useState('')
   const [loading,    setLoading]    = useState(false)
 
-  const [attPopup,   setAttPopup]   = useState<AttendanceInfo | null>(null)
-  const [pendingNav, setPendingNav] = useState<string>('')
+  const [attPopup,       setAttPopup]       = useState<AttendanceInfo | null>(null)
+  const [pendingNav,     setPendingNav]     = useState<string>('')
+  const [weekendPrompt,  setWeekendPrompt]  = useState(false)
+  const [weekendLoading, setWeekendLoading] = useState(false)
+
+  const isWeekendToday = () => {
+    const d = new Date().getDay()
+    return d === 0 || d === 6
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,6 +87,9 @@ export default function LoginPage() {
       if (result?.attendance) {
         setAttPopup(result.attendance)
         setPendingNav(dest)
+      } else if (isWeekendToday() && user?.role !== Role.CLIENT) {
+        setWeekendPrompt(true)
+        setPendingNav(dest)
       } else {
         router.replace(dest)
       }
@@ -87,6 +98,127 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleWeekendYes = async () => {
+    setWeekendLoading(true)
+    try {
+      const { data } = await api.post('/attendance/self-checkin')
+      setWeekendPrompt(false)
+      if (data) {
+        setAttPopup(data)
+      } else {
+        router.replace(pendingNav)
+      }
+    } catch {
+      router.replace(pendingNav)
+    } finally {
+      setWeekendLoading(false)
+    }
+  }
+
+  // ── Weekend prompt ────────────────────────────────────────────────────────
+  if (weekendPrompt) {
+    const dayName = new Date().getDay() === 6 ? 'Saturday' : 'Sunday'
+    return (
+      <div
+        className="login-bg"
+        style={{
+          fontFamily: "'Inter', sans-serif",
+          background: 'radial-gradient(1200px 700px at 20% 10%, #f3f6f8 0%, transparent 60%), radial-gradient(900px 600px at 90% 90%, #d9e0e4 0%, transparent 55%), linear-gradient(135deg, #eef1f3 0%, #dde3e7 50%, #cdd5da 100%)',
+          minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '32px 16px', position: 'relative', overflow: 'hidden',
+        }}
+      >
+        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(40px)', opacity: .55, zIndex: 0, width: 340, height: 340, background: 'radial-gradient(circle, #ffffff 0%, rgba(255,255,255,0) 70%)', top: -80, left: -80, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(40px)', opacity: .55, zIndex: 0, width: 420, height: 420, background: 'radial-gradient(circle, #c2ccd2 0%, rgba(194,204,210,0) 70%)', bottom: -120, right: -100, pointerEvents: 'none' }} />
+
+        <div style={{
+          position: 'relative', zIndex: 2,
+          width: '100%', maxWidth: 420,
+          background: 'linear-gradient(180deg, rgba(255,255,255,.90), rgba(255,255,255,.75))',
+          backdropFilter: 'blur(20px) saturate(1.1)',
+          border: '1px solid rgba(255,255,255,.7)',
+          borderRadius: 22,
+          padding: '44px 38px',
+          boxShadow: '0 30px 60px -20px rgba(74,90,99,.35), 0 18px 36px -18px rgba(74,90,99,.25)',
+          textAlign: 'center',
+        }}>
+          {/* Weekend icon */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'linear-gradient(180deg, #5d6f78 0%, #4a5a63 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 8px 20px -4px rgba(74,90,99,0.45)',
+            }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28 }}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </div>
+          </div>
+
+          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.45rem', fontWeight: 700, color: '#4a5a63', margin: '0 0 8px', letterSpacing: '-0.01em' }}>
+            It&apos;s a {dayName}!
+          </h2>
+          <p style={{ color: '#8a9aa2', fontSize: '0.88rem', margin: '0 0 32px', lineHeight: 1.6 }}>
+            Did you come to the office today?<br />
+            Select an option to continue.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <button
+              onClick={handleWeekendYes}
+              disabled={weekendLoading}
+              className="lbtn"
+              style={{
+                width: '100%', padding: '14px 0', border: 0, borderRadius: 12,
+                background: 'linear-gradient(180deg, #5d6f78 0%, #4a5a63 100%)',
+                color: '#fff', fontFamily: "'Outfit', sans-serif",
+                fontSize: 15, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase',
+                cursor: weekendLoading ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                boxShadow: '0 8px 20px -8px rgba(74,90,99,.55), inset 0 1px 0 rgba(255,255,255,.18)',
+                opacity: weekendLoading ? 0.7 : 1,
+              }}>
+              {weekendLoading ? (
+                <>
+                  <svg style={{ width: 16, height: 16 }} viewBox="0 0 24 24" fill="none" className="animate-spin">
+                    <circle style={{ opacity: .25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path style={{ opacity: .75 }} fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
+                  </svg>
+                  Marking...
+                </>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Yes, Mark My Attendance
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => router.replace(pendingNav)}
+              disabled={weekendLoading}
+              style={{
+                width: '100%', padding: '13px 0', border: '1.5px solid rgba(93,111,120,0.3)', borderRadius: 12,
+                background: 'transparent',
+                color: '#5d6f78', fontFamily: "'Outfit', sans-serif",
+                fontSize: 15, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase',
+                cursor: weekendLoading ? 'not-allowed' : 'pointer',
+                opacity: weekendLoading ? 0.5 : 1,
+              }}>
+              No, Just Checking
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // ── Attendance popup ──────────────────────────────────────────────────────

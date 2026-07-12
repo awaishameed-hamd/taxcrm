@@ -15,6 +15,13 @@ import { Role } from '@ca-firm/shared'
 export class AttendanceController {
   constructor(private readonly svc: AttendanceService) {}
 
+  // ── Weekend voluntary self-checkin ────────────────────────────────────────
+  @Post('self-checkin')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
+  selfCheckin(@CurrentUser() user: any) {
+    return this.svc.selfCheckin(user.id, user.role)
+  }
+
   // ── My attendance (all roles except CLIENT) ────────────────────────────────
   @Get('my')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)

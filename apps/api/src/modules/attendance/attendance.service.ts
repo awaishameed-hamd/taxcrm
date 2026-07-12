@@ -192,6 +192,68 @@ export class AttendanceService {
     }
   }
 
+  // ── Weekend voluntary self-checkin ─────────────────────────────────────────
+  async selfCheckin(userId: string, userRole: Role) {
+    if (userRole === Role.CLIENT) return null
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { attendanceApplicable: true } })
+    if (!user?.attendanceApplicable) return null
+
+    const settings = await this.getSettings()
+    const tz                   = settings.timezone
+    const { dateStr, timeStr } = this.getDateInTimezone(tz)
+    const cutoff               = settings.cutoff_time
+
+    if (this.minutesDiff(timeStr, cutoff) > 0) return null
+
+    const today = new Date(dateStr + 'T00:00:00Z')
+
+    const existing = await this.prisma.attendance.findUnique({
+      where: { userId_date: { userId, date: today } },
+    })
+    if (existing) {
+      const lt = existing.loginTime
+        ? `${String(existing.loginTime.getUTCHours()).padStart(2,'0')}:${String(existing.loginTime.getUTCMinutes()).padStart(2,'0')}`
+        : timeStr
+      return {
+        date:        dateStr,
+        loginTime:   lt,
+        isLate:      existing.isLate ?? false,
+        lateMinutes: existing.lateMinutes,
+        status:      existing.status,
+      }
+    }
+
+    const workingDay        = await this.prisma.workingDay.findUnique({ where: { date: today } })
+    const officialLoginTime = workingDay?.reportingTimeOverride ?? settings.login_time ?? '10:00'
+    const graceMins         = parseInt(settings.grace_period_minutes, 10) || 15
+
+    const diffFromLoginTime = this.minutesDiff(timeStr, officialLoginTime)
+    const isLate            = diffFromLoginTime > graceMins
+    const lateMinutes       = isLate ? diffFromLoginTime - graceMins : null
+
+    const attendance = await this.prisma.attendance.create({
+      data: {
+        userId,
+        workingDayId: workingDay?.id ?? undefined,
+        date:         today,
+        loginTime:    new Date(),
+        status:       isLate ? AttendanceStatus.LATE : AttendanceStatus.PRESENT,
+        isLate,
+        lateMinutes,
+        approvalStatus: 'pending',
+      },
+    })
+
+    return {
+      date:        dateStr,
+      loginTime:   timeStr,
+      isLate,
+      lateMinutes,
+      status:      attendance.status,
+    }
+  }
+
   // ── My attendance (calendar + summary) ─────────────────────────────────────
 
   async getMyAttendance(userId: string, month: number, year: number) {
