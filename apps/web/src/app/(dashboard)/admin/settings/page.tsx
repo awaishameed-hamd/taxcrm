@@ -64,7 +64,7 @@ export default function SettingsPage() {
     ? 'Tax Return Settings'
     : isAttTab
       ? 'Attendance Settings'
-      : (TOP_TABS.find(t => t.key === activeTab)?.label ?? activeTab === 'fbr-notice-sections' ? 'FBR Notice Sections' : '')
+      : (TOP_TABS.find(t => t.key === activeTab)?.label ?? '')
 
   const selectTop = (key: string) => {
     setActiveTab(key)
@@ -130,7 +130,7 @@ export default function SettingsPage() {
 
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 52, borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
-            <span style={{ fontFamily: "'Ethnocentric Rg', sans-serif", fontWeight: 300, fontSize: 18, color: NAVY, whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: 20, color: NAVY, whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
               Settings
             </span>
             <button onClick={() => setCollapsed(true)}
@@ -275,7 +275,7 @@ export default function SettingsPage() {
       {/* ── Main content ── */}
       <div style={{ flex: 1, padding: '0 20px 20px', overflowY: 'auto' }}>
         <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <h1 style={{ margin: 0, fontFamily: "'Ethnocentric Rg', sans-serif", fontWeight: 300, fontSize: 18, color: NAVY }}>
+          <h1 style={{ margin: 0, fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: 20, color: NAVY, letterSpacing: '0.06em' }}>
             {activeLabel}
           </h1>
           {(activeTaxSub || activeAttSub) && (
