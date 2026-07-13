@@ -4,18 +4,24 @@ import { Resend } from 'resend'
 
 @Injectable()
 export class EmailService {
-  private resend: Resend
+  private resend: Resend | null
   private from: string
   private logger = new Logger(EmailService.name)
 
   constructor(private config: ConfigService) {
-    this.resend = new Resend(this.config.get('resend.apiKey'))
+    const apiKey = this.config.get<string>('resend.apiKey')
+    this.resend = apiKey ? new Resend(apiKey) : null
+    if (!this.resend) this.logger.warn('RESEND_API_KEY not set — email sending is disabled')
     const name  = this.config.get('resend.fromName')  ?? 'CA Firm CRM'
     const email = this.config.get('resend.fromEmail') ?? 'noreply@cafirm.com'
     this.from   = `${name} <${email}>`
   }
 
   async sendPortalInvite(to: string, fullName: string, inviteUrl: string) {
+    if (!this.resend) {
+      this.logger.warn(`Skipped portal invite to ${to} — email is not configured`)
+      return
+    }
     try {
       await this.resend.emails.send({
         from:    this.from,

@@ -14,11 +14,12 @@ module.exports = {
       },
     },
     {
-      name:   'ca-firm-web',
-      cwd:    './apps/web',
-      script: 'node_modules/.bin/next',
-      args:   'start -p 3000',
-      watch:  false,
+      name:        'ca-firm-web',
+      cwd:         './apps/web',
+      script:      'node_modules/.bin/next',
+      args:        'start -p 3000',
+      interpreter: 'none',
+      watch:       false,
       env: {
         NODE_ENV: 'production',
       },
