@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -176,18 +177,19 @@ export default function FilesPage() {
       .finally(() => setCLoading(false))
   }, [])
 
-  const loadFolders = useCallback(async () => {
+  const loadFolders = useCallback(async (silent = false) => {
     if (!selected) return
-    setFLoading(true); setOpenMonth(null); setOpenFolder(null)
+    if (!silent) { setFLoading(true); setOpenMonth(null); setOpenFolder(null) }
     try {
       const r = await api.get('/files', { params: { clientId: selected.id, taxType: activeTax } })
       const d = r.data?.data ?? r.data ?? []
       setFolders(Array.isArray(d) ? d : [])
-    } catch { setFolders([]) }
-    finally { setFLoading(false) }
+    } catch { if (!silent) setFolders([]) }
+    finally { if (!silent) setFLoading(false) }
   }, [selected, activeTax])
 
   useEffect(() => { loadFolders() }, [loadFolders])
+  useAutoRefresh(() => loadFolders(true))
 
   const displayName = (c: Client) => c.businessName || c.user?.fullName || c.user?.userCode || 'Client'
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const labelCls     = 'block text-xs font-bold uppercase tracking-widest mb-1'
 const inputCls     = 'rounded-lg px-3 py-1.5 text-sm outline-none transition'
@@ -107,8 +108,8 @@ export default function AttendanceApprovalPage() {
   const [leaveReason,  setLeaveReason]  = useState('')
   const [leaveActing,  setLeaveActing]  = useState(false)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const d    = new Date(date)
       const month = d.getUTCMonth() + 1
@@ -117,20 +118,25 @@ export default function AttendanceApprovalPage() {
       const all: any[] = data.data ?? []
       // filter to selected date only
       setRecords(all.filter(r => r.date === date))
-    } catch { /* ignore */ } finally { setLoading(false) }
+    } catch { /* ignore */ } finally { if (!silent) setLoading(false) }
   }, [date])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const fetchLeaves = useCallback(async () => {
-    setLeaveLoading(true)
+  const fetchLeaves = useCallback(async (silent = false) => {
+    if (!silent) setLeaveLoading(true)
     try {
       const { data } = await api.get('/leaves/all')
       setLeaveRecords(data.data ?? [])
-    } catch { /* ignore */ } finally { setLeaveLoading(false) }
+    } catch { /* ignore */ } finally { if (!silent) setLeaveLoading(false) }
   }, [])
 
   useEffect(() => { if (moduleTab === 'leaves') fetchLeaves() }, [moduleTab, fetchLeaves])
+
+  useAutoRefresh(() => {
+    fetchData(true)
+    if (moduleTab === 'leaves') fetchLeaves(true)
+  })
 
   // Client-side filter
   const filtered = useMemo(() => {
@@ -424,7 +430,7 @@ export default function AttendanceApprovalPage() {
               <input type="text" placeholder="Search…" value={leaveSearch} onChange={e => setLeaveSearch(e.target.value)}
                 style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 28, paddingRight: 8, paddingTop: 4, paddingBottom: 4, borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 12, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: '"Aptos", sans-serif' }} />
             </div>
-            <button onClick={fetchLeaves} disabled={leaveLoading}
+            <button onClick={() => fetchLeaves()} disabled={leaveLoading}
               style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '4px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: '"Aptos", sans-serif', background: 'rgba(255,255,255,0.2)', color: '#fff', opacity: leaveLoading ? 0.6 : 1 }}>
               {leaveLoading ? 'Loading…' : 'Refresh'}
             </button>

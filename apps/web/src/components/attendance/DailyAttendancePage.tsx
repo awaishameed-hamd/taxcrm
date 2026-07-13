@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 function todayStr() {
   return new Date().toISOString().split('T')[0]
@@ -114,15 +115,16 @@ export default function DailyAttendancePage() {
   const [data,    setData]    = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const { data: res } = await api.get('/attendance/daily', { params: { date } })
       setData(res.data ?? res)
-    } catch { setData(null) } finally { setLoading(false) }
+    } catch { if (!silent) setData(null) } finally { if (!silent) setLoading(false) }
   }, [date])
 
   useEffect(() => { fetchData() }, [fetchData])
+  useAutoRefresh(() => fetchData(true))
 
   const present: any[] = data?.users?.filter((u: any) => u.status === 'PRESENT' || u.status === 'LATE') ?? []
   const absent:  any[] = data?.users?.filter((u: any) => u.status === 'ABSENT')  ?? []

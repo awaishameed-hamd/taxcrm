@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import api from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const NAVY   = '#132E57'
@@ -204,20 +205,21 @@ export default function DashboardPage({ title }: Props) {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
 
-  const load = useCallback(async () => {
-    setLoading(true); setError('')
+  const load = useCallback(async (silent = false) => {
+    if (!silent) { setLoading(true); setError('') }
     try {
       const params = period === 'overall' ? {} : { period }
       const { data: res } = await api.get('/dashboard/stats', { params })
       setData(res.data)
     } catch {
-      setError('Failed to load dashboard data.')
+      if (!silent) setError('Failed to load dashboard data.')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [period])
 
   useEffect(() => { load() }, [load])
+  useAutoRefresh(() => load(true))
 
   const stats       = data?.stats            ?? {}
   const byStatus    = data?.pipelineByStatus  ?? []

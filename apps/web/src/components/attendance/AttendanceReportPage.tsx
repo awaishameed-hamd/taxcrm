@@ -5,6 +5,7 @@ import type ExcelJS from 'exceljs'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const MODULE_START_YEAR  = 2026
@@ -703,17 +704,17 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
     else if (month > maxM) setMonth(maxM)
   }, [year]) // eslint-disable-line
 
-  const fetchReport = useCallback(async () => {
-    setLoading(true)
-    setSelected(null)
+  const fetchReport = useCallback(async (silent = false) => {
+    if (!silent) { setLoading(true); setSelected(null) }
     try {
       const params: any = viewMode === 'all' ? { mode: 'all' } : { month, year }
       const { data } = await api.get('/attendance/report', { params })
       setRecords(data.data ?? [])
-    } catch { /* ignore */ } finally { setLoading(false) }
+    } catch { /* ignore */ } finally { if (!silent) setLoading(false) }
   }, [viewMode, month, year])
 
   useEffect(() => { fetchReport() }, [fetchReport])
+  useAutoRefresh(() => fetchReport(true))
 
   const summaries = useMemo(() => {
     const all = buildSummaries(records)

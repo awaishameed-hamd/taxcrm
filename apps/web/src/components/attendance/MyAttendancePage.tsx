@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -210,14 +211,15 @@ export default function MyAttendancePage() {
   }, [year]) // eslint-disable-line
 
   useEffect(() => { fetchData() }, [month, year]) // eslint-disable-line
+  useAutoRefresh(() => fetchData(true))
 
-  async function fetchData() {
-    setLoading(true)
+  async function fetchData(silent = false) {
+    if (!silent) setLoading(true)
     try {
       const { data } = await api.get('/attendance/my', { params: { month, year } })
       setCalendar(data.data?.calendar ?? [])
       setSummary(data.data?.summary ?? {})
-    } catch { /* ignore */ } finally { setLoading(false) }
+    } catch { /* ignore */ } finally { if (!silent) setLoading(false) }
   }
 
   const totalDays = new Date(year, month, 0).getDate()

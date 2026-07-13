@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import api from '@/lib/api'
 import FbrCaseDetail from './FbrCaseDetail'
 import StyledSelect from '@/components/ui/StyledSelect'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {
@@ -256,8 +257,8 @@ export default function FbrPage() {
   }, [])
 
   // Load cases
-  const loadCases = () => {
-    setLoadingCases(true)
+  const loadCases = (silent = false) => {
+    if (!silent) setLoadingCases(true)
     const params: any = {}
     if (filterClient) params.clientId = filterClient
     if (filterStage !== 'ALL') params.stage = filterStage
@@ -265,10 +266,11 @@ export default function FbrPage() {
     api.get('/fbr/cases', { params }).then(r => {
       const d = r.data?.data ?? r.data ?? []
       setCases(Array.isArray(d) ? d : [])
-    }).catch(() => {}).finally(() => setLoadingCases(false))
+    }).catch(() => {}).finally(() => { if (!silent) setLoadingCases(false) })
   }
 
   useEffect(() => { loadCases() }, [filterClient, filterStage, filterTax])
+  useAutoRefresh(() => loadCases(true))
 
   // Load case detail
   useEffect(() => {

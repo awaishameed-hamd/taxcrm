@@ -5,6 +5,7 @@ import { useAuth, usePermission } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const NAVY  = '#132E57'
 const TEAL  = '#1E8496'
@@ -1326,13 +1327,15 @@ export default function ClientsListPage() {
     window.addEventListener('mouseup', onUp)
   }, [colWidths])
 
-  const fetchClients = (srch?: string) => {
-    setLoading(true)
+  const fetchClients = (srch?: string, silent = false) => {
+    if (!silent) setLoading(true)
     api.get('/clients', { params: srch ? { search: srch } : {} })
       .then(({ data }) => setClients(data.data ?? data ?? []))
-      .catch(() => setToast({ message: 'Failed to load clients.', type: 'error' }))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!silent) setToast({ message: 'Failed to load clients.', type: 'error' }) })
+      .finally(() => { if (!silent) setLoading(false) })
   }
+
+  useAutoRefresh(() => fetchClients(search || undefined, true))
 
   useEffect(() => {
     fetchClients()

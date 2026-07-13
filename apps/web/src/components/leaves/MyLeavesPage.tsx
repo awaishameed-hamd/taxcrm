@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const LEAVE_TYPE_OPTIONS = [
   { value: 'sick',   label: 'Sick Leave'   },
@@ -40,15 +41,16 @@ export default function MyLeavesPage() {
     reason:    '',
   })
 
-  const fetchLeaves = useCallback(async () => {
-    setLoading(true)
+  const fetchLeaves = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const { data } = await api.get('/leaves/my')
       setLeaves(data.data ?? [])
-    } catch { /* ignore */ } finally { setLoading(false) }
+    } catch { /* ignore */ } finally { if (!silent) setLoading(false) }
   }, [])
 
   useEffect(() => { fetchLeaves() }, [fetchLeaves])
+  useAutoRefresh(() => fetchLeaves(true))
 
   const summary = {
     total:    leaves.length,

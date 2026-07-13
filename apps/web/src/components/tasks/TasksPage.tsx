@@ -1,10 +1,10 @@
 ﻿'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAuth } from '@/contexts/AuthContext'
-import { getSocket } from '@/lib/socket'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import FbrCaseDetail from '../fbr/FbrCaseDetail'
 import StyledSelect from '@/components/ui/StyledSelect'
 
@@ -404,8 +404,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   useEffect(() => { fetchFbrCases()  }, [fetchFbrCases])
 
   // ── Auto-refresh: background poll + instant push on notification ───────────
-  const fetchAllRef = useRef<() => void>(() => {})
-  fetchAllRef.current = () => {
+  useAutoRefresh(() => {
     fetchPipeTasks(true)
     fetchGenTasks(true)
     fetchFbrCases(true)
@@ -413,21 +412,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
       const d = r.data?.data ?? r.data
       setTabCounts(prev => ({ ...prev, sales_tax: d.SALES_TAX ?? 0, income_tax: d.INCOME_TAX ?? 0, wht: d.WHT ?? 0, notices: d.NOTICES ?? 0 }))
     }).catch(() => {})
-  }
-
-  useEffect(() => {
-    const interval = setInterval(() => fetchAllRef.current(), 20000)
-    const socket = getSocket()
-    const onNotification = () => fetchAllRef.current()
-    socket.on('notification', onNotification)
-    const onVisible = () => { if (!document.hidden) fetchAllRef.current() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      clearInterval(interval)
-      socket.off('notification', onNotification)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [])
+  })
 
   const openAssignModal = async () => {
     setAssignModal(true)

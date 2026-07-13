@@ -5,6 +5,7 @@ import { useAuth, usePermission } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import UserProfileModal from './UserProfileModal'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface TeamUser {
@@ -196,8 +197,8 @@ export default function TeamListPage() {
   }, [toast])
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
-  const fetchUsers = useCallback(async () => {
-    setLoading(true)
+  const fetchUsers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const params: any = { status: statusFilter }
       if (roleFilter) params.role   = roleFilter
@@ -210,13 +211,14 @@ export default function TeamListPage() {
       )
       setUsers(filtered)
     } catch {
-      setToast({ msg: 'Failed to load team members.', ok: false })
+      if (!silent) setToast({ msg: 'Failed to load team members.', ok: false })
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [roleFilter, statusFilter, search])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
+  useAutoRefresh(() => fetchUsers(true))
 
   // ── Toggle Active ─────────────────────────────────────────────────────────
   async function handleToggleActive() {

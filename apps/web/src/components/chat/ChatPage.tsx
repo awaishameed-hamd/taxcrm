@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import api, { FILE_BASE_URL } from '@/lib/api'
 import { getSocket } from '@/lib/socket'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 // ── WhatsApp-authentic palette + font — scoped to this page only ─────────────
 const WA = {
@@ -358,19 +359,22 @@ export default function ChatPage() {
   const audioChunksRef   = useRef<Blob[]>([])
   const recordTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const fetchConversations = useCallback((selectAfter?: string) => {
-    setLoadingList(true)
+  const fetchConversations = useCallback((selectAfter?: string, silent = false) => {
+    if (!silent) setLoadingList(true)
     api.get('/chat/conversations')
       .then(({ data }) => {
         const list: Conversation[] = data.data ?? []
         setConversations(list)
-        const target = selectAfter ?? searchParams.get('conversationId')
-        if (target) setSelectedId(target)
+        if (!silent) {
+          const target = selectAfter ?? searchParams.get('conversationId')
+          if (target) setSelectedId(target)
+        }
       })
-      .finally(() => setLoadingList(false))
+      .finally(() => { if (!silent) setLoadingList(false) })
   }, [searchParams]) // eslint-disable-line
 
   useEffect(() => { fetchConversations() }, []) // eslint-disable-line
+  useAutoRefresh(() => fetchConversations(undefined, true))
 
   // Ask once for permission to show desktop notifications for new messages
   useEffect(() => {

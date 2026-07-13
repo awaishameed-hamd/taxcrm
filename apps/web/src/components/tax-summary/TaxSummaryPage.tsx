@@ -5,6 +5,7 @@ import type ExcelJS from 'exceljs'
 import { P } from '@/lib/palette'
 import api from '@/lib/api'
 import StyledSelect from '@/components/ui/StyledSelect'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -562,6 +563,13 @@ export default function TaxSummaryPage() {
       .finally(() => setItRLoading(false))
   }, [selected, activeTax])
 
+  useAutoRefresh(() => {
+    if (!selected || activeTax !== 'income_tax') return
+    api.get('/income-tax-returns', { params: { clientId: selected.id } })
+      .then(r => { const d = r.data?.data ?? r.data; setItReturns(Array.isArray(d) ? d : []) })
+      .catch(() => {})
+  })
+
   const filteredITReturns = useMemo(() => {
     let rows = itReturns
     if (itFromYear) rows = rows.filter(r => r.periodYear >= Number(itFromYear))
@@ -717,6 +725,13 @@ export default function TaxSummaryPage() {
       .catch(() => {})
       .finally(() => setCLoading(false))
   }, [])
+
+  useAutoRefresh(() => {
+    if (!selected || activeTax !== 'sales_tax') return
+    api.get('/sales-tax-returns', { params: { clientId: selected.id } })
+      .then(r => { const d = r.data?.data ?? r.data; setReturns(Array.isArray(d) ? d : []) })
+      .catch(() => {})
+  })
 
   // Fetch all returns for client, filter client-side
   useEffect(() => {
