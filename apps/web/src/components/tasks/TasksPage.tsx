@@ -1,9 +1,10 @@
 ﻿'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAuth } from '@/contexts/AuthContext'
+import { getSocket } from '@/lib/socket'
 import FbrCaseDetail from '../fbr/FbrCaseDetail'
 import StyledSelect from '@/components/ui/StyledSelect'
 
@@ -362,45 +363,71 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   }, [])
 
   // ── Fetch pipeline tasks ────────────────────────────────────────────────────
-  const fetchPipeTasks = useCallback(async () => {
+  const fetchPipeTasks = useCallback(async (silent = false) => {
     if (!isPipelineView) { setPipeTasks([]); return }
-    setPipeLoading(true)
+    if (!silent) setPipeLoading(true)
     try {
       const taskType = TAX_TYPE_MAP[activeTax] ?? 'SALES_TAX'
       const base = (role === 'trainee' || defaultManagerView === 'my') ? '/sales-tax-tasks/my' : incompleteOnly ? '/sales-tax-tasks/approvals?all=true' : '/sales-tax-tasks/approvals'
       const sep = base.includes('?') ? '&' : '?'
       const { data } = await api.get(`${base}${sep}taskType=${taskType}`)
       setPipeTasks(Array.isArray(data) ? data : data.data ?? [])
-    } catch (e: any) { console.error('[fetchPipeTasks] error:', e?.response?.status, e?.response?.data ?? e?.message); setPipeTasks([]) }
-    finally { setPipeLoading(false) }
+    } catch (e: any) { if (!silent) { console.error('[fetchPipeTasks] error:', e?.response?.status, e?.response?.data ?? e?.message); setPipeTasks([]) } }
+    finally { if (!silent) setPipeLoading(false) }
   }, [isPipelineView, role, incompleteOnly, activeTax, defaultManagerView])
 
   // ── Fetch general tasks ─────────────────────────────────────────────────────
-  const fetchGenTasks = useCallback(async () => {
-    setGenLoading(true)
+  const fetchGenTasks = useCallback(async (silent = false) => {
+    if (!silent) setGenLoading(true)
     try {
       const { data } = await api.get('/tasks', { params: { taxType: 'general' } })
       const all = Array.isArray(data) ? data : data.data ?? []
       setGenTasks(all)
       setTabCounts(prev => ({ ...prev, general: all.filter((t:any) => t.status !== 'DONE').length }))
-    } catch { setGenTasks([]) }
-    finally { setGenLoading(false) }
+    } catch { if (!silent) setGenTasks([]) }
+    finally { if (!silent) setGenLoading(false) }
   }, [])
 
   // ── Fetch FBR cases (Notices & Appeals tab) ─────────────────────────────────
-  const fetchFbrCases = useCallback(async () => {
+  const fetchFbrCases = useCallback(async (silent = false) => {
     if (!isFbrView) { setFbrCases([]); return }
-    setFbrLoading(true)
+    if (!silent) setFbrLoading(true)
     try {
       const { data } = await api.get('/fbr/cases')
       setFbrCases(Array.isArray(data) ? data : data.data ?? [])
-    } catch { setFbrCases([]) }
-    finally { setFbrLoading(false) }
+    } catch { if (!silent) setFbrCases([]) }
+    finally { if (!silent) setFbrLoading(false) }
   }, [isFbrView])
 
   useEffect(() => { fetchPipeTasks() }, [fetchPipeTasks])
   useEffect(() => { fetchGenTasks()  }, [fetchGenTasks])
   useEffect(() => { fetchFbrCases()  }, [fetchFbrCases])
+
+  // ── Auto-refresh: background poll + instant push on notification ───────────
+  const fetchAllRef = useRef<() => void>(() => {})
+  fetchAllRef.current = () => {
+    fetchPipeTasks(true)
+    fetchGenTasks(true)
+    fetchFbrCases(true)
+    api.get('/sales-tax-tasks/summary-counts').then(r => {
+      const d = r.data?.data ?? r.data
+      setTabCounts(prev => ({ ...prev, sales_tax: d.SALES_TAX ?? 0, income_tax: d.INCOME_TAX ?? 0, wht: d.WHT ?? 0, notices: d.NOTICES ?? 0 }))
+    }).catch(() => {})
+  }
+
+  useEffect(() => {
+    const interval = setInterval(() => fetchAllRef.current(), 20000)
+    const socket = getSocket()
+    const onNotification = () => fetchAllRef.current()
+    socket.on('notification', onNotification)
+    const onVisible = () => { if (!document.hidden) fetchAllRef.current() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(interval)
+      socket.off('notification', onNotification)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
 
   const openAssignModal = async () => {
     setAssignModal(true)
