@@ -33,22 +33,14 @@ export class ChatController {
     return this.chatService.getOrCreateDirectConversation(user.id, userId)
   }
 
-  // ── Start or resume a direct conversation between two users ────────────────
-  @Post('conversations')
-  getOrCreate(
-    @Body('userIdA') userIdA: string,
-    @Body('userIdB') userIdB: string,
-  ) {
-    return this.chatService.getOrCreateDirectConversation(userIdA, userIdB)
-  }
-
   @Get('conversations/:id/messages')
   getMessages(
     @Param('id') conversationId: string,
+    @CurrentUser() user: { id: string },
     @Query('before') before?: string,
     @Query('limit')  limit?:  string,
   ) {
-    return this.chatService.getMessages(conversationId, before, limit ? parseInt(limit) : 50)
+    return this.chatService.getMessages(conversationId, user.id, before, limit ? parseInt(limit) : 50)
   }
 
   // ── Delete a conversation ───────────────────────────────────────────────────

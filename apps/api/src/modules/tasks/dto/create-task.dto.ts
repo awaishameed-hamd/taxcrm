@@ -34,6 +34,10 @@ export class CreateTaskDto {
   @IsString()
   @Transform(({ value }) => value || undefined)
   assignedToId?: string
+
+  @IsOptional()
+  @IsString()
+  authority?: string
 }
 
 export class UpdateTaskDto {

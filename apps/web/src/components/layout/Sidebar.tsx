@@ -211,9 +211,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const fileRef          = useRef<HTMLInputElement>(null)
 
   const avatarKey = `${AVATAR_KEY_PREFIX}${user?.id ?? ''}`
-  const [avatar, setAvatar] = useState<string | null>(() =>
-    typeof window !== 'undefined' ? localStorage.getItem(avatarKey) : null,
-  )
+  const [avatar, setAvatar] = useState<string | null>(null)
+
+  useEffect(() => {
+    setAvatar(localStorage.getItem(avatarKey))
+  }, [avatarKey])
 
   // ── New Task modal state ──────────────────────────────────────────────────
   const [showNewTask,      setShowNewTask]      = useState(false)
@@ -230,6 +232,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [notifs,        setNotifs]        = useState<any[]>([])
   const [unreadCount,   setUnreadCount]   = useState(0)
   const [showNotifs,    setShowNotifs]    = useState(false)
+  const [notifFilter,   setNotifFilter]   = useState<'all' | 'unread'>('all')
 
   useEffect(() => {
     if (!user) return
@@ -512,32 +515,53 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             boxShadow: '0 -8px 24px rgba(0,0,0,0.10)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px 6px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', sans-serif" }}>Notifications</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', 'Inter', sans-serif" }}>Notifications</span>
               {unreadCount > 0 && (
-                <button onClick={markAllRead} style={{ fontSize: 10, color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Aptos', sans-serif", padding: 0 }}>
+                <button onClick={markAllRead} style={{ fontSize: 10, color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Aptos', 'Inter', sans-serif", padding: 0 }}>
                   Mark all read
                 </button>
               )}
             </div>
+            <div style={{ display: 'flex', gap: 6, padding: '6px 12px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              {(['all', 'unread'] as const).map(f => {
+                const active = notifFilter === f
+                return (
+                  <button key={f} onClick={() => setNotifFilter(f)}
+                    style={{
+                      border: 0, borderRadius: 12, padding: '3px 10px', fontSize: 10.5, fontWeight: 700,
+                      cursor: 'pointer', fontFamily: "'Aptos', 'Inter', sans-serif",
+                      background: active ? C.tealDim : '#F1F5F9',
+                      color: active ? C.teal : C.slate,
+                    }}>
+                    {f === 'all' ? 'All' : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
+                  </button>
+                )
+              })}
+            </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {notifs.length === 0 ? (
-                <p style={{ margin: 0, padding: '14px 12px', fontSize: 12, color: C.gray, fontFamily: "'Aptos', sans-serif", textAlign: 'center' }}>No notifications</p>
-              ) : notifs.map(n => (
+              {(() => {
+                const filtered = notifFilter === 'unread' ? notifs.filter(n => !n.isRead) : notifs
+                if (filtered.length === 0) {
+                  return (
+                    <p style={{ margin: 0, padding: '14px 12px', fontSize: 12, color: C.gray, fontFamily: "'Aptos', 'Inter', sans-serif", textAlign: 'center' }}>
+                      {notifFilter === 'unread' ? 'No unread notifications' : 'No notifications'}
+                    </p>
+                  )
+                }
+                return filtered.map(n => (
                 <div key={n.id} style={{
                   padding: '8px 12px', borderBottom: `1px solid #f0f0f0`,
                   background: n.isRead ? 'transparent' : '#EFF6FF',
-                  display: 'flex', gap: 8, alignItems: 'flex-start',
+                  borderLeft: `3px solid ${n.isRead ? 'transparent' : C.teal}`,
                 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: 3, background: n.isRead ? 'transparent' : C.teal, flexShrink: 0, marginTop: 5 }} />
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', sans-serif" }}>{n.title}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: C.slate, fontFamily: "'Aptos', sans-serif", lineHeight: 1.4, marginTop: 1 }}>{n.body}</p>
-                    <p style={{ margin: 0, fontSize: 10, color: C.gray, fontFamily: "'Aptos', sans-serif", marginTop: 2 }}>
-                      {new Date(n.createdAt).toLocaleString('en-PK', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
-                    </p>
-                  </div>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', 'Inter', sans-serif", textAlign: 'left' }}>{n.title}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: C.slate, fontFamily: "'Aptos', 'Inter', sans-serif", lineHeight: 1.4, marginTop: 1, textAlign: 'left' }}>{n.body}</p>
+                  <p style={{ margin: 0, fontSize: 10, color: C.gray, fontFamily: "'Aptos', 'Inter', sans-serif", marginTop: 2, textAlign: 'left' }}>
+                    {new Date(n.createdAt).toLocaleString('en-PK', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                  </p>
                 </div>
-              ))}
+                ))
+              })()}
             </div>
           </div>
         )}

@@ -37,8 +37,20 @@ export class TasksController {
 
   @Post(':id/steps')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
-  addStep(@Param('id') id: string, @Body('title') title: string) {
-    return this.service.addStep(id, title)
+  addStep(@Param('id') id: string, @Body('title') title: string, @Body('approvedBy') approvedBy?: string, @Body('description') description?: string) {
+    return this.service.addStep(id, title, approvedBy, description)
+  }
+
+  @Post(':id/steps/:stepId/done')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
+  markStepDone(@Param('id') id: string, @Param('stepId') stepId: string, @Req() req: any, @Body('comment') comment?: string, @Body('attachmentUrl') attachmentUrl?: string) {
+    return this.service.markStepDone(id, stepId, req.user.id, comment, attachmentUrl)
+  }
+
+  @Post(':id/steps/:stepId/undo')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
+  undoStep(@Param('id') id: string, @Param('stepId') stepId: string) {
+    return this.service.undoStep(id, stepId)
   }
 
   @Patch(':id/steps/:stepId/toggle')

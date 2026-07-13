@@ -117,6 +117,157 @@ function PriorityDot({ priority }: { priority: string }) {
   return <span style={{ width:8, height:8, borderRadius:'50%', background:c, display:'inline-block', flexShrink:0 }} />
 }
 
+// ── General Task Step List (Sales Tax-style) ─────────────────────────────────
+function GenStepList({ steps, role, genStepLoading, genStepFormVal, setGenStepFormVal, onMarkDone, onUndo, onDelete, onAddStep, TEAL, NAVY, F }: {
+  steps: any[]; role: string; genStepLoading: boolean
+  genStepFormVal: (id: string) => { comment: string; attachmentUrl: string }
+  setGenStepFormVal: (id: string, patch: Partial<{ comment: string; attachmentUrl: string }>) => void
+  onMarkDone: (id: string) => void; onUndo: (id: string) => void; onDelete: (id: string) => void
+  onAddStep: () => void; TEAL: string; NAVY: string; F: string
+}) {
+  const canManage = role === 'admin' || role === 'manager' || role === 'team_lead'
+  const canAct = (step: any) => {
+    if (step.isDone) return false
+    if (role === 'admin') return true
+    if ((step.approvedBy === 'TRAINEE' || !step.approvedBy) && (role === 'trainee' || role === 'team_lead' || role === 'manager')) return true
+    if (step.approvedBy === 'MANAGER' && (role === 'manager' || role === 'team_lead' || role === 'admin')) return true
+    if (step.approvedBy === 'PARTNER' && role === 'partner') return true
+    return false
+  }
+
+  const uploadFile = async (stepId: string, file: File) => {
+    const fd = new FormData(); fd.append('file', file)
+    try {
+      const { default: apiMod } = await import('@/lib/api')
+      const res = await apiMod.post('/sales-tax-tasks/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const url = res.data?.data?.url ?? res.data?.url
+      setGenStepFormVal(stepId, { attachmentUrl: url })
+    } catch { /* silent */ }
+  }
+
+  return (
+    <div style={{ padding:'0 0 4px' }}>
+      {steps.length === 0 && (
+        <div style={{ fontSize:12, color:'#94A3B8', fontFamily:F, padding:'8px 0 12px' }}>No steps added yet.</div>
+      )}
+      {steps.map((step: any, idx: number) => {
+        const isLast    = idx === steps.length - 1
+        const isActor   = canAct(step)
+        const isManager = step.approvedBy === 'MANAGER'
+        const isPartner = step.approvedBy === 'PARTNER'
+        const dotColor  = step.isDone ? '#16a34a' : isActor ? TEAL : '#CBD5E1'
+        const form      = genStepFormVal(step.id)
+        return (
+          <React.Fragment key={step.id}>
+            <div style={{ display:'flex', gap:0, position:'relative' }}>
+              {!isLast && (
+                <div style={{ position:'absolute', left:13, top:32, bottom:0, width:1.5, background: step.isDone ? '#BBF7D0' : '#E2E8F0' }} />
+              )}
+              <div style={{ flexShrink:0, width:28, paddingTop:14, display:'flex', justifyContent:'center', zIndex:1 }}>
+                <div style={{ width:22, height:22, borderRadius:'50%', background: dotColor, display:'flex', alignItems:'center', justifyContent:'center', border: step.isDone || isActor ? 'none' : '1.5px solid #CBD5E1' }}>
+                  {step.isDone
+                    ? <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                    : <span style={{ fontSize:10, fontWeight:700, color: isActor ? '#fff' : '#94A3B8', lineHeight:1 }}>{idx + 1}</span>
+                  }
+                </div>
+              </div>
+              <div style={{ flex:1, marginLeft:10, paddingBottom: isLast ? 0 : 12, paddingTop:8 }}>
+                <div style={{ background: step.isDone ? '#F0FDF4' : isActor ? '#fff' : '#FAFAFA', border:`1px solid ${step.isDone ? '#BBF7D0' : isActor ? '#BAE6FD' : '#E2E8F0'}`, borderRadius:8, padding:'10px 14px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                    <span style={{ flex:1, fontSize:13, fontWeight: isActor ? 600 : step.isDone ? 400 : 500, color: step.isDone ? '#64748B' : NAVY, lineHeight:1.4 }}>{step.title}</span>
+                    <span style={{ fontSize:10, fontWeight:600, color: isPartner ? '#6D28D9' : isManager ? NAVY : '#166534', background: isPartner ? '#F5F3FF' : isManager ? '#EFF6FF' : '#F0FDF4', padding:'2px 8px', borderRadius:4, flexShrink:0 }}>
+                      {isPartner ? 'Partner' : isManager ? 'Manager' : 'Trainee'}
+                    </span>
+                    {step.isDone && (
+                      <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0, flexWrap:'wrap', justifyContent:'flex-end' }}>
+                        <span style={{ fontSize:11, fontWeight:600, color:'#16a34a' }}>✓ Done</span>
+                        {step.doneAt && (
+                          <span style={{ fontSize:10, color:'#64748B', background:'#F1F5F9', padding:'2px 7px', borderRadius:4, whiteSpace:'nowrap' }}>
+                            {new Date(step.doneAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} {new Date(step.doneAt).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true})}
+                          </span>
+                        )}
+                        {canManage && (
+                          <button onClick={() => onUndo(step.id)} disabled={genStepLoading}
+                            style={{ padding:'3px 9px', borderRadius:5, fontSize:11, fontWeight:600, cursor:'pointer', background:'#F1F5F9', color:'#64748B', border:'1px solid #E2E8F0', opacity: genStepLoading ? 0.5 : 1 }}>
+                            Undo
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {!step.isDone && isActor && (
+                      <button onClick={() => onMarkDone(step.id)} disabled={genStepLoading}
+                        style={{ flexShrink:0, padding:'5px 14px', borderRadius:6, fontSize:12, fontWeight:600, border:'none', cursor:'pointer', background:'#16a34a', color:'#fff', opacity: genStepLoading ? 0.5 : 1 }}>
+                        {genStepLoading ? '…' : '✓ Mark Done'}
+                      </button>
+                    )}
+                    {!step.isDone && !isActor && (
+                      <span style={{ fontSize:11, fontWeight:600, color: isPartner ? '#6D28D9' : isManager ? '#92400E' : '#0E7490', background: isPartner ? '#F5F3FF' : isManager ? '#FEF3C7' : '#ECFEFF', padding:'2px 8px', borderRadius:4, flexShrink:0 }}>
+                        {isPartner ? 'With Partner' : isManager ? 'With Manager' : 'With Trainee'}
+                      </span>
+                    )}
+                    {canManage && (
+                      <button onClick={() => onDelete(step.id)} disabled={genStepLoading}
+                        style={{ flexShrink:0, background:'none', border:'none', cursor:'pointer', color:'#CBD5E1', padding:2, display:'flex', alignItems:'center' }}>
+                        <svg width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    )}
+                  </div>
+                  {/* Comment + Attachment always visible for actable steps (like Sales Tax) */}
+                  {!step.isDone && isActor && (
+                    <div style={{ display:'grid', gridTemplateColumns:'3fr 1fr', gap:8, marginTop:10, paddingTop:10, borderTop:'1px solid #E2E8F0' }}>
+                      <div>
+                        <label style={{ display:'block', fontSize:10, fontWeight:600, color:'#64748B', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>Comment</label>
+                        <textarea value={form.comment} onChange={e => setGenStepFormVal(step.id, { comment: e.target.value })}
+                          placeholder="Optional note…" rows={2}
+                          style={{ width:'100%', boxSizing:'border-box', padding:'6px 9px', borderRadius:6, border:'1px solid #E2E8F0', fontSize:12, outline:'none', resize:'none', color:NAVY, fontFamily:F, height:60 }} />
+                      </div>
+                      <div>
+                        <label style={{ display:'block', fontSize:10, fontWeight:600, color:'#64748B', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>Attachment</label>
+                        {form.attachmentUrl ? (
+                          <div style={{ display:'flex', alignItems:'center', gap:4, padding:'0 8px', borderRadius:6, border:'1px solid #BBF7D0', background:'#F0FDF4', fontSize:11, height:60, boxSizing:'border-box' }}>
+                            <span style={{ flex:1, color:'#166534', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontSize:10 }}>{form.attachmentUrl.split('/').pop()}</span>
+                            <button onClick={() => setGenStepFormVal(step.id, { attachmentUrl: '' })}
+                              style={{ flexShrink:0, background:'none', border:'none', cursor:'pointer', color:'#94A3B8', padding:0, fontSize:13, lineHeight:1 }}>×</button>
+                          </div>
+                        ) : (
+                          <label style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, borderRadius:6, border:'1px dashed #CBD5E1', cursor:'pointer', fontSize:11, color:'#94A3B8', background:'#FAFAFA', height:60, boxSizing:'border-box' }}>
+                            <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                            Upload
+                            <input type="file" accept="image/*,.pdf,.xlsx,.xls,.doc,.docx" style={{ display:'none' }}
+                              onChange={e => { const file = e.target.files?.[0]; if (file) uploadFile(step.id, file) }} />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Show saved comment/attachment on done steps */}
+                  {step.isDone && (!!step.comment || !!step.attachmentUrl) && (
+                    <div style={{ display:'flex', gap:14, marginTop:8, paddingTop:8, borderTop:'1px solid #E2E8F0', flexWrap:'wrap' }}>
+                      {!!step.comment && <span style={{ fontSize:11, color:'#475569' }}><span style={{ fontWeight:600, color:'#94A3B8' }}>Note: </span>{step.comment}</span>}
+                      {!!step.attachmentUrl && (
+                        step.attachmentUrl.startsWith('/uploads')
+                          ? <a href={`http://localhost:4000${step.attachmentUrl}`} target="_blank" rel="noreferrer" style={{ fontSize:11, color:TEAL, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:4 }}>
+                              <svg width={11} height={11} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                              {step.attachmentUrl.split('/').pop()}
+                            </a>
+                          : <span style={{ fontSize:11, color:'#475569' }}><span style={{ fontWeight:600, color:'#94A3B8' }}>File: </span>{step.attachmentUrl}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </React.Fragment>
+        )
+      })}
+      {/* Add Step button */}
+      <button onClick={onAddStep} style={{ marginTop: steps.length > 0 ? 12 : 4, padding:'5px 14px', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer', border:`1.5px dashed ${TEAL}`, background:'#F0FAFB', color:TEAL, lineHeight:1 }}>
+        + Add Step
+      </button>
+    </div>
+  )
+}
+
 interface Props { role: 'trainee' | 'manager' | 'team_lead' | 'admin'; defaultManagerView?: 'my' | 'approval'; completedOnly?: boolean; incompleteOnly?: boolean }
 
 export default function TasksPage({ role, defaultManagerView = 'approval', completedOnly = false, incompleteOnly = false }: Props) {
@@ -517,9 +668,17 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   }
 
   // ── General task actions ────────────────────────────────────────────────────
-  const [genNewStep,        setGenNewStep]        = useState('')
   const [genStepLoading,    setGenStepLoading]    = useState(false)
   const [genDeleteConfirm,  setGenDeleteConfirm]  = useState(false)
+  // Add-step modal
+  const [genAddStepModal,   setGenAddStepModal]   = useState(false)
+  const [genStepForm,       setGenStepForm]       = useState({ title: '', description: '', approvedBy: 'TRAINEE' as 'TRAINEE' | 'MANAGER' | 'PARTNER' })
+  // Active step mark-done form (stepId -> { comment, attachmentUrl })
+  const [genDoneForm,       setGenDoneForm]       = useState<Record<string, { comment: string; attachmentUrl: string }>>({})
+
+  const genStepFormVal = (stepId: string) => genDoneForm[stepId] ?? { comment: '', attachmentUrl: '' }
+  const setGenStepFormVal = (stepId: string, patch: Partial<{ comment: string; attachmentUrl: string }>) =>
+    setGenDoneForm(p => ({ ...p, [stepId]: { ...genStepFormVal(stepId), ...patch } }))
 
   const handleGenStatus = async (status: string) => {
     if (!selectedGen) return
@@ -544,21 +703,34 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   }
 
   const handleGenAddStep = async () => {
-    if (!selectedGen || !genNewStep.trim()) return
+    if (!selectedGen || !genStepForm.title.trim()) { showToast('Please enter a step name', false); return }
     setGenStepLoading(true)
     try {
-      await api.post(`/tasks/${selectedGen.id}/steps`, { title: genNewStep.trim() })
-      setGenNewStep('')
+      await api.post(`/tasks/${selectedGen.id}/steps`, { title: genStepForm.title.trim(), description: genStepForm.description || undefined, approvedBy: genStepForm.approvedBy })
+      setGenAddStepModal(false)
+      setGenStepForm({ title: '', description: '', approvedBy: 'TRAINEE' })
       await refreshSelectedGen()
     } catch { showToast('Failed to add step', false) }
     finally { setGenStepLoading(false) }
   }
 
-  const handleGenToggleStep = async (stepId: string) => {
+  const handleGenMarkStepDone = async (stepId: string) => {
     if (!selectedGen) return
     setGenStepLoading(true)
     try {
-      const res = await api.patch(`/tasks/${selectedGen.id}/steps/${stepId}/toggle`, {})
+      const form = genStepFormVal(stepId)
+      const res = await api.post(`/tasks/${selectedGen.id}/steps/${stepId}/done`, { comment: form.comment || undefined, attachmentUrl: form.attachmentUrl || undefined })
+      const task = uw(res.data)
+      setSelectedGen(task); setGenTasks(p => p.map(t => t.id === task.id ? task : t))
+    } catch { showToast('Failed', false) }
+    finally { setGenStepLoading(false) }
+  }
+
+  const handleGenUndoStep = async (stepId: string) => {
+    if (!selectedGen) return
+    setGenStepLoading(true)
+    try {
+      const res = await api.post(`/tasks/${selectedGen.id}/steps/${stepId}/undo`, {})
       const task = uw(res.data)
       setSelectedGen(task); setGenTasks(p => p.map(t => t.id === task.id ? task : t))
     } catch { showToast('Failed', false) }
@@ -1216,9 +1388,9 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                   if (isGenView) {
                     const hdrs = ['#', 'Task', 'Assigned To', 'Client', 'Due Date', incompleteOnly ? 'Status' : 'Completed On', '']
                     return (
-                      <div style={{ display:'grid', gridTemplateColumns:'40px 1fr 160px 130px 120px 150px 75px', background:'#374151', padding:'7px 18px', alignItems:'center' }}>
+                      <div style={{ display:'grid', gridTemplateColumns:'40px 1fr 160px 130px 120px 150px 75px', background:'#F2AC18', padding:'7px 18px', alignItems:'center' }}>
                         {hdrs.map(h => (
-                          <span key={h} style={{ fontSize:12, fontWeight:600, color:'#fff', textTransform:'uppercase', letterSpacing:'0.07em', fontFamily:'"Aptos", sans-serif' }}>{h}</span>
+                          <span key={h} style={{ fontSize:12, fontWeight:600, color:'#1a1a1a', textTransform:'uppercase', letterSpacing:'0.07em', fontFamily:'"Aptos", sans-serif' }}>{h}</span>
                         ))}
                       </div>
                     )
@@ -1472,37 +1644,9 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                     <div style={{ borderTop:'1px solid #F1F5F9', padding:'7px 16px', background:'#FAFBFF', fontSize:11, color:'#475569', fontFamily:F }}>{selectedGen.description}</div>
                   )}
                 </div>
-                <div style={{ padding:'10px 16px' }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:NAVY, fontFamily:F, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.06em' }}>Steps</div>
-                  {steps.length === 0 && <div style={{ fontSize:12, color:'#94A3B8', fontFamily:F, padding:'8px 0' }}>No steps added yet.</div>}
-                  {steps.map((step:any) => (
-                    <div key={step.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'#fff', borderRadius:8, border:'1px solid #E2E8F0', marginBottom:6 }}>
-                      <button onClick={() => handleGenToggleStep(step.id)} disabled={genStepLoading}
-                        style={{ flexShrink:0, width:20, height:20, borderRadius:5, border:`2px solid ${step.isDone ? TEAL : '#CBD5E1'}`, background: step.isDone ? TEAL : '#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
-                        {step.isDone && <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>}
-                      </button>
-                      <span style={{ flex:1, fontSize:13, color: step.isDone ? '#94A3B8' : NAVY, fontFamily:F, textDecoration: step.isDone ? 'line-through' : 'none' }}>{step.title}</span>
-                      {step.isDone && step.doneBy && <span style={{ fontSize:10, color:'#94A3B8', fontFamily:F, flexShrink:0 }}>{step.doneBy.fullName}</span>}
-                      {(role === 'admin' || role === 'manager' || role === 'team_lead') && (
-                        <button onClick={() => handleGenDeleteStep(step.id)} disabled={genStepLoading}
-                          style={{ flexShrink:0, background:'none', border:'none', cursor:'pointer', color:'#CBD5E1', padding:2 }}>
-                          <svg width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {!isDone && (
-                    <div style={{ display:'flex', gap:6, marginTop:8 }}>
-                      <input value={genNewStep} onChange={e => setGenNewStep(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleGenAddStep() }}
-                        placeholder="Add a step…"
-                        style={{ flex:1, padding:'7px 11px', borderRadius:8, border:'1.5px solid #E2E8F0', fontSize:12, fontFamily:F, outline:'none', color:NAVY }} />
-                      <button onClick={handleGenAddStep} disabled={genStepLoading || !genNewStep.trim()}
-                        style={{ padding:'7px 14px', borderRadius:8, border:'none', cursor:'pointer', background:TEAL, color:'#fff', fontSize:12, fontWeight:700, opacity: (!genNewStep.trim() || genStepLoading) ? 0.5 : 1 }}>
-                        + Add
-                      </button>
-                    </div>
-                  )}
+                <div style={{ padding:'6px 16px 16px' }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:NAVY, fontFamily:F, marginBottom:10, textTransform:'uppercase', letterSpacing:'0.06em' }}>Steps</div>
+                  <GenStepList steps={steps} role={role} genStepLoading={genStepLoading} genStepFormVal={genStepFormVal} setGenStepFormVal={setGenStepFormVal} onMarkDone={handleGenMarkStepDone} onUndo={handleGenUndoStep} onDelete={handleGenDeleteStep} onAddStep={() => { setGenAddStepModal(true); setGenStepForm({ title:'', description:'', approvedBy:(role==='manager'||role==='team_lead')?'MANAGER':'TRAINEE' }) }} TEAL={TEAL} NAVY={NAVY} F={F} />
                 </div>
               </div>
             </div>
@@ -1554,7 +1698,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                     const ov         = isComp        ? { label:'Complete',    color:'#fff', bg:'#0D9488' }
                                      : cIdx === 0    ? { label:'To Do',       color:'#fff', bg:'#DC2626' }
                                      :                 { label:'In Progress', color:'#fff', bg:'#F97316' }
-                    const clientName = t.client?.businessName ?? t.client?.user?.fullName ?? '—'
+                    const clientName = t.client?.businessName ?? t.client?.user?.fullName ?? ''
                     const dueStr     = t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'No due date'
                     return (
                       <button key={t.id} onClick={() => { setSelectedPipe(t); setAdvanceForm({}) }}
@@ -1649,7 +1793,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                     if (s === 'APPEAL')       return { label: 'Appeal',        color: '#5B21B6', bg: '#EDE9FE' }
                     return                           { label: 'Notice',        color: '#1E40AF', bg: '#DBEAFE' }
                   })()
-                  const clientName = c.client?.businessName ?? c.client?.user?.fullName ?? '—'
+                  const clientName = c.client?.businessName ?? c.client?.user?.fullName ?? ''
                   return (
                     <button key={c.id} onClick={() => setSelectedFbr(c)}
                       style={{ display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', cursor:'pointer', borderBottom:`1px solid ${P.border}`, background: isActive ? '#E8EEF7' : '#F8FAFC', borderLeft: isActive ? `3px solid #1565C0` : '3px solid transparent' }}
@@ -1816,42 +1960,8 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                   <div style={{ padding:'10px 16px' }}>
                     <div style={{ fontSize:12, fontWeight:700, color:NAVY, fontFamily:F, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.06em' }}>Steps</div>
 
-                    {steps.length === 0 && (
-                      <div style={{ fontSize:12, color:'#94A3B8', fontFamily:F, padding:'8px 0' }}>No steps added yet.</div>
-                    )}
-
-                    {steps.map((step:any) => (
-                      <div key={step.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'#fff', borderRadius:8, border:'1px solid #E2E8F0', marginBottom:6 }}>
-                        <button onClick={() => handleGenToggleStep(step.id)} disabled={genStepLoading}
-                          style={{ flexShrink:0, width:20, height:20, borderRadius:5, border:`2px solid ${step.isDone ? TEAL : '#CBD5E1'}`, background: step.isDone ? TEAL : '#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
-                          {step.isDone && <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>}
-                        </button>
-                        <span style={{ flex:1, fontSize:13, color: step.isDone ? '#94A3B8' : NAVY, fontFamily:F, textDecoration: step.isDone ? 'line-through' : 'none' }}>{step.title}</span>
-                        {step.isDone && step.doneBy && (
-                          <span style={{ fontSize:10, color:'#94A3B8', fontFamily:F, flexShrink:0 }}>{step.doneBy.fullName}</span>
-                        )}
-                        {(role === 'admin' || role === 'manager' || role === 'team_lead') && (
-                          <button onClick={() => handleGenDeleteStep(step.id)} disabled={genStepLoading}
-                            style={{ flexShrink:0, background:'none', border:'none', cursor:'pointer', color:'#CBD5E1', padding:2, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                            <svg width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Add step input */}
-                    {!isDone && (
-                      <div style={{ display:'flex', gap:6, marginTop:8 }}>
-                        <input value={genNewStep} onChange={e => setGenNewStep(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleGenAddStep() }}
-                          placeholder="Add a step…"
-                          style={{ flex:1, padding:'7px 11px', borderRadius:8, border:'1.5px solid #E2E8F0', fontSize:12, fontFamily:F, outline:'none', color:NAVY }} />
-                        <button onClick={handleGenAddStep} disabled={genStepLoading || !genNewStep.trim()}
-                          style={{ padding:'7px 14px', borderRadius:8, border:'none', cursor:'pointer', background:TEAL, color:'#fff', fontSize:12, fontWeight:700, fontFamily:F, opacity: (!genNewStep.trim() || genStepLoading) ? 0.5 : 1 }}>
-                          + Add
-                        </button>
-                      </div>
-                    )}
+                    {/* Steps — Sales Tax style */}
+                    <GenStepList steps={steps} role={role} genStepLoading={genStepLoading} genStepFormVal={genStepFormVal} setGenStepFormVal={setGenStepFormVal} onMarkDone={handleGenMarkStepDone} onUndo={handleGenUndoStep} onDelete={handleGenDeleteStep} onAddStep={() => { setGenAddStepModal(true); setGenStepForm({ title:'', description:'', approvedBy:(role==='manager'||role==='team_lead')?'MANAGER':'TRAINEE' }) }} TEAL={TEAL} NAVY={NAVY} F={F} />
                   </div>
                 </div>
               )
@@ -2178,6 +2288,52 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
               <button onClick={submitAssignTask} disabled={assignLoading || !assignForm.clientId || !assignForm.traineeId}
                 style={{ padding:'8px 20px', borderRadius:8, border:'none', cursor:'pointer', background:`linear-gradient(135deg,${NAVY} 0%,${TEAL} 100%)`, color:'#fff', fontSize:13, fontWeight:700, fontFamily:"'Aptos',sans-serif", opacity:(assignLoading || !assignForm.clientId || !assignForm.traineeId) ? 0.6 : 1 }}>
                 {assignLoading ? 'Assigning…' : 'Assign Task'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* General Task — Add Step modal */}
+      {genAddStepModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:14, padding:24, width:'100%', maxWidth:420, boxShadow:'0 8px 40px rgba(0,0,0,0.18)' }}>
+            <h3 style={{ margin:'0 0 16px', fontSize:16, fontWeight:700, color:NAVY }}>Add Step</h3>
+            <div style={{ marginBottom:12 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:600, color:'#64748B', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>Step Title *</label>
+              <input value={genStepForm.title} onChange={e => setGenStepForm(p => ({...p, title: e.target.value}))}
+                placeholder="Enter step name…" autoFocus
+                style={{ width:'100%', boxSizing:'border-box', padding:'8px 11px', borderRadius:8, border:'1.5px solid #E2E8F0', fontSize:13, outline:'none', color:NAVY, fontFamily:"'Aptos',sans-serif" }} />
+            </div>
+            <div style={{ marginBottom:14 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:600, color:'#64748B', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>Description</label>
+              <textarea value={genStepForm.description} onChange={e => setGenStepForm(p => ({...p, description: e.target.value}))}
+                placeholder="Optional description…" rows={2}
+                style={{ width:'100%', boxSizing:'border-box', padding:'6px 9px', borderRadius:8, border:'1.5px solid #E2E8F0', fontSize:12, outline:'none', resize:'none', color:NAVY, fontFamily:"'Aptos',sans-serif" }} />
+            </div>
+            <div style={{ marginBottom:18 }}>
+              <label style={{ display:'block', fontSize:11, fontWeight:600, color:'#64748B', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.06em' }}>Approved By</label>
+              <div style={{ display:'flex', gap:8 }}>
+                {(['TRAINEE', 'MANAGER', 'PARTNER'] as const).map(v => (
+                  <button key={v} onClick={() => setGenStepForm(p => ({...p, approvedBy: v}))}
+                    style={{ flex:1, padding:'8px 0', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+                      border:`2px solid ${genStepForm.approvedBy === v ? TEAL : '#E2E8F0'}`,
+                      background: genStepForm.approvedBy === v ? '#F0FAFB' : '#fff',
+                      color: genStepForm.approvedBy === v ? TEAL : '#94A3B8' }}>
+                    {v === 'TRAINEE' ? 'Trainee' : v === 'MANAGER' ? 'Manager' : 'Partner'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => setGenAddStepModal(false)}
+                style={{ flex:1, padding:'9px 0', borderRadius:8, border:'1.5px solid #E2E8F0', background:'#fff', color:'#64748B', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleGenAddStep} disabled={!genStepForm.title.trim() || genStepLoading}
+                style={{ flex:1, padding:'9px 0', borderRadius:8, border:'none', background:TEAL, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer',
+                  opacity: (!genStepForm.title.trim() || genStepLoading) ? 0.5 : 1 }}>
+                {genStepLoading ? 'Adding…' : 'Add Step'}
               </button>
             </div>
           </div>

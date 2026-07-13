@@ -462,19 +462,24 @@ export default function TaxSummaryPage() {
   const [rLoading,    setRLoading]    = useState(false)
 
   // Column visibility + widths (persisted to localStorage)
-  const [visibleCols, setVisibleCols] = useState<string[]>(() => {
-    const saved = lsGet<string[]>(LS_ST_COLS, ALL_ST_COL_KEYS)
-    const valid  = saved.filter(k => ALL_ST_COL_KEYS.includes(k))
-    return valid.length > 0 ? valid : ALL_ST_COL_KEYS
-  })
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const defaults = { __month__: 90, __authority__: 80, __returnType__: 90, ...Object.fromEntries(ST_COLS.map(c => [c.key, c.defaultWidth])) }
-    return { ...defaults, ...lsGet<Record<string, number>>(LS_ST_WIDTHS, {}) }
-  })
+  const [visibleCols, setVisibleCols] = useState<string[]>(ALL_ST_COL_KEYS)
+  const [colWidths, setColWidths] = useState<Record<string, number>>(
+    { __month__: 90, __authority__: 80, __returnType__: 90, ...Object.fromEntries(ST_COLS.map(c => [c.key, c.defaultWidth])) },
+  )
+  const [stColsHydrated, setStColsHydrated] = useState(false)
   const resizingCol = useRef<{ key: string; startX: number; startW: number } | null>(null)
 
-  useEffect(() => { lsSet(LS_ST_COLS,   visibleCols) }, [visibleCols])
-  useEffect(() => { lsSet(LS_ST_WIDTHS, colWidths)   }, [colWidths])
+  useEffect(() => {
+    const saved = lsGet<string[]>(LS_ST_COLS, ALL_ST_COL_KEYS)
+    const valid  = saved.filter(k => ALL_ST_COL_KEYS.includes(k))
+    setVisibleCols(valid.length > 0 ? valid : ALL_ST_COL_KEYS)
+    const defaults = { __month__: 90, __authority__: 80, __returnType__: 90, ...Object.fromEntries(ST_COLS.map(c => [c.key, c.defaultWidth])) }
+    setColWidths({ ...defaults, ...lsGet<Record<string, number>>(LS_ST_WIDTHS, {}) })
+    setStColsHydrated(true)
+  }, [])
+
+  useEffect(() => { if (stColsHydrated) lsSet(LS_ST_COLS,   visibleCols) }, [visibleCols, stColsHydrated])
+  useEffect(() => { if (stColsHydrated) lsSet(LS_ST_WIDTHS, colWidths)   }, [colWidths, stColsHydrated])
 
   const onResizeStart = useCallback((key: string, e: React.MouseEvent) => {
     e.preventDefault()
@@ -498,19 +503,24 @@ export default function TaxSummaryPage() {
   const visibleSTCols = ST_COLS.filter(c => visibleCols.includes(c.key))
 
   // ── Income Tax states ─────────────────────────────────────────────────────
-  const [itVisibleCols, setItVisibleCols] = useState<string[]>(() => {
-    const saved = lsGet<string[]>(LS_IT_COLS, ALL_IT_COL_KEYS)
-    const valid  = saved.filter(k => ALL_IT_COL_KEYS.includes(k))
-    return valid.length > 0 ? valid : ALL_IT_COL_KEYS
-  })
-  const [itColWidths, setItColWidths] = useState<Record<string, number>>(() => {
-    const defaults = { __year__: 90, ...Object.fromEntries(IT_COLS.map(c => [c.key, c.defaultWidth])) }
-    return { ...defaults, ...lsGet<Record<string, number>>(LS_IT_WIDTHS, {}) }
-  })
+  const [itVisibleCols, setItVisibleCols] = useState<string[]>(ALL_IT_COL_KEYS)
+  const [itColWidths, setItColWidths] = useState<Record<string, number>>(
+    { __year__: 90, ...Object.fromEntries(IT_COLS.map(c => [c.key, c.defaultWidth])) },
+  )
+  const [itColsHydrated, setItColsHydrated] = useState(false)
   const itResizingCol = useRef<{ key: string; startX: number; startW: number } | null>(null)
 
-  useEffect(() => { lsSet(LS_IT_COLS,   itVisibleCols) }, [itVisibleCols])
-  useEffect(() => { lsSet(LS_IT_WIDTHS, itColWidths)   }, [itColWidths])
+  useEffect(() => {
+    const saved = lsGet<string[]>(LS_IT_COLS, ALL_IT_COL_KEYS)
+    const valid  = saved.filter(k => ALL_IT_COL_KEYS.includes(k))
+    setItVisibleCols(valid.length > 0 ? valid : ALL_IT_COL_KEYS)
+    const defaults = { __year__: 90, ...Object.fromEntries(IT_COLS.map(c => [c.key, c.defaultWidth])) }
+    setItColWidths({ ...defaults, ...lsGet<Record<string, number>>(LS_IT_WIDTHS, {}) })
+    setItColsHydrated(true)
+  }, [])
+
+  useEffect(() => { if (itColsHydrated) lsSet(LS_IT_COLS,   itVisibleCols) }, [itVisibleCols, itColsHydrated])
+  useEffect(() => { if (itColsHydrated) lsSet(LS_IT_WIDTHS, itColWidths)   }, [itColWidths, itColsHydrated])
 
   const onItResizeStart = useCallback((key: string, e: React.MouseEvent) => {
     e.preventDefault()

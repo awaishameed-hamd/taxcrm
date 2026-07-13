@@ -1,5 +1,4 @@
-import { TaxReturnStatus } from '@ca-firm/shared'
-import { cn, getStatusLabel, STATUS_BADGE_CLASSES } from '@/lib/utils'
+import { cn, getStatusLabel, STATUS_BADGE_CLASSES, TaxReturnStatus } from '@/lib/utils'
 
 interface Props {
   status:    TaxReturnStatus

@@ -149,14 +149,6 @@ async function main() {
 
   // ── Client Form Fields ────────────────────────────────────────────────────
   const clientFields: any[] = [
-    { fieldKey: 'fullName',     label: 'Full Name',          fieldType: 'text',        section: 'Account Information', colSpan: 'half',  sortOrder: 1,  isCore: true,  isVisible: true,  placeholder: 'Client full name' },
-    { fieldKey: 'email',        label: 'Email',              fieldType: 'text',        section: 'Account Information', colSpan: 'half',  sortOrder: 2,  isCore: true,  isVisible: true,  placeholder: 'client@email.com' },
-    { fieldKey: 'phone',        label: 'Phone',              fieldType: 'text',        section: 'Account Information', colSpan: 'half',  sortOrder: 3,  isCore: false, isVisible: true,  placeholder: '+92 3XX XXXXXXX'  },
-    { fieldKey: 'cnic',         label: 'CNIC',               fieldType: 'text',        section: 'Personal Details',    colSpan: 'half',  sortOrder: 4,  isCore: false, isVisible: true,  placeholder: '00000-0000000-0' },
-    { fieldKey: 'dateOfBirth',  label: 'Date of Birth',      fieldType: 'date',        section: 'Personal Details',    colSpan: 'half',  sortOrder: 5,  isCore: false, isVisible: false, placeholder: null              },
-    { fieldKey: 'address',      label: 'Address',            fieldType: 'textarea',    section: 'Personal Details',    colSpan: 'full',  sortOrder: 6,  isCore: false, isVisible: true,  placeholder: 'Full address', textareaRows: 2 },
-    { fieldKey: 'city',         label: 'City',               fieldType: 'text',        section: 'Personal Details',    colSpan: 'third', sortOrder: 7,  isCore: false, isVisible: true,  placeholder: 'e.g. Karachi'   },
-    { fieldKey: 'province',     label: 'Province',           fieldType: 'select',      section: 'Personal Details',    colSpan: 'third', sortOrder: 8,  isCore: false, isVisible: true,  options: ['Punjab','Sindh','KPK','Balochistan','Islamabad','AJK'] },
     { fieldKey: 'businessName', label: 'Business Name',      fieldType: 'text',        section: 'Tax & Business',      colSpan: 'half',  sortOrder: 9,  isCore: false, isVisible: true,  placeholder: 'e.g. Bilal Traders' },
     { fieldKey: 'businessType', label: 'Business Type',      fieldType: 'select',      section: 'Tax & Business',      colSpan: 'half',  sortOrder: 10, isCore: false, isVisible: true,  options: ['Sole Proprietor','Partnership','Private Limited Company','Public Limited Company','NPO','NGO','Government Owned Entity','Other'] },
     { fieldKey: 'ntn',          label: 'NTN',                fieldType: 'text',        section: 'Tax & Business',      colSpan: 'half',  sortOrder: 11, isCore: false, isVisible: true,  placeholder: 'National Tax Number' },

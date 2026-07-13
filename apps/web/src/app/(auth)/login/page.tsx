@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Role } from '@ca-firm/shared'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
@@ -99,9 +100,10 @@ export default function LoginPage() {
     setWeekendLoading(true)
     try {
       const { data } = await api.post('/attendance/self-checkin')
+      const attData = data?.data ?? null
       setWeekendPrompt(false)
-      if (data) {
-        setAttPopup(data)
+      if (attData) {
+        setAttPopup(attData)
       } else {
         router.replace(pendingNav)
       }
@@ -347,8 +349,8 @@ export default function LoginPage() {
         {/* Header — logo + heading, no colored band */}
         <header style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Asif Associates" style={{ width: 190, height: 'auto', filter: 'drop-shadow(0 12px 22px rgba(74,90,99,.3))' }} />
+            <Image src="/logo.png" alt="Asif Associates" width={1536} height={1024} priority
+              style={{ width: 190, height: 'auto', filter: 'drop-shadow(0 12px 22px rgba(74,90,99,.3))' }} />
           </div>
 
           <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 38, fontWeight: 700, letterSpacing: '-.02em', color: '#4a5a63', lineHeight: 1.05, margin: 0 }}>

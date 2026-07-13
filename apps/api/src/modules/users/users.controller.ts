@@ -63,8 +63,12 @@ export class UsersController {
 
   @Put(':id')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.usersService.update(id, dto)
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() user: { role: Role },
+  ) {
+    return this.usersService.update(id, dto, user.role)
   }
 
   @Patch(':id/toggle-active')

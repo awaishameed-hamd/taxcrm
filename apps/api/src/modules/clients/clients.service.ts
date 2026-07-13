@@ -18,18 +18,21 @@ export class ClientsService {
   ) {}
 
   async create(dto: CreateClientDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } })
-    if (existing) throw new ConflictException('A user with this email already exists')
-
     const rawPassword = dto.password ?? randomBytes(24).toString('hex')
     const hashed      = await bcrypt.hash(rawPassword, 12)
     const userCode    = await generateUserCode(this.prisma, Role.CLIENT)
 
+    const email    = dto.email    ?? `${userCode.toLowerCase().replace(/[^a-z0-9]/g, '')}@client.internal`
+    const fullName = dto.fullName ?? dto.businessName ?? userCode
+
+    const existing = await this.prisma.user.findUnique({ where: { email } })
+    if (existing) throw new ConflictException('A user with this email already exists')
+
     return this.prisma.user.create({
       data: {
         userCode,
-        fullName:        dto.fullName,
-        email:           dto.email,
+        fullName,
+        email,
         phone:           dto.phone,
         password:        hashed,
         role:            Role.CLIENT,
@@ -46,7 +49,7 @@ export class ClientsService {
             city:                dto.city,
             province:            dto.province,
             traineeId:           dto.traineeId,
-            representativeId:    (dto as any).representativeId ?? undefined,
+            representativeId:    dto.representativeId ?? undefined,
             salesTaxAuthorities: dto.salesTaxAuthorities ?? [],
             hasWhtService:       dto.hasWhtService ?? false,
             ...(dto.extraFields ? { extraFields: dto.extraFields as any } : {}),

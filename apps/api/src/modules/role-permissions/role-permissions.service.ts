@@ -54,8 +54,8 @@ const DEFAULTS: Record<string, Record<string, boolean>> = {
   TEAM_LEAD: {
     dashboard:              true,
     clients:                true,
-    clients_create:         false,
-    clients_edit:           false,
+    clients_create:         true,
+    clients_edit:           true,
     representatives:        true,
     representatives_create: false,
     representatives_edit:   false,

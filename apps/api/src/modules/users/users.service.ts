@@ -156,8 +156,9 @@ export class UsersService {
     })
   }
 
-  async update(id: string, dto: UpdateUserDto) {
+  async update(id: string, dto: UpdateUserDto, actorRole: Role) {
     await this.findOne(id)
+    if (dto.role !== undefined) this.assertCanCreate(actorRole, dto.role)
     const { dateOfBirth, dateOfJoining, extraFields, teamLeadId, ...rest } = dto as any
     return this.prisma.user.update({
       where:  { id },

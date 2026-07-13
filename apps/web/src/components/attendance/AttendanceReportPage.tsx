@@ -297,7 +297,9 @@ function AllTimeDetailModal({ emp, onClose }: { emp: EmpSummary; onClose: () => 
 // ── Monthly Detail Modal (calendar view) ──────────────────────────────────────
 function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: number; year: number; isPartner?: boolean; onClose: () => void }) {
   const { user: authUser } = useAuth()
-  const canEdit   = authUser?.role === 'ADMIN' || authUser?.role === 'PARTNER' || authUser?.role === 'MANAGER'
+  const isAdminOrPartner = authUser?.role === 'ADMIN' || authUser?.role === 'PARTNER'
+  // Managers cannot edit other managers' (or their own) attendance — only ADMIN/PARTNER can
+  const canEdit   = isAdminOrPartner || (authUser?.role === 'MANAGER' && emp.userRole !== 'MANAGER')
   const canCreate = canEdit
   const [records, setRecords] = useState<any[]>(emp.records)
   const [editId,      setEditId]      = useState<string | null | 'NEW'>(null)

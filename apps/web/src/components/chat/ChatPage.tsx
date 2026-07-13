@@ -104,7 +104,7 @@ function lastSeenLabel(contact: Contact | null | undefined): string {
     return `last seen ${diffHours} hour${diffHours === 1 ? '' : 's'} ago`
   }
 
-  const time = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1)
   if (date.toDateString() === yesterday.toDateString()) return `last seen yesterday at ${time}`
 
@@ -366,7 +366,6 @@ export default function ChatPage() {
         setConversations(list)
         const target = selectAfter ?? searchParams.get('conversationId')
         if (target) setSelectedId(target)
-        else if (!selectedId && list.length > 0) setSelectedId(list[0].id)
       })
       .finally(() => setLoadingList(false))
   }, [searchParams]) // eslint-disable-line
@@ -388,6 +387,7 @@ export default function ChatPage() {
       .finally(() => setLoadingMsgs(false))
 
     socketRef.current.emit('join_conversation', { conversationId: selectedId })
+    setConversations(prev => prev.map(c => c.id === selectedId ? { ...c, unreadCount: 0 } : c))
   }, [selectedId])
 
   useEffect(() => {
@@ -926,9 +926,9 @@ export default function ChatPage() {
                         padding: isImage ? 6 : isAudio ? '8px 10px 6px' : '6px 9px 8px',
                         overflow: 'hidden',
                       }}>
-                      {!isMine && (
-                        <p style={{ margin: isImage ? '4px 8px 4px' : '0 0 2px', fontSize: 12.5, fontWeight: 600, color: WA.green }}>{m.sender?.fullName}</p>
-                      )}
+                      <p style={{ margin: isImage ? '4px 8px 4px' : '0 0 2px', fontSize: 12.5, fontWeight: 600, color: WA.green }}>
+                        {isMine ? 'You' : m.sender?.fullName}
+                      </p>
 
                       {m.replyTo && (
                         <div style={{
@@ -967,8 +967,8 @@ export default function ChatPage() {
                           src={`${FILE_BASE_URL}${m.attachmentUrl}`}
                           isMine={isMine}
                           avatar={isMine ? user?.avatar : m.sender?.avatar}
-                          senderName={isMine ? user?.fullName : m.sender?.fullName}
-                          time={new Date(m.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                          senderName={isMine ? 'You' : m.sender?.fullName}
+                          time={new Date(m.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                           tickStatus={isMine ? getTickStatus(selectedConv, m.createdAt) : undefined}
                         />
                       )}
@@ -981,7 +981,7 @@ export default function ChatPage() {
                           alignItems: 'center', justifyContent: 'flex-end', gap: 4,
                         }}>
                           <span style={{ fontSize: 11, color: WA.textSecondary }}>
-                            {new Date(m.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(m.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                           </span>
                           {isMine && <MessageTicks status={getTickStatus(selectedConv, m.createdAt)} />}
                         </div>

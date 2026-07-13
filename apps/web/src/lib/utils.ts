@@ -1,6 +1,29 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { TaxReturnStatus, TAX_RETURN_STATUS_LABELS } from '@ca-firm/shared'
+
+// NOTE: not exported by @ca-firm/shared — the client portal's tax-return tracker
+// (client dashboard, StatusBadge) predates the SalesTaxTask/FbrCase model and was
+// never rewired to it. Kept locally so the build compiles; the underlying feature
+// still needs to be reconnected to real data.
+export enum TaxReturnStatus {
+  DATA_AWAITED     = 'DATA_AWAITED',
+  DATA_RECEIVED    = 'DATA_RECEIVED',
+  IN_PROGRESS      = 'IN_PROGRESS',
+  UNDER_REVIEW     = 'UNDER_REVIEW',
+  PSID_GENERATED   = 'PSID_GENERATED',
+  PAYMENT_RECEIVED = 'PAYMENT_RECEIVED',
+  COMPLETED        = 'COMPLETED',
+}
+
+export const TAX_RETURN_STATUS_LABELS: Record<TaxReturnStatus, string> = {
+  [TaxReturnStatus.DATA_AWAITED]:     'Data Awaited',
+  [TaxReturnStatus.DATA_RECEIVED]:    'Data Received',
+  [TaxReturnStatus.IN_PROGRESS]:      'In Progress',
+  [TaxReturnStatus.UNDER_REVIEW]:     'Under Review',
+  [TaxReturnStatus.PSID_GENERATED]:   'PSID Generated',
+  [TaxReturnStatus.PAYMENT_RECEIVED]: 'Payment Received',
+  [TaxReturnStatus.COMPLETED]:        'Completed',
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

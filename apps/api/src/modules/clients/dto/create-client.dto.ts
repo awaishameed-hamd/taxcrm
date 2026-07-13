@@ -1,11 +1,13 @@
 import { IsArray, IsBoolean, IsEmail, IsOptional, IsString, MinLength, IsDateString } from 'class-validator'
 
 export class CreateClientDto {
+  @IsOptional()
   @IsString()
-  fullName: string
+  fullName?: string
 
+  @IsOptional()
   @IsEmail()
-  email: string
+  email?: string
 
   @IsOptional()
   @IsString()
@@ -59,6 +61,10 @@ export class CreateClientDto {
   @IsOptional()
   @IsString()
   traineeId?: string
+
+  @IsOptional()
+  @IsString()
+  representativeId?: string
 
   @IsOptional()
   @IsArray()

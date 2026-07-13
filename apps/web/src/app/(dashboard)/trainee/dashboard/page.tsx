@@ -1,5 +1,5 @@
 'use client'
 import DashboardPage from '@/components/dashboard/DashboardPage'
 export default function Page() {
-  return <DashboardPage title="My Dashboard" subtitle="Your assigned clients and returns" />
+  return <DashboardPage title="Dashboard" subtitle="Your assigned clients and returns" />
 }

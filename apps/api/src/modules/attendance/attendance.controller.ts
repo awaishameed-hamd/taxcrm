@@ -44,7 +44,7 @@ export class AttendanceController {
     @Query('userId') userId?: string,
   ) {
     const all = mode === 'all'
-    return this.svc.getReport(all ? null : month, all ? null : year, user.role, userId)
+    return this.svc.getReport(all ? null : month, all ? null : year, user.role, user.id, userId)
   }
 
   // ── Daily snapshot ─────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ export class AttendanceController {
     @Query('date') date?: string,
   ) {
     const d = date ?? new Date().toISOString().split('T')[0]
-    return this.svc.getDailyAttendance(d, user.role)
+    return this.svc.getDailyAttendance(d, user.role, user.id)
   }
 
   // ── Opening balance ────────────────────────────────────────────────────────

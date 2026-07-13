@@ -55,6 +55,10 @@ export default function WorkingDaysPage() {
   const [saving,    setSaving]    = useState(false)
   const [toast,     setToast]     = useState<{ msg: string; type: string } | null>(null)
   const [loginTime, setLoginTime] = useState('10:00')
+  const [satEnabled,   setSatEnabled]   = useState(false)
+  const [sunEnabled,   setSunEnabled]   = useState(false)
+  const [satLoginTime, setSatLoginTime] = useState('10:00')
+  const [sunLoginTime, setSunLoginTime] = useState('10:00')
 
   const availableYears = useMemo(() => {
     const arr = []
@@ -89,6 +93,10 @@ export default function WorkingDaysPage() {
       const s = settingsRes.data.data ?? settingsRes.data
       const globalLoginTime = s?.login_time ?? '10:00'
       if (s?.login_time) setLoginTime(s.login_time)
+      setSatEnabled(s?.saturday_attendance_enabled === 'true')
+      setSunEnabled(s?.sunday_attendance_enabled   === 'true')
+      setSatLoginTime(s?.saturday_login_time ?? globalLoginTime)
+      setSunLoginTime(s?.sunday_login_time   ?? globalLoginTime)
 
       const today    = pktToday()
       const rawDays  = wdRes.data.data?.days ?? []
@@ -121,7 +129,6 @@ export default function WorkingDaysPage() {
           reportingTimeOverride: d.login_time_formatted ?? null,
         })),
       })
-      setIsSetup(true)
       setToast({ msg: `Working days for ${MONTH_NAMES[month - 1]} ${year} saved.`, type: 'success' })
     } catch (err: any) {
       setToast({ msg: err.response?.data?.message ?? 'Save failed.', type: 'error' })
@@ -276,19 +283,28 @@ export default function WorkingDaysPage() {
                           }
                         </td>
                         <td style={{ padding: '9px 16px', borderBottom: `1px solid ${P.gridLine}` }}>
-                          {dayType === 'WORKING_DAY'
-                            ? isLocked
-                              ? <span style={{ fontFamily: '"Aptos", sans-serif', fontWeight: 700, color: P.textHeading, letterSpacing: '0.04em' }}>
-                                  {row.login_time_formatted ?? loginTime}
-                                </span>
-                              : <input
-                                  type="time"
-                                  value={row.login_time_formatted ?? loginTime}
-                                  onChange={e => setDayField(idx, 'login_time_formatted', e.target.value)}
-                                  style={{ border: `1px solid ${P.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, outline: 'none' }}
-                                />
-                            : <span style={{ color: P.textMuted, fontSize: 12, fontWeight: 600 }}>N/A</span>
-                          }
+                          {(() => {
+                            const dow = new Date(row.date).getDay()
+                            const isEnabledWeekend = dayType === 'WEEKEND' && (
+                              (dow === 6 && satEnabled) || (dow === 0 && sunEnabled)
+                            )
+                            const weekendDefault = dow === 6 ? satLoginTime : sunLoginTime
+
+                            if (dayType === 'WORKING_DAY' || isEnabledWeekend) {
+                              const val = row.login_time_formatted ?? (isEnabledWeekend ? weekendDefault : loginTime)
+                              return isLocked
+                                ? <span style={{ fontFamily: '"Aptos", sans-serif', fontWeight: 700, color: P.textHeading, letterSpacing: '0.04em' }}>
+                                    {val}
+                                  </span>
+                                : <input
+                                    type="time"
+                                    value={val}
+                                    onChange={e => setDayField(idx, 'login_time_formatted', e.target.value)}
+                                    style={{ border: `1px solid ${P.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, outline: 'none' }}
+                                  />
+                            }
+                            return <span style={{ color: P.textMuted, fontSize: 12, fontWeight: 600 }}>N/A</span>
+                          })()}
                         </td>
                       </tr>
                     )

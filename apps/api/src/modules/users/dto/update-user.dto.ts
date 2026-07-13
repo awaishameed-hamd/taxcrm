@@ -1,5 +1,5 @@
 import { IsBoolean, IsDateString, IsEmail, IsEnum, IsObject, IsOptional, IsString, MaxLength } from 'class-validator'
-import { Role } from '@prisma/client'
+import { Role } from '@ca-firm/shared'
 
 export class UpdateUserDto {
   @IsOptional() @IsEnum(Role)                 role?: Role

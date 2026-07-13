@@ -92,7 +92,15 @@ export class ChatService {
   }
 
 
-  async getMessages(conversationId: string, before?: string, limit = 50) {
+  async getMessages(conversationId: string, userId: string, before?: string, limit = 50) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where:  { id: conversationId },
+      select: { participants: { select: { userId: true } } },
+    })
+    if (!conversation) throw new NotFoundException('Conversation not found')
+    const isParticipant = conversation.participants.some((p) => p.userId === userId)
+    if (!isParticipant) throw new ForbiddenException('You are not part of this conversation')
+
     return this.prisma.message.findMany({
       where: {
         conversationId,

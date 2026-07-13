@@ -79,7 +79,7 @@ export default function GeneralTasksPage({ taxType }: Props) {
   const [saving,          setSaving]          = useState(false)
   const [toast,           setToast]           = useState<{ msg: string; ok: boolean } | null>(null)
 
-  const emptyForm = { title: '', description: '', priority: 'MEDIUM', dueDate: '', assignedToId: '', clientId: '' }
+  const emptyForm = { title: '', description: '', priority: 'MEDIUM', dueDate: '', assignedToId: '', clientId: '', taxType: '', authority: '' }
   const [form, setForm] = useState<typeof emptyForm>(emptyForm)
 
   const showToast = (msg: string, ok = true) => {
@@ -128,6 +128,8 @@ export default function GeneralTasksPage({ taxType }: Props) {
       dueDate:     task.dueDate ? task.dueDate.split('T')[0] : '',
       assignedToId: task.assignedTo?.id ?? '',
       clientId:    task.client?.id ?? '',
+      taxType:     task.taxType ?? '',
+      authority:   task.authority ?? '',
     })
     setShowEdit(true)
   }
@@ -149,6 +151,7 @@ export default function GeneralTasksPage({ taxType }: Props) {
         assignedToId: effectiveAssignedToId,
         clientId:     form.clientId,
         taxType,
+        authority:    form.authority || undefined,
       })
       const task = uw(res.data)
       setTasks(prev => [task, ...prev])
@@ -775,6 +778,27 @@ export function TaskFormModal({
                   placeholder="Notice / reference number" style={inputStyle} />
               </div>
             </>
+          )}
+
+          {/* Authority — General Task only */}
+          {!isPipelineTax && !isFbrNotices && (!taxType || taxType === 'general') && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Authority</label>
+              <SearchableSelect
+                value={form.authority ?? ''}
+                onChange={val => setForm((f: any) => ({ ...f, authority: val }))}
+                options={[
+                  { value: '',     label: 'None' },
+                  { value: 'FBR',  label: 'FBR'  },
+                  { value: 'PRA',  label: 'PRA'  },
+                  { value: 'SRB',  label: 'SRB'  },
+                  { value: 'KPRA', label: 'KPRA' },
+                  { value: 'BRA',  label: 'BRA'  },
+                  { value: 'AJK',  label: 'AJK'  },
+                ]}
+                placeholder="Select authority…"
+              />
+            </div>
           )}
 
           {/* Title — hidden for FBR notices and pipeline tax types (Sales Tax / Income Tax / WHT) */}

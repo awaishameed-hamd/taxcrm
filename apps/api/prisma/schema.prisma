@@ -184,6 +184,7 @@ model User {
   @@index([role])
   @@index([email])
   @@index([userCode])
+  @@index([teamLeadId])
   @@map("users")
 }
 
@@ -593,6 +594,8 @@ model SalesTaxTask {
   @@index([traineeId])
   @@index([status])
   @@index([periodYear, periodMonth])
+  @@index([clientId])
+  @@index([createdAt])
   @@map("sales_tax_tasks")
 }
 
@@ -631,6 +634,7 @@ model Task {
 
   // Tax category: sales_tax | income_tax | wht | notices
   taxType     String       @default("general")
+  authority   String?
 
   // Optional client link
   clientId    String?
@@ -649,22 +653,28 @@ model Task {
   @@index([createdById])
   @@index([status])
   @@index([taxType])
+  @@index([clientId])
+  @@index([createdAt])
   @@map("tasks")
 
   steps       TaskStep[]
 }
 
 model TaskStep {
-  id        String    @id @default(cuid())
-  taskId    String
-  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  title     String
-  isDone    Boolean   @default(false)
-  order     Int       @default(0)
-  doneAt    DateTime?
-  doneById  String?
-  doneBy    User?     @relation("TaskStepDoneBy", fields: [doneById], references: [id])
-  createdAt DateTime  @default(now())
+  id            String    @id @default(cuid())
+  taskId        String
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  approvedBy    String    @default("TRAINEE")
+  isDone        Boolean   @default(false)
+  order         Int       @default(0)
+  comment       String?
+  attachmentUrl String?
+  doneAt        DateTime?
+  doneById      String?
+  doneBy        User?     @relation("TaskStepDoneBy", fields: [doneById], references: [id])
+  createdAt     DateTime  @default(now())
 
   @@index([taskId])
   @@map("task_steps")
@@ -889,6 +899,8 @@ model FbrCase {
 
   @@index([clientId])
   @@index([currentStage])
+  @@index([assignedToId])
+  @@index([createdAt])
   @@map("fbr_cases")
 }
 

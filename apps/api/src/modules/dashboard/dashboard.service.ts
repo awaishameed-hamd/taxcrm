@@ -14,10 +14,21 @@ export class DashboardService {
     toDate?: string,
   ) {
     const dateFilter = this.buildDateFilter(period, fromDate, toDate)
-
-    // When a period is selected, filter tasks by createdAt within that range.
-    // "Overall" has no filter — all-time data.
     const createdFilter = dateFilter ? { createdAt: dateFilter } : {}
+
+    // For Team Lead: scope everything to their team (trainees under them)
+    let teamTraineeIds: string[] | null = null
+    if (actorRole === Role.TEAM_LEAD) {
+      const trainees = await this.prisma.user.findMany({
+        where: { teamLeadId: actorId },
+        select: { id: true },
+      })
+      teamTraineeIds = trainees.map(t => t.id)
+    }
+    const taxTeamFilter:  any = teamTraineeIds !== null ? { traineeId: { in: teamTraineeIds } } : {}
+    const fbrTeamFilter:  any = teamTraineeIds !== null ? { client: { traineeId: { in: teamTraineeIds } } } : {}
+    const genTeamFilter:  any = teamTraineeIds !== null ? { assignedToId: { in: [actorId, ...teamTraineeIds] } } : {}
+    const clientTeamFilter: any = teamTraineeIds !== null ? { traineeId: { in: teamTraineeIds } } : {}
 
     // ── Parallel counts ───────────────────────────────────────────────────────
     const [
@@ -31,73 +42,66 @@ export class DashboardService {
       fbrByStage,
       generalByStatus,
     ] = await Promise.all([
-      // Total clients is always all-time (not period-sensitive)
-      this.prisma.clientProfile.count(),
+      this.prisma.clientProfile.count({ where: clientTeamFilter }),
 
-      // Active pipeline: tasks that are NOT completed, filtered by createdAt in period
       this.prisma.salesTaxTask.count({
-        where: { status: { not: 'COMPLETED' as any }, ...createdFilter },
+        where: { status: { not: 'COMPLETED' as any }, ...taxTeamFilter, ...createdFilter },
       }),
 
-      // Completed in this period: status=COMPLETED, filter by updatedAt (when it was completed)
       this.prisma.salesTaxTask.count({
         where: {
           status: 'COMPLETED' as any,
+          ...taxTeamFilter,
           ...(dateFilter ? { updatedAt: dateFilter } : {}),
         },
       }),
 
-      // Active FBR cases: not CLOSED, filtered by createdAt in period
       this.prisma.fbrCase.count({
-        where: { currentStage: { not: 'CLOSED' as any }, ...createdFilter },
+        where: { currentStage: { not: 'CLOSED' as any }, ...fbrTeamFilter, ...createdFilter },
       }),
 
-      // Team count is always all-time
-      this.prisma.user.count({
-        where: { role: { in: [Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] as any } },
-      }),
+      // Team Lead sees their trainee count; others see all team members
+      teamTraineeIds !== null
+        ? this.prisma.user.count({ where: { teamLeadId: actorId } })
+        : this.prisma.user.count({ where: { role: { in: [Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] as any } } }),
 
-      // Pipeline status distribution — filtered by createdAt
       this.prisma.salesTaxTask.groupBy({
         by: ['status'],
-        where: createdFilter,
+        where: { ...taxTeamFilter, ...createdFilter },
         _count: { id: true },
       }),
 
-      // Pipeline type distribution — filtered by createdAt
       this.prisma.salesTaxTask.groupBy({
         by: ['taskType'],
-        where: createdFilter,
+        where: { ...taxTeamFilter, ...createdFilter },
         _count: { id: true },
       }),
 
-      // FBR cases by stage — filtered by createdAt
       this.prisma.fbrCase.groupBy({
         by: ['currentStage'],
-        where: createdFilter,
+        where: { ...fbrTeamFilter, ...createdFilter },
         _count: { id: true },
       }),
 
-      // General tasks by status — filtered by createdAt
       this.prisma.task.groupBy({
         by: ['status'],
-        where: { taxType: 'general', ...createdFilter },
+        where: { taxType: 'general', ...genTeamFilter, ...createdFilter },
         _count: { id: true },
       }),
     ])
 
-    // ── 7-day completion trend (always last 7 calendar days) ─────────────────
+    // ── 7-day completion trend ────────────────────────────────────────────────
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
     sevenDaysAgo.setHours(0, 0, 0, 0)
 
     const [recentCompleted, recentCreated] = await Promise.all([
       this.prisma.salesTaxTask.findMany({
-        where: { status: 'COMPLETED' as any, updatedAt: { gte: sevenDaysAgo } },
+        where: { status: 'COMPLETED' as any, updatedAt: { gte: sevenDaysAgo }, ...taxTeamFilter },
         select: { updatedAt: true },
       }),
       this.prisma.salesTaxTask.findMany({
-        where: { createdAt: { gte: sevenDaysAgo } },
+        where: { createdAt: { gte: sevenDaysAgo }, ...taxTeamFilter },
         select: { createdAt: true },
       }),
     ])
@@ -124,8 +128,8 @@ export class DashboardService {
       created:   newMap.get(date) ?? 0,
     }))
 
-    // ── Trainee performance: completed + pending per trainee ─────────────────
-    const completedWhere: any = { status: 'COMPLETED' }
+    // ── Trainee leaderboard ───────────────────────────────────────────────────
+    const completedWhere: any = { status: 'COMPLETED', ...taxTeamFilter }
     if (dateFilter) completedWhere.updatedAt = dateFilter
     const [completedForLeaderboard, pendingForLeaderboard] = await Promise.all([
       this.prisma.salesTaxTask.findMany({
@@ -133,7 +137,7 @@ export class DashboardService {
         select: { traineeId: true, trainee: { select: { fullName: true } } },
       }),
       this.prisma.salesTaxTask.findMany({
-        where: { status: { not: 'COMPLETED' as any }, ...createdFilter },
+        where: { status: { not: 'COMPLETED' as any }, ...taxTeamFilter, ...createdFilter },
         select: { traineeId: true, trainee: { select: { fullName: true } } },
       }),
     ])
@@ -153,10 +157,10 @@ export class DashboardService {
       .sort((a, b) => (b.completed + b.pending) - (a.completed + a.pending))
       .slice(0, 8)
 
-    // ── Recent pipeline tasks (period-aware) ──────────────────────────────────
+    // ── Recent pipeline tasks ─────────────────────────────────────────────────
     const recentTasks = await this.prisma.salesTaxTask.findMany({
       take: 6,
-      where: createdFilter,
+      where: { ...taxTeamFilter, ...createdFilter },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, taskType: true, status: true, dueDate: true, createdAt: true,
@@ -165,10 +169,10 @@ export class DashboardService {
       },
     })
 
-    // ── Recent FBR cases (period-aware) ──────────────────────────────────────
+    // ── Recent FBR cases ──────────────────────────────────────────────────────
     const recentFbr = await this.prisma.fbrCase.findMany({
       take: 5,
-      where: createdFilter,
+      where: { ...fbrTeamFilter, ...createdFilter },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, caseNumber: true, currentStage: true, taxType: true, createdAt: true,

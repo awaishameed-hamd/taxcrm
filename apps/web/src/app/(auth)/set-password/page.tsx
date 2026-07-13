@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
 import axios from 'axios'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -103,8 +104,8 @@ function SetPasswordForm() {
 
         <header style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Asif Associates" style={{ width: 150, height: 'auto', filter: 'drop-shadow(0 12px 22px rgba(74,90,99,.3))' }} />
+            <Image src="/logo.png" alt="Asif Associates" width={1536} height={1024} priority
+              style={{ width: 150, height: 'auto', filter: 'drop-shadow(0 12px 22px rgba(74,90,99,.3))' }} />
           </div>
           <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 32, fontWeight: 700, letterSpacing: '-.02em', color: '#4a5a63', lineHeight: 1.1, margin: '0 0 10px' }}>
             Set Your Password

@@ -244,7 +244,7 @@ export class SalesTaxTasksService {
 
   async skipFixedStep(taskId: string, userId: string, stepKey: string, userRole?: string) {
     const task = await this.getOne(taskId)
-    const isManager = userRole === 'MANAGER'
+    const isManager = userRole === 'MANAGER' || userRole === 'TEAM_LEAD'
     if (!isManager && task.traineeId !== userId) throw new ForbiddenException('Only the assigned trainee can skip steps')
     if (!isManager && MANAGER_STEPS.includes(stepKey as SalesTaxTaskStatus))
       throw new ForbiddenException('Manager-approved steps cannot be skipped')
@@ -268,7 +268,7 @@ export class SalesTaxTasksService {
 
   async addCustomStep(taskId: string, userId: string, dto: { title: string; description?: string; approvedBy: string; insertAfter: string }, userRole?: string) {
     const task = await this.getOne(taskId)
-    if (userRole !== 'MANAGER' && task.traineeId !== userId) throw new ForbiddenException('Only the assigned trainee can add steps')
+    if (userRole !== 'MANAGER' && userRole !== 'TEAM_LEAD' && task.traineeId !== userId) throw new ForbiddenException('Only the assigned trainee can add steps')
     return this.prisma.salesTaxCustomStep.create({
       data: { taskId, title: dto.title, description: dto.description ?? null, approvedBy: dto.approvedBy as any, insertAfter: dto.insertAfter },
     })
@@ -278,7 +278,7 @@ export class SalesTaxTasksService {
     const step = await this.prisma.salesTaxCustomStep.findUnique({ where: { id: stepId } })
     if (!step || step.taskId !== taskId) throw new NotFoundException('Step not found')
     if (step.isCompleted) throw new BadRequestException('Cannot delete a completed step')
-    const isManager = userRole === 'MANAGER'
+    const isManager = userRole === 'MANAGER' || userRole === 'TEAM_LEAD'
     if (!isManager) {
       if ((step.approvedBy as any) === 'MANAGER') throw new ForbiddenException('Cannot delete manager-approved steps')
       const task = await this.getOne(taskId)
@@ -295,7 +295,7 @@ export class SalesTaxTasksService {
     if ((step.approvedBy as any) === 'TRAINEE') {
       if (task.traineeId !== userId) throw new ForbiddenException('Only the assigned trainee can complete this step')
     } else {
-      if (!['MANAGER', 'ADMIN', 'PARTNER'].includes(userRole)) throw new ForbiddenException('Only a manager can complete this step')
+      if (!['MANAGER', 'TEAM_LEAD', 'ADMIN', 'PARTNER'].includes(userRole)) throw new ForbiddenException('Only a manager can complete this step')
     }
     return this.prisma.salesTaxCustomStep.update({
       where: { id: stepId },
@@ -356,11 +356,14 @@ export class SalesTaxTasksService {
 
     // Notify trainee if task was assigned by someone else
     if (task.traineeId && task.traineeId !== creatorId) {
-      const typeLabel   = taskType === 'INCOME_TAX' ? 'Income Tax' : taskType === 'SALES_TAX' ? 'Sales Tax' : 'WHT'
-      const periodLabel = taskType === 'INCOME_TAX' ? `${dto.periodYear}` : `${dto.periodMonth}/${dto.periodYear}`
-      const body        = `A ${typeLabel} task (${periodLabel}) has been assigned to you`
-      await this.notifications.create({ userId: task.traineeId, title: 'New Task Assigned', body, type: 'SYSTEM', data: { taskId: task.id, taskType } })
-      this.chatGateway.emitToUser(task.traineeId, 'notification', { title: 'New Task Assigned', body, taskId: task.id, taskType })
+      const creator      = await this.prisma.user.findUnique({ where: { id: creatorId }, select: { fullName: true } })
+      const typeLabel    = taskType === 'INCOME_TAX' ? 'Income Tax' : taskType === 'SALES_TAX' ? 'Sales Tax' : 'WHT'
+      const periodLabel  = taskType === 'INCOME_TAX' ? `${dto.periodYear}` : `${dto.periodMonth}/${dto.periodYear}`
+      const assignerName = creator?.fullName ?? 'Someone'
+      const title         = `New Task Assigned by ${assignerName}`
+      const body          = `${assignerName} assigned you a ${typeLabel} task (${periodLabel})`
+      await this.notifications.create({ userId: task.traineeId, title, body, type: 'SYSTEM', data: { taskId: task.id, taskType, assignedById: creatorId } })
+      this.chatGateway.emitToUser(task.traineeId, 'notification', { title, body, taskId: task.id, taskType })
     }
 
     return task

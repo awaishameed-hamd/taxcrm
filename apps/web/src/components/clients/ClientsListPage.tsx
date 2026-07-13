@@ -351,9 +351,6 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
     const vals: Record<string, string> = {}
     fieldConfigs.forEach(f => {
       const key = f.fieldKey || f.field_key
-      if (key === 'fullName')  { vals[key] = initial?.user?.fullName  ?? ''; return }
-      if (key === 'email')     { vals[key] = initial?.user?.email     ?? ''; return }
-      if (key === 'phone')     { vals[key] = initial?.user?.phone     ?? ''; return }
       if (key === 'traineeId') { vals[key] = initial?.traineeId       ?? ''; return }
       if (NATIVE_KEYS.has(key)) {
         // date fields
@@ -388,7 +385,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
   const SALES_TAX_AUTHORITIES = ['FBR', 'PRA', 'SRB', 'KPRA', 'BRA', 'AJK']
   const [salesTaxAuthorities, setSalesTaxAuthorities] = useState<string[]>(initial?.salesTaxAuthorities ?? [])
   const [hasWhtService,       setHasWhtService]       = useState<boolean>(initial?.hasWhtService ?? false)
-  const [yearEnd,             setYearEnd]             = useState<string>(initial?.yearEnd ?? 'DECEMBER')
+  const [yearEnd,             setYearEnd]             = useState<string>(initial?.yearEnd ?? 'JUNE')
 
   const toggleAuthority = (auth: string) => {
     setSalesTaxAuthorities(prev =>
@@ -445,8 +442,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
     }
   }
 
-  const HIDDEN_CLIENT_FIELDS = new Set(['cnic', 'fullName', 'email', 'phone', 'address', 'city', 'province'])
-  const visibleFields = fieldConfigs.filter(f => (f.isVisible ?? f.is_visible ?? true) && !HIDDEN_CLIENT_FIELDS.has(f.fieldKey || f.field_key))
+  const visibleFields = fieldConfigs.filter(f => f.isVisible ?? f.is_visible ?? true)
 
   const handleChange = (key: string, val: string) => {
     setForm(p => ({ ...p, [key]: val }))
@@ -455,14 +451,12 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
 
   const validate = () => {
     const e: Record<string, string> = {}
-    if (!form.fullName?.trim()) e.fullName = 'Required'
-    if (!form.email?.trim()) e.email = 'Required'
     // Password required only when method is set_password
     if (portalMethod === 'set_password' && !password.trim()) e.password = 'Required'
     if (portalMethod === 'set_password' && password && password.length < 8) e.password = 'Minimum 8 characters'
     visibleFields.forEach(f => {
       const key = f.fieldKey || f.field_key
-      if ((f.isRequired ?? f.is_required) && key !== 'fullName' && key !== 'email') {
+      if (f.isRequired ?? f.is_required) {
         if (!form[key]?.trim()) e[key] = 'Required'
       }
     })
@@ -513,7 +507,6 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
         }
       } else {
         if (portalMethod === 'set_password' && password) payload.password = password
-        delete payload.email   // email cannot be changed; DTO rejects it
         await api.put(`/clients/${initial.id}`, payload)
         // Send invite if method chosen is invite in edit mode
         if (portalAccess && portalMethod === 'invite') await handleSendInviteModal()
@@ -540,7 +533,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
             <h2 style={{ margin: 0, fontFamily: "'Ethnocentric Rg', sans-serif", fontSize: 14, fontWeight: 300, color: '#132E57', letterSpacing: '0.04em' }}>
               {isEdit ? `Edit Client` : 'New Client'}
             </h2>
-            {isEdit && <p style={{ margin: '2px 0 0', fontSize: 13, color: '#132E57', fontFamily: "'Aptos', sans-serif", fontWeight: 600 }}>{initial?.user?.fullName}</p>}
+            {isEdit && <p style={{ margin: '2px 0 0', fontSize: 13, color: '#132E57', fontFamily: "'Aptos', sans-serif", fontWeight: 600 }}>{initial?.businessName || initial?.user?.userCode}</p>}
           </div>
           <button onClick={onClose} style={{ border: 0, background: 'rgba(19,46,87,0.12)', cursor: 'pointer', borderRadius: 8, width: 28, height: 28, fontSize: 16, color: '#132E57', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>×</button>
         </div>
@@ -600,7 +593,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
           </div>
 
           {/* Assign Firm Representative */}
-          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
             <div style={{ padding: '10px 18px', borderBottom: `1px solid ${P.border}`, background: '#F1F5F9' }}>
               <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif" }}>
                 Assign Firm Representative
@@ -617,7 +610,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
           </div>
 
           {/* Fiscal Year End */}
-          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
             <div style={{ padding: '10px 18px', borderBottom: `1px solid ${P.border}`, background: '#F1F5F9' }}>
               <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif" }}>
                 Fiscal Year End
@@ -645,7 +638,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
           </div>
 
           {/* Assign Representative */}
-          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
             <div style={{ padding: '10px 18px', borderBottom: `1px solid ${P.border}`, background: '#F1F5F9' }}>
               <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif" }}>
                 Assign Representative
@@ -664,7 +657,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
 
 
           {/* Services section */}
-          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
             <div style={{ padding: '10px 18px', borderBottom: `1px solid ${P.border}`, background: '#F1F5F9' }}>
               <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif" }}>
                 Services
@@ -841,19 +834,24 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
   const [toast, setToast]           = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
-  const [visibleCols, setVisibleCols] = useState<string[]>(() => {
-    const saved = lsGet<string[]>(LS_REP_COLS, ALL_REP_COL_KEYS)
-    const valid = saved.filter(k => ALL_REP_COL_KEYS.includes(k))
-    return valid.length > 0 ? valid : ALL_REP_COL_KEYS
-  })
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const defaults = Object.fromEntries(ALL_REP_COLS.map(c => [c.key, c.defaultWidth]))
-    return { ...defaults, ...lsGet<Record<string, number>>(LS_REP_WIDTHS, {}) }
-  })
+  const [visibleCols, setVisibleCols] = useState<string[]>(ALL_REP_COL_KEYS)
+  const [colWidths, setColWidths] = useState<Record<string, number>>(
+    Object.fromEntries(ALL_REP_COLS.map(c => [c.key, c.defaultWidth])),
+  )
+  const [colsHydrated, setColsHydrated] = useState(false)
   const resizingCol = useRef<{ key: string; startX: number; startW: number } | null>(null)
 
-  useEffect(() => { lsSet(LS_REP_COLS, visibleCols) }, [visibleCols])
-  useEffect(() => { lsSet(LS_REP_WIDTHS, colWidths) }, [colWidths])
+  useEffect(() => {
+    const saved = lsGet<string[]>(LS_REP_COLS, ALL_REP_COL_KEYS)
+    const valid = saved.filter(k => ALL_REP_COL_KEYS.includes(k))
+    setVisibleCols(valid.length > 0 ? valid : ALL_REP_COL_KEYS)
+    const defaults = Object.fromEntries(ALL_REP_COLS.map(c => [c.key, c.defaultWidth]))
+    setColWidths({ ...defaults, ...lsGet<Record<string, number>>(LS_REP_WIDTHS, {}) })
+    setColsHydrated(true)
+  }, [])
+
+  useEffect(() => { if (colsHydrated) lsSet(LS_REP_COLS, visibleCols) }, [visibleCols, colsHydrated])
+  useEffect(() => { if (colsHydrated) lsSet(LS_REP_WIDTHS, colWidths) }, [colWidths, colsHydrated])
 
   const onResizeStart = useCallback((key: string, e: React.MouseEvent) => {
     e.preventDefault()
@@ -1185,7 +1183,7 @@ function RepFormModal({ initial, onClose, onSuccess }: { initial?: any; onClose:
           </div>
 
           {/* Portal Access toggle */}
-          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
             <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif", flex: 1 }}>
                 Portal Access
@@ -1291,19 +1289,24 @@ export default function ClientsListPage() {
   const [inviteSending,  setInviteSending]  = useState<string | null>(null)
   const [toast,          setToast]          = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [statusFilter,   setStatusFilter]   = useState<'all' | 'active' | 'inactive'>('all')
-  const [visibleCols, setVisibleCols] = useState<string[]>(() => {
-    const saved = lsGet<string[]>(LS_CLIENT_COLS, ALL_CLIENT_COL_KEYS)
-    const valid = saved.filter(k => ALL_CLIENT_COL_KEYS.includes(k))
-    return valid.length > 0 ? valid : ALL_CLIENT_COL_KEYS
-  })
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const defaults = Object.fromEntries(ALL_CLIENT_COLS.map(c => [c.key, c.defaultWidth]))
-    return { ...defaults, ...lsGet<Record<string, number>>(LS_CLIENT_WIDTHS, {}) }
-  })
+  const [visibleCols, setVisibleCols] = useState<string[]>(ALL_CLIENT_COL_KEYS)
+  const [colWidths, setColWidths] = useState<Record<string, number>>(
+    Object.fromEntries(ALL_CLIENT_COLS.map(c => [c.key, c.defaultWidth])),
+  )
+  const [colsHydrated, setColsHydrated] = useState(false)
   const resizingCol = useRef<{ key: string; startX: number; startW: number } | null>(null)
 
-  useEffect(() => { lsSet(LS_CLIENT_COLS, visibleCols) }, [visibleCols])
-  useEffect(() => { lsSet(LS_CLIENT_WIDTHS, colWidths) }, [colWidths])
+  useEffect(() => {
+    const saved = lsGet<string[]>(LS_CLIENT_COLS, ALL_CLIENT_COL_KEYS)
+    const valid = saved.filter(k => ALL_CLIENT_COL_KEYS.includes(k))
+    setVisibleCols(valid.length > 0 ? valid : ALL_CLIENT_COL_KEYS)
+    const defaults = Object.fromEntries(ALL_CLIENT_COLS.map(c => [c.key, c.defaultWidth]))
+    setColWidths({ ...defaults, ...lsGet<Record<string, number>>(LS_CLIENT_WIDTHS, {}) })
+    setColsHydrated(true)
+  }, [])
+
+  useEffect(() => { if (colsHydrated) lsSet(LS_CLIENT_COLS, visibleCols) }, [visibleCols, colsHydrated])
+  useEffect(() => { if (colsHydrated) lsSet(LS_CLIENT_WIDTHS, colWidths) }, [colWidths, colsHydrated])
 
   const onResizeStart = useCallback((key: string, e: React.MouseEvent) => {
     e.preventDefault()
@@ -1364,7 +1367,7 @@ export default function ClientsListPage() {
       setClients(prev => prev.map(cl =>
         cl.id === c.id ? { ...cl, user: { ...cl.user, hasPortalAccess: data.hasPortalAccess } } : cl
       ))
-      setToast({ message: `Portal access ${data.hasPortalAccess ? 'enabled' : 'disabled'} for ${c.user?.fullName}.`, type: 'success' })
+      setToast({ message: `Portal access ${data.hasPortalAccess ? 'enabled' : 'disabled'} for ${c.businessName || c.user?.userCode}.`, type: 'success' })
     } catch {
       setToast({ message: 'Failed to update portal access.', type: 'error' })
     }
@@ -1374,7 +1377,7 @@ export default function ClientsListPage() {
     setInviteSending(c.id)
     try {
       await api.post(`/clients/${c.id}/send-invite`)
-      setToast({ message: `Invite sent to ${c.user?.email}.`, type: 'success' })
+      setToast({ message: `Invite sent successfully.`, type: 'success' })
     } catch (err: any) {
       setToast({ message: err?.response?.data?.message ?? 'Failed to send invite.', type: 'error' })
     } finally {
@@ -1390,7 +1393,7 @@ export default function ClientsListPage() {
       setClients(prev => prev.map(cl =>
         cl.id === c.id ? { ...cl, user: { ...cl.user, isActive: !cl.user.isActive } } : cl
       ))
-      setToast({ message: `${c.user?.fullName} ${c.user?.isActive ? 'deactivated' : 'activated'}.`, type: 'success' })
+      setToast({ message: `${c.businessName || c.user?.userCode} ${c.user?.isActive ? 'deactivated' : 'activated'}.`, type: 'success' })
     } catch {
       setToast({ message: 'Failed to update client status.', type: 'error' })
     }
@@ -1423,7 +1426,7 @@ export default function ClientsListPage() {
       )}
       {confirmToggle && (
         <ConfirmDialog
-          message={`${confirmToggle.user?.isActive ? 'Deactivate' : 'Activate'} client "${confirmToggle.user?.fullName}"?`}
+          message={`${confirmToggle.user?.isActive ? 'Deactivate' : 'Activate'} client "${confirmToggle.businessName || confirmToggle.user?.userCode}"?`}
           onConfirm={handleToggleActive}
           onCancel={() => setConfirmToggle(null)}
         />

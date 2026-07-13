@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { AttendanceStatus, DayType, Role } from '@prisma/client'
 import { UpdateAttendanceDto } from './dto/update-attendance.dto'
@@ -15,7 +15,7 @@ export const DEFAULT_SETTINGS = {
   reporting_time:       '09:00',  // earliest time attendance can be marked (attendance window start)
   login_time:           '10:00',  // official office time — late is calculated relative to this
   grace_period_minutes: '15',
-  cutoff_time:          '23:59',
+  cutoff_time:          '18:00',
   auto_mark_on_login:   'true',
   timezone:             'Asia/Karachi',
 }
@@ -236,7 +236,6 @@ export class AttendanceService {
     }
 
     const workingDay = await this.prisma.workingDay.findUnique({ where: { date: today } })
-    const dayOfWeek  = today.getDay() // 0=Sunday, 6=Saturday
 
     let officialLoginTime: string
     let graceMins: number
@@ -371,14 +370,21 @@ export class AttendanceService {
 
   // ── Attendance report (all users, manager/partner) ──────────────────────────
 
-  async getReport(month: number | null, year: number | null, actorRole: Role, targetUserId?: string) {
+  async getReport(month: number | null, year: number | null, actorRole: Role, actorId: string, targetUserId?: string) {
     const where: any = { user: { attendanceApplicable: true } }
     if (month && year) {
       const startDate = new Date(`${year}-${String(month).padStart(2,'0')}-01T00:00:00Z`)
       const endDate   = new Date(year, month, 1)
       where.date = { gte: startDate, lt: endDate }
     }
-    if (targetUserId) where.userId = targetUserId
+
+    if (actorRole === Role.TEAM_LEAD) {
+      const trainees = await this.prisma.user.findMany({ where: { teamLeadId: actorId }, select: { id: true } })
+      const allowedIds = [actorId, ...trainees.map(t => t.id)]
+      where.userId = targetUserId && allowedIds.includes(targetUserId) ? targetUserId : { in: allowedIds }
+    } else if (targetUserId) {
+      where.userId = targetUserId
+    }
 
     const records = await this.prisma.attendance.findMany({
       where,
@@ -424,14 +430,20 @@ export class AttendanceService {
 
   // ── Daily attendance (snapshot of who's in today) ───────────────────────────
 
-  async getDailyAttendance(date: string, actorRole: Role) {
+  async getDailyAttendance(date: string, actorRole: Role, actorId: string) {
     const day       = new Date(date + 'T00:00:00Z')
     const nextDay   = new Date(day.getTime() + 24 * 60 * 60 * 1000)
     const dayOfWeek = day.getDay()
 
+    const userWhere: any = { role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] }, isActive: true, attendanceApplicable: true }
+    if (actorRole === Role.TEAM_LEAD) {
+      const trainees = await this.prisma.user.findMany({ where: { teamLeadId: actorId }, select: { id: true } })
+      userWhere.id = { in: [actorId, ...trainees.map(t => t.id)] }
+    }
+
     // Get all internal users where attendance is applicable
     const users = await this.prisma.user.findMany({
-      where:   { role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] }, isActive: true, attendanceApplicable: true },
+      where:   userWhere,
       select:  { id: true, fullName: true, role: true },
       orderBy: { fullName: 'asc' },
     })
@@ -470,7 +482,20 @@ export class AttendanceService {
 
   // ── Edit attendance (manager/partner) ───────────────────────────────────────
 
+  private async assertNotManagerEditingManager(editorId: string, targetUserId: string) {
+    const [editor, target] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: editorId }, select: { role: true } }),
+      this.prisma.user.findUnique({ where: { id: targetUserId }, select: { role: true } }),
+    ])
+    if (editor?.role === Role.MANAGER && target?.role === Role.MANAGER) {
+      throw new ForbiddenException('Managers cannot edit another manager\'s attendance')
+    }
+  }
+
   async createAttendance(userId: string, date: string, dto: UpdateAttendanceDto, editorId: string) {
+    // Managers cannot create/edit attendance for other managers
+    await this.assertNotManagerEditingManager(editorId, userId)
+
     const existing = await this.prisma.attendance.findFirst({ where: { userId, date: new Date(date) } })
     if (existing) return this.updateAttendance(existing.id, dto, editorId)
 
@@ -496,6 +521,9 @@ export class AttendanceService {
     const att = await this.prisma.attendance.findUnique({ where: { id } })
     if (!att) throw new NotFoundException('Attendance record not found')
 
+    // Managers cannot edit attendance belonging to another manager
+    await this.assertNotManagerEditingManager(editorId, att.userId)
+
     const data: any = { editedById: editorId }
     if (dto.status !== undefined)      data.status      = dto.status
     if (dto.isLate !== undefined)      data.isLate      = dto.isLate
@@ -513,6 +541,100 @@ export class AttendanceService {
   }
 
   // ── Approve leave/correction request ───────────────────────────────────────
+
+  // ── One-time backfill: mark past absent days ───────────────────────────────
+  async backfillAbsent(): Promise<{ created: number }> {
+    const settings = await this.getSettings()
+    const tz       = settings.timezone ?? 'Asia/Karachi'
+
+    const { dateStr: todayStr } = this.getDateInTimezone(tz)
+    const yesterday = new Date(todayStr + 'T00:00:00Z')
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+
+    const moduleStart = new Date('2026-01-01T00:00:00Z')
+    if (yesterday < moduleStart) return { created: 0 }
+
+    // All applicable users with their creation date (attendance only relevant from createdAt onwards)
+    const users = await this.prisma.user.findMany({
+      where:  { attendanceApplicable: true },
+      select: { id: true, createdAt: true },
+    })
+    if (users.length === 0) return { created: 0 }
+
+    // Per-user start date = max(moduleStart, user.createdAt truncated to UTC day)
+    const userStartMap = new Map(users.map(u => {
+      const created = new Date(u.createdAt)
+      created.setUTCHours(0, 0, 0, 0)
+      const start = created > moduleStart ? created : moduleStart
+      return [u.id, start]
+    }))
+    const userIds = users.map(u => u.id)
+
+    // All working-day overrides in range
+    const workingDays = await this.prisma.workingDay.findMany({
+      where:  { date: { gte: moduleStart, lte: yesterday } },
+      select: { date: true, dayType: true, id: true },
+    })
+    const wdMap = new Map(workingDays.map(w => [w.date.toISOString().split('T')[0], w]))
+
+    // All existing records in range
+    const existing = await this.prisma.attendance.findMany({
+      where:  { date: { gte: moduleStart, lte: yesterday }, userId: { in: userIds } },
+      select: { userId: true, date: true },
+    })
+    const existingSet = new Set(
+      existing.map(r => `${r.userId}|${r.date.toISOString().split('T')[0]}`)
+    )
+
+    // Build list of missing (userId, date) pairs
+    type Row = { userId: string; date: Date; workingDayId: string | undefined }
+    const toCreate: Row[] = []
+    const cursor = new Date(moduleStart)
+
+    while (cursor <= yesterday) {
+      const dateStr   = cursor.toISOString().split('T')[0]
+      const dayOfWeek = cursor.getDay()
+      const wd        = wdMap.get(dateStr)
+      const resolved  = wd?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
+
+      // Only mandatory working days get auto-absent — weekends are voluntary
+      if (resolved === DayType.WORKING_DAY) {
+        const dateObj = new Date(cursor)
+        for (const user of users) {
+          const userStart = userStartMap.get(user.id)!
+          // Skip dates before this user was created
+          if (dateObj < userStart) continue
+          if (!existingSet.has(`${user.id}|${dateStr}`)) {
+            toCreate.push({ userId: user.id, date: dateObj, workingDayId: wd?.id })
+          }
+        }
+      }
+
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+    }
+
+    if (toCreate.length === 0) return { created: 0 }
+
+    // Insert in chunks of 200
+    const CHUNK = 200
+    for (let i = 0; i < toCreate.length; i += CHUNK) {
+      await this.prisma.attendance.createMany({
+        data: toCreate.slice(i, i + CHUNK).map(r => ({
+          userId:         r.userId,
+          workingDayId:   r.workingDayId ?? null,
+          date:           r.date,
+          loginTime:      null,
+          status:         AttendanceStatus.ABSENT,
+          isLate:         false,
+          lateMinutes:    null,
+          approvalStatus: 'pending',
+        })),
+        skipDuplicates: true,
+      })
+    }
+
+    return { created: toCreate.length }
+  }
 
   async approveAttendance(id: string, approverId: string, approve: boolean) {
     const att = await this.prisma.attendance.findUnique({ where: { id } })

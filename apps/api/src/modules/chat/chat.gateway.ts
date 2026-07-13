@@ -101,18 +101,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Notify participants who are not the sender
     const participants = await this.chatService.getConversationParticipants(data.conversationId)
+    const senderName = (message as any).sender?.fullName ?? 'Someone'
     const snippet = data.content?.substring(0, 80) ?? 'You have a new message'
+    const title   = `New Message from ${senderName}`
     for (const p of participants) {
       if (p.userId === client.userId) continue
       await this.notifications.create({
         userId: p.userId,
-        title:  'New Message',
+        title,
         body:   snippet,
         type:   'NEW_MESSAGE',
-        data:   { conversationId: data.conversationId },
+        data:   { conversationId: data.conversationId, senderId: client.userId },
       })
       this.emitToUser(p.userId, 'notification', {
-        title:          'New Message',
+        title,
         body:           snippet,
         conversationId: data.conversationId,
       })

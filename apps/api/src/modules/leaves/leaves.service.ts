@@ -10,6 +10,9 @@ const CAN_APPROVE: Record<string, string[]> = {
   [Role.MANAGER]: [Role.TRAINEE, Role.TEAM_LEAD],
 }
 
+// Roles whose leave can ONLY be approved by ADMIN or PARTNER (not Manager)
+const ADMIN_PARTNER_ONLY: string[] = [Role.MANAGER]
+
 function calcDays(from: string, to: string): number {
   const f = new Date(from), t = new Date(to)
   return Math.max(1, Math.round((t.getTime() - f.getTime()) / 86400000) + 1)
@@ -44,7 +47,8 @@ export class LeavesService {
   }
 
   async getPending(actorRole: string) {
-    const approvableRoles = CAN_APPROVE[actorRole] ?? []
+    const approvableRoles = (CAN_APPROVE[actorRole] ?? [])
+      .filter(r => actorRole === Role.MANAGER ? !ADMIN_PARTNER_ONLY.includes(r) : true)
     if (!approvableRoles.length) return []
 
     return this.prisma.leaveApplication.findMany({
@@ -61,7 +65,8 @@ export class LeavesService {
   }
 
   async getAll(actorRole: string) {
-    const approvableRoles = CAN_APPROVE[actorRole] ?? []
+    const approvableRoles = (CAN_APPROVE[actorRole] ?? [])
+      .filter(r => actorRole === Role.MANAGER ? !ADMIN_PARTNER_ONLY.includes(r) : true)
     if (!approvableRoles.length) return []
 
     return this.prisma.leaveApplication.findMany({
@@ -82,7 +87,8 @@ export class LeavesService {
     if (!leave) throw new NotFoundException('Leave application not found')
     if (leave.status !== 'pending') throw new BadRequestException('Already reviewed')
 
-    const approvableRoles = CAN_APPROVE[actorRole] ?? []
+    const approvableRoles = (CAN_APPROVE[actorRole] ?? [])
+      .filter(r => actorRole === Role.MANAGER ? !ADMIN_PARTNER_ONLY.includes(r) : true)
     if (!approvableRoles.includes(leave.applicant.role as string))
       throw new ForbiddenException('Not authorised to approve this leave')
 
@@ -100,7 +106,8 @@ export class LeavesService {
     if (!leave) throw new NotFoundException('Leave application not found')
     if (leave.status !== 'pending') throw new BadRequestException('Already reviewed')
 
-    const approvableRoles = CAN_APPROVE[actorRole] ?? []
+    const approvableRoles = (CAN_APPROVE[actorRole] ?? [])
+      .filter(r => actorRole === Role.MANAGER ? !ADMIN_PARTNER_ONLY.includes(r) : true)
     if (!approvableRoles.includes(leave.applicant.role as string))
       throw new ForbiddenException('Not authorised to reject this leave')
 
