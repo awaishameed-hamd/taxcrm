@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Asif Associates CRM',
+  title: 'Asif Associates',
   description: 'Centralized tax return management for CA firms',
 }
 
