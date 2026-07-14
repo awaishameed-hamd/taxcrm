@@ -392,11 +392,10 @@ export default function DashboardPage({ title }: Props) {
       {error && <div style={{ background:'#FEE2E2', border:'1px solid #FCA5A5', borderRadius:6, padding:'8px 12px', fontSize:12, color:'#991B1B', marginBottom:10 }}>{error}</div>}
 
       {/* ── Row 1 — Stat Cards + Deadline bands (flat cards, numbers only) ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:10, marginBottom:10 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, marginBottom:10 }}>
         <StatCard label="ACTIVE RETURNS"    value={stats.activePipeline ?? 0}     border={TEAL}    fill="#E5F3F5" textColor={TEAL}    loading={loading} />
-        <StatCard label="COMPLETED"         value={stats.completedInPeriod ?? 0}  border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
         <StatCard label="ACTIVE FBR CASES"  value={stats.activeFbr ?? 0}          border={BRICK}   fill="#F5E0D2" textColor={BRICK}   loading={loading} />
-        <StatCard label="ACTIVE GENERAL TASKS" value={stats.activeGeneral ?? 0}   border={PURPLE}  fill="#F3E8F7" textColor={PURPLE}  loading={loading} />
+        <StatCard label="ACTIVE GENERAL TASKS" value={stats.activeGeneral ?? 0}   border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
         <StatCard label="OVERDUE"           value={deadlines.overdue ?? 0}     border="#DC2626" fill="#FEE2E2" textColor="#DC2626" loading={loading} />
         <StatCard label="DUE TODAY"         value={deadlines.dueToday ?? 0}    border="#EA580C" fill="#FFEDD5" textColor="#EA580C" loading={loading} />
         <StatCard label="DUE THIS WEEK"     value={deadlines.dueThisWeek ?? 0} border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
