@@ -278,36 +278,48 @@ function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLab
   colorFn: (k: string) => string
   completedLabel: string
 }) {
-  const Section = ({ heading, rows, accent }: { heading: string; rows: { key:string; count:number }[]; accent: string }) => {
+  const Section = ({ heading, rows, accent, accentBg }: { heading: string; rows: { key:string; count:number }[]; accent: string; accentBg: string }) => {
     const total = rows.reduce((s, r) => s + r.count, 0)
+    const max   = rows.length ? Math.max(...rows.map(r => r.count)) : 1
     return (
-      <div>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-          <span style={{ fontSize:9.5, fontWeight:800, letterSpacing:'0.06em', color:accent, fontFamily:F }}>{heading}</span>
-          <span style={{ fontSize:11, fontWeight:800, color:accent, fontFamily:F }}>{total}</span>
+      <div style={{ flex:1 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+          <span style={{ fontSize:9, fontWeight:800, letterSpacing:'0.08em', color:accent, background:accentBg, padding:'3px 10px', borderRadius:20, fontFamily:F }}>{heading}</span>
+          <span style={{ fontSize:16, fontWeight:800, color:accent, lineHeight:1, fontFamily:F }}>{total}</span>
         </div>
         {rows.length === 0
-          ? <div style={{ fontSize:10, color:MUTED, fontStyle:'italic', paddingBottom:2, fontFamily:F }}>None</div>
-          : <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              {rows.map(r => (
-                <div key={r.key} style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <span style={{ width:7, height:7, borderRadius:2, background:colorFn(r.key), flexShrink:0 }} />
-                  <span style={{ flex:1, fontSize:11, color:SLATE, fontFamily:F, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{labelFn(r.key)}</span>
-                  <span style={{ fontSize:12, fontWeight:700, color:NAVY, fontFamily:F }}>{r.count}</span>
-                </div>
-              ))}
+          ? <div style={{ fontSize:10, color:'#B8BFC9', fontStyle:'italic', padding:'2px 2px 0', fontFamily:F }}>Nothing here yet</div>
+          : <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+              {rows.map(r => {
+                const c = colorFn(r.key)
+                return (
+                  <div key={r.key}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+                      <span style={{ width:8, height:8, borderRadius:'50%', background:c, boxShadow:`0 0 0 2.5px ${c}22`, flexShrink:0 }} />
+                      <span style={{ flex:1, fontSize:11, color:SLATE, fontWeight:600, fontFamily:F, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{labelFn(r.key)}</span>
+                      <span style={{ fontSize:11.5, fontWeight:800, color:c, fontFamily:F }}>{r.count}</span>
+                    </div>
+                    <div style={{ height:4, background:GRIDLN, borderRadius:3, overflow:'hidden', marginLeft:14 }}>
+                      <div style={{ width:`${Math.max(r.count / max * 100, 6)}%`, height:'100%', borderRadius:3, background:`linear-gradient(90deg, ${c}, ${c}99)`, transition:'width 0.5s ease' }} />
+                    </div>
+                  </div>
+                )
+              })}
             </div>
         }
       </div>
     )
   }
   return (
-    <div style={{ ...cardStyle, display:'flex', flexDirection:'column' }}>
-      <div style={titleStyle}>{title}</div>
-      <div style={{ display:'flex', flexDirection:'column', gap:12, flex:1 }}>
-        <Section heading="ACTIVE" rows={active} accent={TEAL} />
-        <div style={{ borderTop:`1px solid ${GRIDLN}` }} />
-        <Section heading={completedLabel} rows={completed} accent={FOREST} />
+    <div style={{ background:WHITE, borderRadius:12, boxShadow:'0 1px 8px rgba(19,46,87,0.07)', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+      <div style={{ height:3, background:`linear-gradient(90deg, ${NAVY}, ${TEAL})` }} />
+      <div style={{ padding:'11px 14px 13px', display:'flex', flexDirection:'column', flex:1 }}>
+        <div style={{ ...titleStyle, marginBottom:10 }}>{title}</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:11, flex:1 }}>
+          <Section heading="ACTIVE" rows={active} accent={TEAL} accentBg="#E5F3F5" />
+          <div style={{ borderTop:`1px dashed ${BORDER}` }} />
+          <Section heading={completedLabel} rows={completed} accent={FOREST} accentBg="#E7F4E7" />
+        </div>
       </div>
     </div>
   )
