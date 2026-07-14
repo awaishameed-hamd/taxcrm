@@ -263,6 +263,21 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     setUnreadCount(0)
   }
 
+  const deleteNotif = async (id: string) => {
+    await api.delete(`/notifications/${id}`).catch(() => {})
+    setNotifs(prev => {
+      const target = prev.find(n => n.id === id)
+      if (target && !target.isRead) setUnreadCount(c => Math.max(0, c - 1))
+      return prev.filter(n => n.id !== id)
+    })
+  }
+
+  const deleteAllNotifs = async () => {
+    await api.delete('/notifications/all').catch(() => {})
+    setNotifs([])
+    setUnreadCount(0)
+  }
+
   const openNewTask = useCallback(async () => {
     setNtForm({ ...BLANK_FORM })
     setNtClients([])
@@ -523,11 +538,18 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px 6px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', 'Inter', sans-serif" }}>Notifications</span>
-              {unreadCount > 0 && (
-                <button onClick={markAllRead} style={{ fontSize: 10, color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Aptos', 'Inter', sans-serif", padding: 0 }}>
-                  Mark all read
-                </button>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {unreadCount > 0 && (
+                  <button onClick={markAllRead} style={{ fontSize: 10, color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Aptos', 'Inter', sans-serif", padding: 0 }}>
+                    Mark all read
+                  </button>
+                )}
+                {notifs.length > 0 && (
+                  <button onClick={deleteAllNotifs} style={{ fontSize: 10, color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Aptos', 'Inter', sans-serif", padding: 0 }}>
+                    Delete all
+                  </button>
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 6, padding: '6px 12px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
               {(['all', 'unread'] as const).map(f => {
@@ -557,10 +579,21 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 }
                 return filtered.map(n => (
                 <div key={n.id} style={{
-                  padding: '8px 12px', borderBottom: `1px solid #f0f0f0`,
+                  position: 'relative', padding: '8px 28px 8px 12px', borderBottom: `1px solid #f0f0f0`,
                   background: n.isRead ? 'transparent' : '#EFF6FF',
                   borderLeft: `3px solid ${n.isRead ? 'transparent' : C.teal}`,
                 }}>
+                  <button onClick={() => deleteNotif(n.id)} title="Delete notification"
+                    style={{
+                      position: 'absolute', top: 6, right: 6, width: 18, height: 18,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: 0, borderRadius: 4, background: 'transparent', color: C.gray,
+                      cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.color = '#DC2626' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.gray }}>
+                    ×
+                  </button>
                   <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', 'Inter', sans-serif", textAlign: 'left' }}>{n.title}</p>
                   <p style={{ margin: 0, fontSize: 11, color: C.slate, fontFamily: "'Aptos', 'Inter', sans-serif", lineHeight: 1.4, marginTop: 1, textAlign: 'left' }}>{n.body}</p>
                   <p style={{ margin: 0, fontSize: 10, color: C.gray, fontFamily: "'Aptos', 'Inter', sans-serif", marginTop: 2, textAlign: 'left' }}>

@@ -51,4 +51,12 @@ export class NotificationsService {
   async unreadCount(userId: string) {
     return this.prisma.notification.count({ where: { userId, isRead: false } })
   }
+
+  async delete(id: string, userId: string) {
+    return this.prisma.notification.deleteMany({ where: { id, userId } })
+  }
+
+  async deleteAll(userId: string) {
+    return this.prisma.notification.deleteMany({ where: { userId } })
+  }
 }
