@@ -2,12 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import {
-  ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip,
-  PieChart, Pie, Cell, ComposedChart, Line, Bar,
-  AreaChart, Area,
+  ResponsiveContainer, Tooltip,
+  PieChart, Pie, Cell,
 } from 'recharts'
 import api from '@/lib/api'
-import { useAuth } from '@/contexts/AuthContext'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -35,8 +33,6 @@ const TREE_COLORS  = [NAVY, TEAL, GOLD, KHAKI, BRICK, FOREST, PURPLE, MUTED]
 const F         = "'Aptos','Inter',sans-serif"
 const cardStyle: React.CSSProperties = { background: WHITE, borderRadius: 8, padding: '12px 14px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }
 const titleStyle: React.CSSProperties = { color: NAVY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8, fontFamily: F }
-const ttipStyle = { contentStyle: { background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 11, color: NAVY }, labelStyle: { color: LABEL, fontWeight: 600 } }
-const axisProps = { tick: { fill: LABEL, fontSize: 9 }, axisLine: false, tickLine: false }
 
 const PERIODS = [
   { key: 'overall', label: 'Overall'    },
@@ -206,69 +202,6 @@ function PipelineTreemap({ data }: { data: { status: string; count: number }[] }
   )
 }
 
-// ── Tax Authority breakdown — horizontal bars (domain-unique) ─────────────────
-function AuthorityChart({ data }: { data: { authority: string; count: number }[] }) {
-  const rows = Object.keys(AUTHORITY_META)
-    .map(k => ({ key: k, ...AUTHORITY_META[k], count: data.find(d => d.authority === k)?.count ?? 0 }))
-    .filter(r => r.count > 0)
-    .sort((a, b) => b.count - a.count)
-  const max = rows.length ? Math.max(...rows.map(r => r.count)) : 1
-  if (!rows.length) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:170, color:MUTED, fontSize:11, fontFamily:F }}>No returns yet</div>
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:11, paddingTop:6 }}>
-      {rows.map(r => (
-        <div key={r.key} style={{ display:'flex', alignItems:'center', gap:9 }}>
-          <span style={{ minWidth:42, fontSize:11, color:NAVY, fontWeight:700, fontFamily:F }}>{r.label}</span>
-          <div style={{ flex:1, height:20, background:GRIDLN, borderRadius:5, overflow:'hidden' }}>
-            <div style={{ width:`${Math.max(r.count / max * 100, 4)}%`, height:'100%', background:`linear-gradient(90deg, ${r.color}, ${r.color}cc)`, borderRadius:5, transition:'width 0.5s ease' }} />
-          </div>
-          <span style={{ minWidth:26, fontSize:12, fontWeight:800, color:r.color, textAlign:'right', fontFamily:F }}>{r.count}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ── Activity Trend — 7-day area chart (created vs completed) ───────────────────
-function ActivityArea({ data }: { data: { date:string; created:number; completed:number }[] }) {
-  const hasData = data.some(d => d.created > 0 || d.completed > 0)
-  if (!hasData) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:170, color:MUTED, fontSize:11, fontFamily:F }}>No activity in the last 7 days</div>
-  return (
-    <ResponsiveContainer width="100%" height={170}>
-      <AreaChart data={data} margin={{ top:6, right:8, left:-22, bottom:0 }}>
-        <defs>
-          <linearGradient id="gCreated" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={TEAL} stopOpacity={0.35} /><stop offset="100%" stopColor={TEAL} stopOpacity={0} /></linearGradient>
-          <linearGradient id="gCompleted" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={GOLD} stopOpacity={0.35} /><stop offset="100%" stopColor={GOLD} stopOpacity={0} /></linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRIDLN} vertical={false} />
-        <XAxis dataKey="date" {...axisProps} />
-        <YAxis {...axisProps} allowDecimals={false} />
-        <Tooltip {...ttipStyle} />
-        <Area type="monotone" dataKey="created"   name="Created"   stroke={TEAL} strokeWidth={2} fill="url(#gCreated)" />
-        <Area type="monotone" dataKey="completed" name="Completed" stroke={GOLD} strokeWidth={2} fill="url(#gCompleted)" />
-      </AreaChart>
-    </ResponsiveContainer>
-  )
-}
-
-// ── Monthly Filing Trend — 12-month area ──────────────────────────────────────
-function MonthlyTrend({ data }: { data: { month:string; created:number; completed:number }[] }) {
-  const hasData = data.some(d => d.created > 0 || d.completed > 0)
-  if (!hasData) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:170, color:MUTED, fontSize:11, fontFamily:F }}>No filings recorded this year</div>
-  return (
-    <ResponsiveContainer width="100%" height={170}>
-      <ComposedChart data={data} margin={{ top:6, right:8, left:-22, bottom:0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={GRIDLN} vertical={false} />
-        <XAxis dataKey="month" {...axisProps} />
-        <YAxis {...axisProps} allowDecimals={false} />
-        <Tooltip {...ttipStyle} />
-        <Bar dataKey="created"    name="Created"   fill={NAVY} radius={[3,3,0,0]} barSize={11} />
-        <Line type="monotone" dataKey="completed" name="Completed" stroke={GOLD} strokeWidth={2.5} dot={{ r:2.5, fill:GOLD }} />
-      </ComposedChart>
-    </ResponsiveContainer>
-  )
-}
-
 // ── Breakdown Box — Active (top) + Completed/Closed (bottom) ──────────────────
 function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLabel }: {
   title: string
@@ -322,7 +255,6 @@ function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLab
 interface Props { title: string; subtitle: string }
 
 export default function DashboardPage({ title }: Props) {
-  const { user } = useAuth()
   const [period,  setPeriod]  = useState('overall')
   const [data,    setData]    = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -344,15 +276,11 @@ export default function DashboardPage({ title }: Props) {
   useEffect(() => { load() }, [load])
   useAutoRefresh(() => load(true))
 
-  const role        = (user?.role ?? '').toString().toUpperCase()
-  const isTrainee   = role === 'TRAINEE'
-
   const stats       = data?.stats            ?? {}
   const byStatus    = data?.pipelineByStatus  ?? []
   const byType      = data?.pipelineByType    ?? []
   const fbrStages   = data?.fbrByStage        ?? []
   const genStatus   = data?.generalByStatus   ?? []
-  const byAuthority = data?.byAuthority        ?? []
   const EMPTY_BOX = { active: [], completed: [] }
   const boxes = data?.boxes ?? { returns: EMPTY_BOX, salesByAuth: EMPTY_BOX, fbrByType: EMPTY_BOX, fbrByStage: EMPTY_BOX }
 
@@ -363,9 +291,6 @@ export default function DashboardPage({ title }: Props) {
   const stageLabelFn = (k: string) => FBR_LABEL[k] ?? k
   const stageColorFn = (k: string) => STATUS_COLOR[k] ?? ({ NOTICE:NAVY, APPEAL:PURPLE, STAY:GOLD, HIGHER_FORUM:BRICK }[k] ?? TEAL)
   const deadlines   = data?.deadlines          ?? { overdue:0, dueToday:0, dueThisWeek:0, upcoming:0, noDueDate:0 }
-  const monthly     = data?.monthlyTrend       ?? []
-  const trend       = data?.trend             ?? []
-  const topTrainees = data?.topTrainees       ?? []
   const recentTasks = data?.recentTasks       ?? []
   const recentFbr   = data?.recentFbr         ?? []
 
@@ -415,47 +340,13 @@ export default function DashboardPage({ title }: Props) {
       </div>
 
       {/* ── Row 3 — Tax Authority + Pipeline Funnel ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1.3fr', gap:10, marginBottom:10 }}>
-        <div style={cardStyle}>
-          <div style={titleStyle}>By Tax Authority</div>
-          {loading ? <Sk h={170} /> : <AuthorityChart data={byAuthority} />}
-        </div>
+      <div style={{ marginBottom:10 }}>
         <div style={cardStyle}>
           <div style={titleStyle}>Returns Status Breakdown</div>
           {loading
             ? <div style={{ display:'flex', flexDirection:'column', gap:7 }}>{[1,2,3,4,5,6].map(i=><Sk key={i} h={22}/>)}</div>
             : <PipelineFunnel data={byStatus} />
           }
-        </div>
-      </div>
-
-      {/* ── Row 4 — Activity trend (7-day) + Monthly filing trend ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
-        <div style={cardStyle}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <div style={titleStyle}>Activity — Last 7 Days</div>
-            <div style={{ display:'flex', gap:12 }}>
-              {[[TEAL,'Created'],[GOLD,'Completed']].map(([c,l]) => (
-                <div key={l} style={{ display:'flex', alignItems:'center', gap:4, fontSize:9, color:LABEL, fontFamily:F }}>
-                  <span style={{ width:8, height:8, background:c, borderRadius:2, display:'inline-block' }} />{l}
-                </div>
-              ))}
-            </div>
-          </div>
-          {loading ? <Sk h={170} /> : <ActivityArea data={trend} />}
-        </div>
-        <div style={cardStyle}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <div style={titleStyle}>Monthly Filing Trend</div>
-            <div style={{ display:'flex', gap:12 }}>
-              {[[NAVY,'Created'],[GOLD,'Completed']].map(([c,l]) => (
-                <div key={l} style={{ display:'flex', alignItems:'center', gap:4, fontSize:9, color:LABEL, fontFamily:F }}>
-                  <span style={{ width:8, height:8, background:c, borderRadius:2, display:'inline-block' }} />{l}
-                </div>
-              ))}
-            </div>
-          </div>
-          {loading ? <Sk h={170} /> : <MonthlyTrend data={monthly} />}
         </div>
       </div>
 
@@ -475,68 +366,13 @@ export default function DashboardPage({ title }: Props) {
         </div>
       </div>
 
-      {/* ── Row 4 — Returns Distribution + Returns by Type ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+      {/* ── Row 4 — Returns Distribution ── */}
+      <div style={{ marginBottom:10 }}>
         <div style={cardStyle}>
           <div style={titleStyle}>Returns Distribution</div>
           {loading ? <Sk h={148} /> : <PipelineTreemap data={byStatus} />}
         </div>
-        <div style={cardStyle}>
-          <div style={titleStyle}>Returns by Type</div>
-          {loading ? <Sk h={148} /> : byType.length === 0
-            ? <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:148, color:MUTED, fontSize:11, fontFamily:F }}>No data</div>
-            : (
-              <ResponsiveContainer width="100%" height={148}>
-                <ComposedChart data={byType.map((b:any) => ({ name: TYPE_LABEL[b.type] ?? b.type, count: b.count }))} margin={{ top:6, right:8, left:-22, bottom:0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={GRIDLN} vertical={false} />
-                  <XAxis dataKey="name" {...axisProps} />
-                  <YAxis {...axisProps} allowDecimals={false} />
-                  <Tooltip {...ttipStyle} />
-                  <Bar dataKey="count" name="Returns" radius={[4,4,0,0]} barSize={36}>
-                    {byType.map((_:any, i:number) => <Cell key={i} fill={[TEAL, NAVY, GOLD][i % 3]} />)}
-                  </Bar>
-                </ComposedChart>
-              </ResponsiveContainer>
-            )
-          }
-        </div>
       </div>
-
-      {/* ── Row — Trainee Performance (team roles only) ── */}
-      {!isTrainee && (
-      <div style={{ marginBottom:10 }}>
-        <div style={cardStyle}>
-          <div style={titleStyle}>{role === 'TEAM_LEAD' ? 'My Team: Completed vs Pending' : 'Trainee Performance: Completed vs Pending'}</div>
-          {loading ? <Sk h={200} /> : topTrainees.length === 0
-            ? <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200, color:MUTED, fontSize:11, fontFamily:F }}>No data</div>
-            : (
-              <>
-                <ResponsiveContainer width="100%" height={200}>
-                  <ComposedChart
-                    data={topTrainees.map((t:any) => ({ name: t.name.split(' ')[0], completed: t.completed, pending: t.pending }))}
-                    margin={{ top:6, right:12, left:-18, bottom:0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke={GRIDLN} vertical={false} />
-                    <XAxis dataKey="name" {...axisProps} />
-                    <YAxis {...axisProps} allowDecimals={false} />
-                    <Tooltip {...ttipStyle} />
-                    <Bar dataKey="completed" name="Completed" fill={GOLD}    radius={[3,3,0,0]} barSize={18} />
-                    <Bar dataKey="pending"   name="Pending"   fill={BRICK}   radius={[3,3,0,0]} barSize={18} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-                <div style={{ display:'flex', gap:16, marginTop:4, paddingTop:6, borderTop:`1px solid ${GRIDLN}` }}>
-                  {[[GOLD,'Completed'],[BRICK,'Pending']].map(([c,l]) => (
-                    <div key={l} style={{ display:'flex', alignItems:'center', gap:4, fontSize:10, color:LABEL }}>
-                      <span style={{ width:8, height:8, background:c, borderRadius:2, display:'inline-block' }} />{l}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )
-          }
-        </div>
-      </div>
-      )}
 
     </div>
   )
