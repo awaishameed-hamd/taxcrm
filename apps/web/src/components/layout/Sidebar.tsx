@@ -321,6 +321,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     if (!isPipelineTask && !ntForm.title.trim()) return
 
+    // Due date is mandatory for every task
+    if (!ntForm.dueDate) {
+      setNtToast({ msg: 'Please select a due date for the task.', ok: false })
+      setTimeout(() => setNtToast(null), 3000)
+      return
+    }
+
     setNtSaving(true)
     try {
       if (isPipelineTask) {

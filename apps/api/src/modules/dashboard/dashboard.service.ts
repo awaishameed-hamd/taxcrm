@@ -204,6 +204,20 @@ export class DashboardService {
       _count: { id: true },
     })
 
+    // ── Active (incomplete) returns by type — for the Active Returns card ─────
+    const activeByTypeRaw = await this.prisma.salesTaxTask.groupBy({
+      by: ['taskType'],
+      where: { status: { not: 'COMPLETED' as any }, ...taxTeamFilter, ...createdFilter },
+      _count: { id: true },
+    })
+
+    // ── Completed returns by type (respects period) — for the Completed card ──
+    const completedByTypeRaw = await this.prisma.salesTaxTask.groupBy({
+      by: ['taskType'],
+      where: { status: 'COMPLETED' as any, ...taxTeamFilter, ...(dateFilter ? { updatedAt: dateFilter } : {}) },
+      _count: { id: true },
+    })
+
     // ── Deadline urgency — live snapshot of active tasks by due-date band ──────
     const now      = new Date()
     const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
@@ -242,6 +256,8 @@ export class DashboardService {
       fbrByStage:       fbrByStage.map(s       => ({ stage: s.currentStage,   count: s._count.id })),
       generalByStatus:  generalByStatus.map(s  => ({ status: s.status,        count: s._count.id })),
       byAuthority:      byAuthorityRaw.map(s    => ({ authority: s.authority,  count: s._count.id })),
+      activeByType:     activeByTypeRaw.map(s   => ({ type: s.taskType,        count: s._count.id })),
+      completedByType:  completedByTypeRaw.map(s=> ({ type: s.taskType,        count: s._count.id })),
       deadlines:        { overdue, dueToday, dueThisWeek, upcoming, noDueDate },
       monthlyTrend,
       trend,

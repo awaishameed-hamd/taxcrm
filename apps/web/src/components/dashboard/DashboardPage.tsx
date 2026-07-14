@@ -258,38 +258,6 @@ function AuthorityChart({ data }: { data: { authority: string; count: number }[]
   )
 }
 
-// ── Deadline Urgency Tracker — the standout CA-firm feature ────────────────────
-function DeadlineTracker({ dl }: { dl: { overdue:number; dueToday:number; dueThisWeek:number; upcoming:number; noDueDate:number } }) {
-  const bands = [
-    { key:'overdue',     label:'Overdue',      value:dl.overdue,     color:'#DC2626', bg:'#FEE2E2', icon:'⚠' },
-    { key:'dueToday',    label:'Due Today',    value:dl.dueToday,    color:'#EA580C', bg:'#FFEDD5', icon:'⏰' },
-    { key:'dueThisWeek', label:'Due This Week',value:dl.dueThisWeek, color:GOLD,      bg:'#FEF3C7', icon:'📅' },
-    { key:'upcoming',    label:'Upcoming',     value:dl.upcoming,    color:TEAL,      bg:'#E5F3F5', icon:'✓'  },
-    { key:'noDueDate',   label:'No Due Date',  value:dl.noDueDate,   color:MUTED,     bg:'#F1F5F9', icon:'—'  },
-  ]
-  const totalActive = bands.reduce((s, b) => s + b.value, 0)
-  return (
-    <div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8, marginBottom:12 }}>
-        {bands.map(b => (
-          <div key={b.key} style={{ background:b.bg, borderRadius:8, padding:'10px 8px', textAlign:'center', border:`1px solid ${b.color}22` }}>
-            <div style={{ fontSize:15, marginBottom:2 }}>{b.icon}</div>
-            <div style={{ fontSize:26, fontWeight:800, color:b.color, lineHeight:1, fontFamily:F }}>{b.value}</div>
-            <div style={{ fontSize:9, color:SLATE, fontWeight:600, marginTop:4, letterSpacing:'0.02em', fontFamily:F }}>{b.label}</div>
-          </div>
-        ))}
-      </div>
-      {totalActive > 0 && (
-        <div style={{ display:'flex', height:8, borderRadius:4, overflow:'hidden' }}>
-          {bands.filter(b => b.value > 0).map(b => (
-            <div key={b.key} style={{ flex:b.value, background:b.color }} title={`${b.label}: ${b.value}`} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Activity Trend — 7-day area chart (created vs completed) ───────────────────
 function ActivityArea({ data }: { data: { date:string; created:number; completed:number }[] }) {
   const hasData = data.some(d => d.created > 0 || d.completed > 0)
@@ -365,6 +333,8 @@ export default function DashboardPage({ title }: Props) {
   const fbrStages   = data?.fbrByStage        ?? []
   const genStatus   = data?.generalByStatus   ?? []
   const byAuthority = data?.byAuthority        ?? []
+  const activeByType    = data?.activeByType   ?? []
+  const completedByType = data?.completedByType ?? []
   const deadlines   = data?.deadlines          ?? { overdue:0, dueToday:0, dueThisWeek:0, upcoming:0, noDueDate:0 }
   const monthly     = data?.monthlyTrend       ?? []
   const trend       = data?.trend             ?? []
@@ -404,23 +374,17 @@ export default function DashboardPage({ title }: Props) {
 
       {error && <div style={{ background:'#FEE2E2', border:'1px solid #FCA5A5', borderRadius:6, padding:'8px 12px', fontSize:12, color:'#991B1B', marginBottom:10 }}>{error}</div>}
 
-      {/* ── Row 1 — Stat Cards ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:10 }}>
-        <StatCard label="TOTAL CLIENTS"       value={stats.totalClients ?? 0}       border={NAVY}   fill="#E8EEF7" textColor={NAVY}   loading={loading} />
+      {/* ── Row 1 — Stat Cards + Deadline bands (unified 3D cards) ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, marginBottom:10 }}>
         <StatCard label="ACTIVE RETURNS"      value={stats.activePipeline ?? 0}     border={TEAL}   fill="#E5F3F5" textColor={TEAL}   loading={loading}
-          breakdown={byType.map((b:any)=>({ label:TYPE_LABEL[b.type]??b.type, value:b.count }))} />
-        <StatCard label={`COMPLETED (${periodLbl})`} value={stats.completedInPeriod ?? 0} border={GOLD}   fill="#FEF3C7" textColor={GOLD}   loading={loading} hint="Returns completed" />
+          breakdown={activeByType.map((b:any)=>({ label:TYPE_LABEL[b.type]??b.type, value:b.count }))} />
+        <StatCard label={`COMPLETED (${periodLbl})`} value={stats.completedInPeriod ?? 0} border={GOLD}   fill="#FEF3C7" textColor={GOLD}   loading={loading}
+          breakdown={completedByType.map((b:any)=>({ label:TYPE_LABEL[b.type]??b.type, value:b.count }))} />
         <StatCard label="ACTIVE FBR CASES"    value={stats.activeFbr ?? 0}          border={BRICK}  fill="#F5E0D2" textColor={BRICK}  loading={loading}
           breakdown={fbrStages.slice(0,3).map((b:any)=>({ label:FBR_LABEL[b.stage]??b.stage, value:b.count }))} />
-      </div>
-
-      {/* ── Row 2 — Deadline Urgency Tracker (standout) ── */}
-      <div style={{ ...cardStyle, marginBottom:10 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:2 }}>
-          <div style={titleStyle}>{isTrainee ? 'My Deadline Radar' : 'Deadline Radar — Active Returns'}</div>
-          <div style={{ fontSize:9, color:MUTED, fontFamily:F }}>live snapshot · not affected by period filter</div>
-        </div>
-        {loading ? <Sk h={110} /> : <DeadlineTracker dl={deadlines} />}
+        <StatCard label="OVERDUE"       value={deadlines.overdue ?? 0}     border="#DC2626" fill="#FEE2E2" textColor="#DC2626" loading={loading} hint="Active returns" />
+        <StatCard label="DUE TODAY"     value={deadlines.dueToday ?? 0}    border="#EA580C" fill="#FFEDD5" textColor="#EA580C" loading={loading} hint="Active returns" />
+        <StatCard label="DUE THIS WEEK" value={deadlines.dueThisWeek ?? 0} border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} hint="Active returns" />
       </div>
 
       {/* ── Row 3 — Completion Gauge + Tax Authority + Pipeline Funnel ── */}

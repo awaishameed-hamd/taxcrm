@@ -586,7 +586,7 @@ export function TaskFormModal({
   const isFbrNotices   = form.taxType === 'notices'
   const fbrOtherOk  = !isFbrNotices || (form.fbrTaxType ?? 'INCOME_TAX') !== 'OTHER' || !!form.fbrTaxTypeOther?.trim()
   const fbrYearOk   = !isFbrNotices || !form.fbrTaxYear || (form.fbrTaxYear.length === 4 && Number(form.fbrTaxYear) >= 2000 && Number(form.fbrTaxYear) <= 2099)
-  const canSubmit   = !saving && (isPipelineTax || isFbrNotices || !!form.title.trim()) && !!form.clientId && (!canAssignOthers || isFbrNotices || !!form.assignedToId) && (!!taxType || !!form.taxType) && fbrOtherOk && fbrYearOk
+  const canSubmit   = !saving && (isPipelineTax || isFbrNotices || !!form.title.trim()) && !!form.clientId && (!canAssignOthers || isFbrNotices || !!form.assignedToId) && (!!taxType || !!form.taxType) && (isFbrNotices || !!form.dueDate) && fbrOtherOk && fbrYearOk
 
   // Notice sections — loaded when FBR tab is active, re-loaded on taxType change
   const [noticeSections, setNoticeSections] = useState<{ value: string; label: string }[]>([{ value: '', label: 'None' }])
@@ -837,7 +837,7 @@ export function TaskFormModal({
               </div>
               {/* Deadline */}
               <div>
-                <label style={labelStyle}>Deadline</label>
+                <label style={labelStyle}>Deadline <span style={{ color: '#D62828' }}>*</span></label>
                 <input type="date" value={form.dueDate} onChange={e => setForm((f: any) => ({ ...f, dueDate: e.target.value }))}
                   style={inputStyle} />
               </div>
