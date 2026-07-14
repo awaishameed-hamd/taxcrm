@@ -92,7 +92,7 @@ function StatCard({ label, value, hint, breakdown, border, fill, textColor, load
   border: string; fill: string; textColor: string; loading: boolean
 }) {
   return (
-    <div style={{ background:`linear-gradient(135deg,${fill} 0%,#fff 100%)`, border:`1px solid ${border}33`, borderRadius:8, padding:'18px 14px', minHeight:88, boxSizing:'border-box', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+    <div style={{ background:`linear-gradient(135deg,${fill} 0%,#fff 100%)`, border:`1px solid ${border}33`, borderRadius:8, padding:'13px 14px', minHeight:68, boxSizing:'border-box', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
       <div>
         <div style={{ fontSize:9, color:MUTED, letterSpacing:'0.08em', fontWeight:600, textTransform:'uppercase', fontFamily:F }}>{label}</div>
         {loading
@@ -280,7 +280,6 @@ function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLab
 }) {
   const Section = ({ heading, rows, accent, accentBg }: { heading: string; rows: { key:string; count:number }[]; accent: string; accentBg: string }) => {
     const total = rows.reduce((s, r) => s + r.count, 0)
-    const max   = rows.length ? Math.max(...rows.map(r => r.count)) : 1
     return (
       <div style={{ flex:1 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
@@ -293,15 +292,10 @@ function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLab
               {rows.map(r => {
                 const c = colorFn(r.key)
                 return (
-                  <div key={r.key}>
-                    <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
-                      <span style={{ width:8, height:8, borderRadius:'50%', background:c, boxShadow:`0 0 0 2.5px ${c}22`, flexShrink:0 }} />
-                      <span style={{ flex:1, fontSize:11, color:SLATE, fontWeight:600, fontFamily:F, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{labelFn(r.key)}</span>
-                      <span style={{ fontSize:11.5, fontWeight:800, color:c, fontFamily:F }}>{r.count}</span>
-                    </div>
-                    <div style={{ height:4, background:GRIDLN, borderRadius:3, overflow:'hidden', marginLeft:14 }}>
-                      <div style={{ width:`${Math.max(r.count / max * 100, 6)}%`, height:'100%', borderRadius:3, background:`linear-gradient(90deg, ${c}, ${c}99)`, transition:'width 0.5s ease' }} />
-                    </div>
+                  <div key={r.key} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <span style={{ width:8, height:8, borderRadius:'50%', background:c, boxShadow:`0 0 0 2.5px ${c}22`, flexShrink:0 }} />
+                    <span style={{ flex:1, fontSize:11, color:SLATE, fontWeight:600, fontFamily:F, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{labelFn(r.key)}</span>
+                    <span style={{ fontSize:11.5, fontWeight:800, color:c, fontFamily:F }}>{r.count}</span>
                   </div>
                 )
               })}
