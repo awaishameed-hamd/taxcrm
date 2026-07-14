@@ -92,12 +92,12 @@ function StatCard({ label, value, hint, breakdown, border, fill, textColor, load
   border: string; fill: string; textColor: string; loading: boolean
 }) {
   return (
-    <div style={{ background:`linear-gradient(135deg,${fill} 0%,#fff 100%)`, border:`1px solid ${border}33`, borderRadius:8, padding:'16px 14px', height:92, boxSizing:'border-box', display:'flex', justifyContent:'space-between', alignItems:'flex-start', overflow:'hidden' }}>
+    <div style={{ background:`linear-gradient(135deg,${fill} 0%,#fff 100%)`, border:`1px solid ${border}33`, borderRadius:8, padding:'14px 14px', height:80, boxSizing:'border-box', display:'flex', justifyContent:'space-between', alignItems:'flex-start', overflow:'hidden' }}>
       <div style={{ minWidth:0 }}>
         <div style={{ fontSize:9.5, color:MUTED, letterSpacing:'0.03em', fontWeight:300, textTransform:'uppercase', fontFamily:"'Ethnocentric Rg', sans-serif", whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</div>
         {loading
-          ? <div style={{ width:50, height:20, background:BORDER, borderRadius:4, marginTop:10 }} />
-          : <div style={{ fontSize:20, fontWeight:700, color:textColor, marginTop:10, lineHeight:1, fontFamily:F }}>{value}</div>
+          ? <div style={{ width:55, height:24, background:BORDER, borderRadius:4, marginTop:9 }} />
+          : <div style={{ fontSize:24, fontWeight:700, color:textColor, marginTop:9, lineHeight:1, fontFamily:F }}>{value}</div>
         }
         {hint && <div style={{ fontSize:9, color:MUTED, marginTop:2, fontFamily:F }}>{hint}</div>}
       </div>
