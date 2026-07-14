@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import {
   ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, ComposedChart, Line, Bar,
-  AreaChart, Area, RadialBarChart, RadialBar, PolarAngleAxis,
+  AreaChart, Area,
 } from 'recharts'
 import api from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -206,35 +206,6 @@ function PipelineTreemap({ data }: { data: { status: string; count: number }[] }
   )
 }
 
-// ── Completion Rate — radial gauge (modern KPI) ───────────────────────────────
-function CompletionGauge({ completed, total }: { completed: number; total: number }) {
-  const pct = total > 0 ? Math.round(completed / total * 100) : 0
-  const gradId = 'compGauge'
-  return (
-    <div style={{ position:'relative', width:'100%', height:170, display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <RadialBarChart innerRadius="72%" outerRadius="100%" data={[{ value: pct }]} startAngle={220} endAngle={-40}>
-          <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%"  stopColor={TEAL} />
-              <stop offset="100%" stopColor={FOREST} />
-            </linearGradient>
-          </defs>
-          <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-          <RadialBar dataKey="value" cornerRadius={12} fill={`url(#${gradId})`} background={{ fill: '#EEF1F4' }} />
-        </RadialBarChart>
-      </ResponsiveContainer>
-      <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
-        <div style={{ fontSize:38, fontWeight:800, color:NAVY, lineHeight:1, fontFamily:F }}>{pct}<span style={{ fontSize:18, color:MUTED }}>%</span></div>
-        <div style={{ fontSize:9, color:MUTED, letterSpacing:'0.1em', marginTop:4, fontFamily:F }}>COMPLETION RATE</div>
-        <div style={{ fontSize:10, color:SLATE, marginTop:6, fontFamily:F }}>
-          <span style={{ color:FOREST, fontWeight:700 }}>{completed}</span> of {total} done
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Tax Authority breakdown — horizontal bars (domain-unique) ─────────────────
 function AuthorityChart({ data }: { data: { authority: string; count: number }[] }) {
   const rows = Object.keys(AUTHORITY_META)
@@ -298,6 +269,50 @@ function MonthlyTrend({ data }: { data: { month:string; created:number; complete
   )
 }
 
+// ── Breakdown Box — Active (top) + Completed/Closed (bottom) ──────────────────
+function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLabel }: {
+  title: string
+  active: { key: string; count: number }[]
+  completed: { key: string; count: number }[]
+  labelFn: (k: string) => string
+  colorFn: (k: string) => string
+  completedLabel: string
+}) {
+  const Section = ({ heading, rows, accent }: { heading: string; rows: { key:string; count:number }[]; accent: string }) => {
+    const total = rows.reduce((s, r) => s + r.count, 0)
+    return (
+      <div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+          <span style={{ fontSize:9.5, fontWeight:800, letterSpacing:'0.06em', color:accent, fontFamily:F }}>{heading}</span>
+          <span style={{ fontSize:11, fontWeight:800, color:accent, fontFamily:F }}>{total}</span>
+        </div>
+        {rows.length === 0
+          ? <div style={{ fontSize:10, color:MUTED, fontStyle:'italic', paddingBottom:2, fontFamily:F }}>None</div>
+          : <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+              {rows.map(r => (
+                <div key={r.key} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <span style={{ width:7, height:7, borderRadius:2, background:colorFn(r.key), flexShrink:0 }} />
+                  <span style={{ flex:1, fontSize:11, color:SLATE, fontFamily:F, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{labelFn(r.key)}</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:NAVY, fontFamily:F }}>{r.count}</span>
+                </div>
+              ))}
+            </div>
+        }
+      </div>
+    )
+  }
+  return (
+    <div style={{ ...cardStyle, display:'flex', flexDirection:'column' }}>
+      <div style={titleStyle}>{title}</div>
+      <div style={{ display:'flex', flexDirection:'column', gap:12, flex:1 }}>
+        <Section heading="ACTIVE" rows={active} accent={TEAL} />
+        <div style={{ borderTop:`1px solid ${GRIDLN}` }} />
+        <Section heading={completedLabel} rows={completed} accent={FOREST} />
+      </div>
+    </div>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 interface Props { title: string; subtitle: string }
 
@@ -333,19 +348,21 @@ export default function DashboardPage({ title }: Props) {
   const fbrStages   = data?.fbrByStage        ?? []
   const genStatus   = data?.generalByStatus   ?? []
   const byAuthority = data?.byAuthority        ?? []
-  const activeByType    = data?.activeByType   ?? []
-  const completedByType = data?.completedByType ?? []
-  const fbrByType       = data?.fbrByType       ?? []
+  const EMPTY_BOX = { active: [], completed: [] }
+  const boxes = data?.boxes ?? { returns: EMPTY_BOX, salesByAuth: EMPTY_BOX, fbrByType: EMPTY_BOX, fbrByStage: EMPTY_BOX }
+
+  const typeLabelFn  = (k: string) => TYPE_LABEL[k] ?? k
+  const typeColorFn  = (k: string) => ({ SALES_TAX: TEAL, INCOME_TAX: NAVY, WHT: GOLD }[k] ?? MUTED)
+  const authLabelFn  = (k: string) => AUTHORITY_META[k]?.label ?? k
+  const authColorFn  = (k: string) => AUTHORITY_META[k]?.color ?? MUTED
+  const stageLabelFn = (k: string) => FBR_LABEL[k] ?? k
+  const stageColorFn = (k: string) => STATUS_COLOR[k] ?? ({ NOTICE:NAVY, APPEAL:PURPLE, STAY:GOLD, HIGHER_FORUM:BRICK }[k] ?? TEAL)
   const deadlines   = data?.deadlines          ?? { overdue:0, dueToday:0, dueThisWeek:0, upcoming:0, noDueDate:0 }
   const monthly     = data?.monthlyTrend       ?? []
   const trend       = data?.trend             ?? []
   const topTrainees = data?.topTrainees       ?? []
   const recentTasks = data?.recentTasks       ?? []
   const recentFbr   = data?.recentFbr         ?? []
-
-  // Completion rate — derived from pipeline status distribution
-  const totalPipeline = byStatus.reduce((s: number, b: any) => s + b.count, 0)
-  const completedCount = byStatus.find((b: any) => b.status === 'COMPLETED')?.count ?? 0
 
   const typeDonut = byType.map((b: any) => ({ name: TYPE_LABEL[b.type]  ?? b.type,  value: b.count }))
   const fbrDonut  = fbrStages.map((b: any) => ({ name: FBR_LABEL[b.stage] ?? b.stage, value: b.count }))
@@ -374,25 +391,27 @@ export default function DashboardPage({ title }: Props) {
 
       {error && <div style={{ background:'#FEE2E2', border:'1px solid #FCA5A5', borderRadius:6, padding:'8px 12px', fontSize:12, color:'#991B1B', marginBottom:10 }}>{error}</div>}
 
-      {/* ── Row 1 — Stat Cards + Deadline bands (unified 3D cards) ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, marginBottom:10 }}>
-        <StatCard label="ACTIVE RETURNS"      value={stats.activePipeline ?? 0}     border={TEAL}   fill="#E5F3F5" textColor={TEAL}   loading={loading}
-          breakdown={activeByType.map((b:any)=>({ label:TYPE_LABEL[b.type]??b.type, value:b.count }))} />
-        <StatCard label="COMPLETED" value={stats.completedInPeriod ?? 0} border={GOLD}   fill="#FEF3C7" textColor={GOLD}   loading={loading}
-          breakdown={completedByType.map((b:any)=>({ label:TYPE_LABEL[b.type]??b.type, value:b.count }))} />
-        <StatCard label="ACTIVE FBR CASES"    value={stats.activeFbr ?? 0}          border={BRICK}  fill="#F5E0D2" textColor={BRICK}  loading={loading}
-          breakdown={fbrByType.map((b:any)=>({ label:TYPE_LABEL[b.type]??b.type, value:b.count }))} />
-        <StatCard label="OVERDUE"       value={deadlines.overdue ?? 0}     border="#DC2626" fill="#FEE2E2" textColor="#DC2626" loading={loading} />
-        <StatCard label="DUE TODAY"     value={deadlines.dueToday ?? 0}    border="#EA580C" fill="#FFEDD5" textColor="#EA580C" loading={loading} />
-        <StatCard label="DUE THIS WEEK" value={deadlines.dueThisWeek ?? 0} border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
+      {/* ── Row 1 — Stat Cards + Deadline bands (flat cards, numbers only) ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:10, marginBottom:10 }}>
+        <StatCard label="ACTIVE RETURNS"    value={stats.activePipeline ?? 0}     border={TEAL}    fill="#E5F3F5" textColor={TEAL}    loading={loading} />
+        <StatCard label="COMPLETED"         value={stats.completedInPeriod ?? 0}  border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
+        <StatCard label="ACTIVE FBR CASES"  value={stats.activeFbr ?? 0}          border={BRICK}   fill="#F5E0D2" textColor={BRICK}   loading={loading} />
+        <StatCard label="ACTIVE GENERAL TASKS" value={stats.activeGeneral ?? 0}   border={PURPLE}  fill="#F3E8F7" textColor={PURPLE}  loading={loading} />
+        <StatCard label="OVERDUE"           value={deadlines.overdue ?? 0}     border="#DC2626" fill="#FEE2E2" textColor="#DC2626" loading={loading} />
+        <StatCard label="DUE TODAY"         value={deadlines.dueToday ?? 0}    border="#EA580C" fill="#FFEDD5" textColor="#EA580C" loading={loading} />
+        <StatCard label="DUE THIS WEEK"     value={deadlines.dueThisWeek ?? 0} border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
       </div>
 
-      {/* ── Row 3 — Completion Gauge + Tax Authority + Pipeline Funnel ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1.3fr', gap:10, marginBottom:10 }}>
-        <div style={cardStyle}>
-          <div style={titleStyle}>Completion Rate</div>
-          {loading ? <Sk h={170} /> : <CompletionGauge completed={completedCount} total={totalPipeline} />}
-        </div>
+      {/* ── Row 2 — 4 breakdown boxes (Active top, Completed/Closed bottom) ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:10, alignItems:'stretch' }}>
+        <BreakdownBox title="Returns by Type"       active={boxes.returns.active}     completed={boxes.returns.completed}     labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="COMPLETED" />
+        <BreakdownBox title="Sales Tax by Authority" active={boxes.salesByAuth.active} completed={boxes.salesByAuth.completed} labelFn={authLabelFn}  colorFn={authColorFn}  completedLabel="COMPLETED" />
+        <BreakdownBox title="FBR Cases by Tax Type"  active={boxes.fbrByType.active}   completed={boxes.fbrByType.completed}   labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="CLOSED" />
+        <BreakdownBox title="FBR Cases by Stage"     active={boxes.fbrByStage.active}  completed={boxes.fbrByStage.completed}  labelFn={stageLabelFn} colorFn={stageColorFn} completedLabel="CLOSED" />
+      </div>
+
+      {/* ── Row 3 — Tax Authority + Pipeline Funnel ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1.3fr', gap:10, marginBottom:10 }}>
         <div style={cardStyle}>
           <div style={titleStyle}>By Tax Authority</div>
           {loading ? <Sk h={170} /> : <AuthorityChart data={byAuthority} />}

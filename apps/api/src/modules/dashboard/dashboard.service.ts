@@ -256,8 +256,39 @@ export class DashboardService {
     monthCreated.forEach(t   => { monthlyTrend[new Date(t.createdAt).getMonth()].created++ })
     monthCompleted.forEach(t => { monthlyTrend[new Date(t.updatedAt).getMonth()].completed++ })
 
+    // ── Breakdown boxes (each shows Active + Completed/Closed) ─────────────────
+    const map = (rows: any[], key: string) => rows.map(r => ({ key: r[key], count: r._count.id }))
+    const completedFilter = dateFilter ? { updatedAt: dateFilter } : {}
+
+    const [
+      activeGeneral,
+      salesAuthActive, salesAuthCompleted,
+      fbrTypeClosed,
+      fbrStageActiveRaw, fbrStageClosedRaw,
+    ] = await Promise.all([
+      // Active general tasks (not DONE) — for the new card
+      this.prisma.task.count({ where: { taxType: 'general', status: { not: 'DONE' as any }, ...genTeamFilter, ...createdFilter } }),
+      // Box 2 — Sales Tax returns by authority
+      this.prisma.salesTaxTask.groupBy({ by: ['authority'], where: { taskType: 'SALES_TAX', status: { not: 'COMPLETED' as any }, ...taxTeamFilter, ...createdFilter }, _count: { id: true } }),
+      this.prisma.salesTaxTask.groupBy({ by: ['authority'], where: { taskType: 'SALES_TAX', status: 'COMPLETED' as any, ...taxTeamFilter, ...completedFilter }, _count: { id: true } }),
+      // Box 3 — Closed FBR cases by tax type (active side = fbrByTypeRaw)
+      this.prisma.fbrCase.groupBy({ by: ['taxType'], where: { currentStage: 'CLOSED' as any, ...fbrTeamFilter }, _count: { id: true } }),
+      // Box 4 — FBR cases by stage (active vs closed)
+      this.prisma.fbrCase.groupBy({ by: ['currentStage'], where: { currentStage: { not: 'CLOSED' as any }, ...fbrTeamFilter, ...createdFilter }, _count: { id: true } }),
+      this.prisma.fbrCase.groupBy({ by: ['currentStage'], where: { currentStage: 'CLOSED' as any, ...fbrTeamFilter }, _count: { id: true } }),
+    ])
+
+    const boxes = {
+      returns:      { active: activeByTypeRaw.map(s => ({ key: s.taskType, count: s._count.id })),
+                      completed: completedByTypeRaw.map(s => ({ key: s.taskType, count: s._count.id })) },
+      salesByAuth:  { active: map(salesAuthActive, 'authority'), completed: map(salesAuthCompleted, 'authority') },
+      fbrByType:    { active: fbrByTypeRaw.map(s => ({ key: s.taxType, count: s._count.id })),
+                      completed: map(fbrTypeClosed, 'taxType') },
+      fbrByStage:   { active: map(fbrStageActiveRaw, 'currentStage'), completed: map(fbrStageClosedRaw, 'currentStage') },
+    }
+
     return {
-      stats: { totalClients, activePipeline, completedInPeriod, activeFbr, teamCount },
+      stats: { totalClients, activePipeline, completedInPeriod, activeFbr, activeGeneral, teamCount },
       pipelineByStatus: pipelineByStatus.map(s => ({ status: s.status,       count: s._count.id })),
       pipelineByType:   pipelineByTypeRaw.map(s => ({ type: s.taskType,       count: s._count.id })),
       fbrByStage:       fbrByStage.map(s       => ({ stage: s.currentStage,   count: s._count.id })),
@@ -266,6 +297,7 @@ export class DashboardService {
       activeByType:     activeByTypeRaw.map(s   => ({ type: s.taskType,        count: s._count.id })),
       completedByType:  completedByTypeRaw.map(s=> ({ type: s.taskType,        count: s._count.id })),
       fbrByType:        fbrByTypeRaw.map(s      => ({ type: s.taxType,         count: s._count.id })),
+      boxes,
       deadlines:        { overdue, dueToday, dueThisWeek, upcoming, noDueDate },
       monthlyTrend,
       trend,
