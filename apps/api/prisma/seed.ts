@@ -112,15 +112,15 @@ async function main() {
   const profileFields: any[] = [
     // ── Personal Information (merged with Employment) ─────────────────────
     { fieldKey: 'fullName',      label: 'Display Name',    fieldType: 'text',   section: 'Personal Information', colSpan: 'half',  sortOrder: 1,  isCore: true,  placeholder: 'Full display name'  },
-    { fieldKey: 'firstName',     label: 'First Name',      fieldType: 'text',   section: 'Personal Information', colSpan: 'third', sortOrder: 2,  isCore: false, placeholder: 'First'              },
-    { fieldKey: 'midName',       label: 'Middle Name',     fieldType: 'text',   section: 'Personal Information', colSpan: 'third', sortOrder: 3,  isCore: false, placeholder: 'Middle'             },
-    { fieldKey: 'lastName',      label: 'Last Name',       fieldType: 'text',   section: 'Personal Information', colSpan: 'third', sortOrder: 4,  isCore: false, placeholder: 'Last'               },
-    { fieldKey: 'email',         label: 'Email',           fieldType: 'text',   section: 'Personal Information', colSpan: 'half',  sortOrder: 5,  isCore: false, placeholder: 'email@example.com'  },
-    { fieldKey: 'phone',         label: 'Phone',           fieldType: 'text',   section: 'Personal Information', colSpan: 'half',  sortOrder: 6,  isCore: false, placeholder: '+92 3XX XXXXXXX'    },
+    { fieldKey: 'phone',         label: 'Phone',           fieldType: 'text',   section: 'Personal Information', colSpan: 'half',  sortOrder: 2,  isCore: false, placeholder: '+92 3XX XXXXXXX'    },
+    { fieldKey: 'department',    label: 'Department',      fieldType: 'select', section: 'Personal Information', colSpan: 'third', sortOrder: 3,  isCore: false, options: ['Taxation', 'Audit and Assurance'] },
+    { fieldKey: 'firstName',     label: 'First Name',      fieldType: 'text',   section: 'Personal Information', colSpan: 'third', sortOrder: 4,  isCore: false, placeholder: 'First'              },
+    { fieldKey: 'midName',       label: 'Middle Name',     fieldType: 'text',   section: 'Personal Information', colSpan: 'third', sortOrder: 5,  isCore: false, placeholder: 'Middle'             },
+    { fieldKey: 'lastName',      label: 'Last Name',       fieldType: 'text',   section: 'Personal Information', colSpan: 'third', sortOrder: 6,  isCore: false, placeholder: 'Last'               },
     { fieldKey: 'dateOfBirth',   label: 'Date of Birth',   fieldType: 'date',   section: 'Personal Information', colSpan: 'third', sortOrder: 7,  isCore: false, placeholder: null                 },
-    { fieldKey: 'employmentType', label: 'Type of Employment', fieldType: 'select', section: 'Personal Information', colSpan: 'third', sortOrder: 8, isCore: false, options: ['Employee', 'CA Trainee', 'Internee'] },
-    { fieldKey: 'dateOfJoining', label: 'Date of Joining', fieldType: 'date',   section: 'Personal Information', colSpan: 'third', sortOrder: 9,  isCore: true,  placeholder: null                 },
-    { fieldKey: 'department',    label: 'Department',      fieldType: 'select', section: 'Personal Information', colSpan: 'third', sortOrder: 10, isCore: false, options: ['Taxation', 'Audit and Assurance'] },
+    { fieldKey: 'date_of_joining', label: 'Date of Joining', fieldType: 'date', section: 'Personal Information', colSpan: 'third', sortOrder: 8,  isCore: false, placeholder: null                 },
+    { fieldKey: 'employmentType', label: 'Type of Employment', fieldType: 'select', section: 'Personal Information', colSpan: 'third', sortOrder: 9, isCore: false, options: ['Employee', 'CA Trainee', 'Internee'] },
+    { fieldKey: 'dateOfJoining', label: 'CA Articles Start Date', fieldType: 'date', section: 'Personal Information', colSpan: 'third', sortOrder: 10, isCore: true, placeholder: null              },
     { fieldKey: 'articlesType',  label: 'Articles Type',   fieldType: 'select', section: 'Personal Information', colSpan: 'third', sortOrder: 11, isCore: false, options: ['2.5 years', '3 years', '3.5 years'] },
     // ── CNIC & Address ────────────────────────────────────────────────────
     { fieldKey: 'cnic',             label: 'CNIC',             fieldType: 'text',     section: 'CNIC & Address', colSpan: 'half', sortOrder: 8,  isCore: false, placeholder: '00000-0000000-0'    },
