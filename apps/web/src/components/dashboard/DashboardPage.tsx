@@ -307,7 +307,7 @@ function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLab
   return (
     <div style={{ background:WHITE, border:`1px solid ${BORDER}`, borderRadius:12, overflow:'hidden', display:'flex', flexDirection:'column' }}>
       <div style={{ padding:'11px 14px 13px', display:'flex', flexDirection:'column', flex:1 }}>
-        <div style={{ ...titleStyle, marginBottom:10 }}>{title}</div>
+        <div style={{ ...titleStyle, marginBottom:10, fontWeight:300, letterSpacing:'0.03em', fontFamily:"'Ethnocentric Rg', sans-serif" }}>{title}</div>
         <div style={{ display:'flex', flexDirection:'column', gap:11, flex:1 }}>
           <Section heading="ACTIVE" rows={active} accent={TEAL} accentBg="#E5F3F5" />
           <div style={{ borderTop:`1px dashed ${BORDER}` }} />
@@ -399,7 +399,7 @@ export default function DashboardPage({ title }: Props) {
       {/* ── Row 1 — Stat Cards + Deadline bands (flat cards, numbers only) ── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, marginBottom:10 }}>
         <StatCard label="ACTIVE RETURNS"    value={stats.activePipeline ?? 0}     border={TEAL}    fill="#E5F3F5" textColor={TEAL}    loading={loading} />
-        <StatCard label="ACTIVE FBR CASES"  value={stats.activeFbr ?? 0}          border={BRICK}   fill="#F5E0D2" textColor={BRICK}   loading={loading} />
+        <StatCard label="ACTIVE NOTICES & APPEALS" value={stats.activeFbr ?? 0}   border={BRICK}   fill="#F5E0D2" textColor={BRICK}   loading={loading} />
         <StatCard label="ACTIVE GENERAL TASKS" value={stats.activeGeneral ?? 0}   border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
         <StatCard label="OVERDUE"           value={deadlines.overdue ?? 0}     border="#DC2626" fill="#FEE2E2" textColor="#DC2626" loading={loading} />
         <StatCard label="DUE TODAY"         value={deadlines.dueToday ?? 0}    border="#EA580C" fill="#FFEDD5" textColor="#EA580C" loading={loading} />
@@ -410,8 +410,8 @@ export default function DashboardPage({ title }: Props) {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:10, alignItems:'stretch' }}>
         <BreakdownBox title="Returns by Type"       active={boxes.returns.active}     completed={boxes.returns.completed}     labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="COMPLETED" />
         <BreakdownBox title="Sales Tax by Authority" active={boxes.salesByAuth.active} completed={boxes.salesByAuth.completed} labelFn={authLabelFn}  colorFn={authColorFn}  completedLabel="COMPLETED" />
-        <BreakdownBox title="FBR Cases by Tax Type"  active={boxes.fbrByType.active}   completed={boxes.fbrByType.completed}   labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="CLOSED" />
-        <BreakdownBox title="FBR Cases by Stage"     active={boxes.fbrByStage.active}  completed={boxes.fbrByStage.completed}  labelFn={stageLabelFn} colorFn={stageColorFn} completedLabel="CLOSED" />
+        <BreakdownBox title="Notices & Appeals by Tax Type" active={boxes.fbrByType.active}   completed={boxes.fbrByType.completed}   labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="CLOSED" />
+        <BreakdownBox title="Notices & Appeals by Stage"    active={boxes.fbrByStage.active}  completed={boxes.fbrByStage.completed}  labelFn={stageLabelFn} colorFn={stageColorFn} completedLabel="CLOSED" />
       </div>
 
       {/* ── Row 3 — Tax Authority + Pipeline Funnel ── */}
@@ -466,7 +466,7 @@ export default function DashboardPage({ title }: Props) {
           {loading ? <Sk h={148} /> : <Donut data={typeDonut} colors={DONUT_TYPE} centerLabel="TASKS" />}
         </div>
         <div style={cardStyle}>
-          <div style={titleStyle}>FBR Cases by Stage</div>
+          <div style={titleStyle}>Notices & Appeals by Stage</div>
           {loading ? <Sk h={148} /> : <Donut data={fbrDonut} colors={DONUT_FBR} centerLabel="CASES" />}
         </div>
         <div style={cardStyle}>
