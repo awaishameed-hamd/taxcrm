@@ -190,6 +190,8 @@ const NAV: Record<string, NavItem[]> = {
   ],
 }
 
+const ATTENDANCE_KEYS = ['myAtt', 'myLeaves', 'attReport', 'attApproval', 'dailyAtt', 'workingDays']
+
 const ROLE_LABELS: Record<string, string> = {
   ADMIN:     'Admin',
   PARTNER:   'Partner',
@@ -216,6 +218,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   useEffect(() => {
     setAvatar(localStorage.getItem(avatarKey))
   }, [avatarKey])
+
+  // ── Attendance flyout menu ────────────────────────────────────────────────
+  const attTriggerRef  = useRef<HTMLDivElement>(null)
+  const attCloseTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [showAttMenu, setShowAttMenu] = useState(false)
+  const [attMenuPos,  setAttMenuPos]  = useState({ top: 0, left: 0 })
+
+  const openAttMenu = useCallback(() => {
+    if (attCloseTimer.current) { clearTimeout(attCloseTimer.current); attCloseTimer.current = null }
+    const rect = attTriggerRef.current?.getBoundingClientRect()
+    if (rect) setAttMenuPos({ top: rect.top, left: rect.right + 8 })
+    setShowAttMenu(true)
+  }, [])
+
+  const scheduleCloseAttMenu = useCallback(() => {
+    attCloseTimer.current = setTimeout(() => setShowAttMenu(false), 150)
+  }, [])
+
+  useEffect(() => { setShowAttMenu(false) }, [pathname])
 
   // ── New Task modal state ──────────────────────────────────────────────────
   const [showNewTask,      setShowNewTask]      = useState(false)
@@ -388,7 +409,26 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     if (!item.permission) return true
     if (hasAllPerms) return true
     return (permissions as Record<string, boolean>)[item.permission] === true
-  })
+  }).filter(item => item.key !== 'myAtt' || user?.attendanceApplicable !== false)
+
+  const attendanceSubItems = navItems.filter(item => ATTENDANCE_KEYS.includes(item.key))
+
+  // Collapse the individual attendance items into a single grouped trigger, in place of the first one
+  type RenderEntry = NavItem | { __group: true; items: NavItem[] }
+  const renderList: RenderEntry[] = []
+  let attGroupInserted = false
+  for (const item of navItems) {
+    if (ATTENDANCE_KEYS.includes(item.key)) {
+      if (!attGroupInserted) {
+        renderList.push({ __group: true, items: attendanceSubItems })
+        attGroupInserted = true
+      }
+      continue
+    }
+    renderList.push(item)
+  }
+
+  const isAttActive = attendanceSubItems.some(si => pathname === si.href || pathname.startsWith(si.href + '/'))
 
   const roleLabel = ROLE_LABELS[user?.role ?? ''] ?? user?.role ?? ''
   const initial   = user?.fullName?.charAt(0)?.toUpperCase() ?? '?'
@@ -500,9 +540,36 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* ── Navigation — flat list, exact font sizing ── */}
       <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 12px 16px', minWidth: 256 }}>
-        {navItems.filter(item => item.key !== 'myAtt' || user?.attendanceApplicable !== false).map(item => {
+        {renderList.map(entry => {
+          if ('__group' in entry) {
+            if (entry.items.length === 0) return null
+            return (
+              <div key="attendance-group" ref={attTriggerRef}
+                onMouseEnter={openAttMenu} onMouseLeave={scheduleCloseAttMenu}
+                onClick={() => (showAttMenu ? setShowAttMenu(false) : openAttMenu())}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                  padding: '0.3rem 0.75rem', borderRadius: 8, marginBottom: 2,
+                  fontSize: 16, fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.03em',
+                  transition: 'all .15s ease',
+                  background: isAttActive || showAttMenu ? C.bgActive : 'transparent',
+                  color:      isAttActive || showAttMenu ? C.navy : C.slate,
+                  borderLeft: isAttActive ? `3px solid ${C.teal}` : '3px solid transparent',
+                }}
+              >
+                <svg width={18} height={18} fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke={isAttActive || showAttMenu ? C.teal : C.iconMuted} style={{ flexShrink: 0 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.myAtt} />
+                </svg>
+                <span style={{ flex: 1 }}>Attendance</span>
+                <svg width={13} height={13} fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke={C.iconMuted} style={{ flexShrink: 0 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
+                </svg>
+              </div>
+            )
+          }
+
+          const item = entry
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-          const grad     = LABEL_GRAD[item.key] ?? LABEL_GRAD.dashboard
           return (
             <Link key={item.href} href={item.href}
               style={{
@@ -525,6 +592,43 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )
         })}
       </nav>
+
+      {/* ── Attendance flyout panel ── */}
+      {showAttMenu && attendanceSubItems.length > 0 && (
+        <div
+          onMouseEnter={openAttMenu} onMouseLeave={scheduleCloseAttMenu}
+          style={{
+            position: 'fixed', top: attMenuPos.top, left: attMenuPos.left, zIndex: 400,
+            width: 220, background: '#fff', border: `1px solid ${C.border}`,
+            borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', overflow: 'hidden',
+          }}
+        >
+          <div style={{ padding: '8px 14px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.gray, fontFamily: "'Aptos', 'Inter', sans-serif" }}>
+            Attendance
+          </div>
+          {attendanceSubItems.map(item => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+            return (
+              <Link key={item.href} href={item.href} onClick={() => setShowAttMenu(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 14px', textDecoration: 'none',
+                  fontSize: 14, fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.02em',
+                  background: isActive ? C.bgActive : 'transparent',
+                  color:      isActive ? C.navy : C.slate,
+                }}
+                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = C.tealDim; e.currentTarget.style.color = C.navy } }}
+                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.slate } }}
+              >
+                <svg width={16} height={16} fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke={isActive ? C.teal : C.iconMuted} style={{ flexShrink: 0 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[item.icon] ?? ICONS.dashboard} />
+                </svg>
+                {item.label}
+              </Link>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── Notifications bell + drop-up panel ── */}
       <div style={{ position: 'relative', padding: '0 12px', minWidth: 256, flexShrink: 0 }}>
