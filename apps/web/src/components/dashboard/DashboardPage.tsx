@@ -92,12 +92,12 @@ function StatCard({ label, value, hint, breakdown, border, fill, textColor, load
   border: string; fill: string; textColor: string; loading: boolean
 }) {
   return (
-    <div style={{ background:`linear-gradient(135deg,${fill} 0%,#fff 100%)`, border:`1px solid ${border}33`, borderRadius:8, padding:'11px 14px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+    <div style={{ background:`linear-gradient(135deg,${fill} 0%,#fff 100%)`, border:`1px solid ${border}33`, borderRadius:8, padding:'18px 14px', minHeight:88, boxSizing:'border-box', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
       <div>
         <div style={{ fontSize:9, color:MUTED, letterSpacing:'0.08em', fontWeight:600, textTransform:'uppercase', fontFamily:F }}>{label}</div>
         {loading
-          ? <div style={{ width:60, height:28, background:BORDER, borderRadius:4, marginTop:5 }} />
-          : <div style={{ fontSize:26, fontWeight:700, color:textColor, marginTop:3, lineHeight:1, fontFamily:F }}>{value}</div>
+          ? <div style={{ width:60, height:28, background:BORDER, borderRadius:4, marginTop:8 }} />
+          : <div style={{ fontSize:30, fontWeight:700, color:textColor, marginTop:8, lineHeight:1, fontFamily:F }}>{value}</div>
         }
         {hint && <div style={{ fontSize:9, color:MUTED, marginTop:2, fontFamily:F }}>{hint}</div>}
       </div>
@@ -311,8 +311,7 @@ function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLab
     )
   }
   return (
-    <div style={{ background:WHITE, borderRadius:12, boxShadow:'0 1px 8px rgba(19,46,87,0.07)', overflow:'hidden', display:'flex', flexDirection:'column' }}>
-      <div style={{ height:3, background:`linear-gradient(90deg, ${NAVY}, ${TEAL})` }} />
+    <div style={{ background:WHITE, border:`1px solid ${BORDER}`, borderRadius:12, overflow:'hidden', display:'flex', flexDirection:'column' }}>
       <div style={{ padding:'11px 14px 13px', display:'flex', flexDirection:'column', flex:1 }}>
         <div style={{ ...titleStyle, marginBottom:10 }}>{title}</div>
         <div style={{ display:'flex', flexDirection:'column', gap:11, flex:1 }}>
