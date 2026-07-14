@@ -94,7 +94,7 @@ function StatCard({ label, value, hint, breakdown, border, fill, textColor, load
   return (
     <div style={{ background:`linear-gradient(135deg,${fill} 0%,#fff 100%)`, border:`1px solid ${border}33`, borderRadius:8, padding:'13px 14px', minHeight:68, boxSizing:'border-box', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
       <div>
-        <div style={{ fontSize:9, color:MUTED, letterSpacing:'0.08em', fontWeight:600, textTransform:'uppercase', fontFamily:F }}>{label}</div>
+        <div style={{ fontSize:9.5, color:MUTED, letterSpacing:'0.03em', fontWeight:300, textTransform:'uppercase', fontFamily:"'Ethnocentric Rg', sans-serif" }}>{label}</div>
         {loading
           ? <div style={{ width:60, height:28, background:BORDER, borderRadius:4, marginTop:8 }} />
           : <div style={{ fontSize:30, fontWeight:700, color:textColor, marginTop:8, lineHeight:1, fontFamily:F }}>{value}</div>
