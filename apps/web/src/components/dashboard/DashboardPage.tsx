@@ -335,6 +335,7 @@ export default function DashboardPage({ title }: Props) {
   const byAuthority = data?.byAuthority        ?? []
   const activeByType    = data?.activeByType   ?? []
   const completedByType = data?.completedByType ?? []
+  const fbrByType       = data?.fbrByType       ?? []
   const deadlines   = data?.deadlines          ?? { overdue:0, dueToday:0, dueThisWeek:0, upcoming:0, noDueDate:0 }
   const monthly     = data?.monthlyTrend       ?? []
   const trend       = data?.trend             ?? []
@@ -349,7 +350,6 @@ export default function DashboardPage({ title }: Props) {
   const typeDonut = byType.map((b: any) => ({ name: TYPE_LABEL[b.type]  ?? b.type,  value: b.count }))
   const fbrDonut  = fbrStages.map((b: any) => ({ name: FBR_LABEL[b.stage] ?? b.stage, value: b.count }))
   const genDonut  = genStatus.map((b: any) => ({ name: GEN_LABEL[b.status] ?? b.status, value: b.count }))
-  const periodLbl = period === 'daily' ? 'TODAY' : period === 'weekly' ? 'THIS WEEK' : period === 'monthly' ? 'THIS MONTH' : 'ALL TIME'
 
   const FBR_CHIP: Record<string, { c: string; bg: string }> = {
     NOTICE:{ c:NAVY, bg:'#E8EEF7' }, APPEAL:{ c:PURPLE, bg:'#EDE9FE' },
@@ -378,13 +378,13 @@ export default function DashboardPage({ title }: Props) {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, marginBottom:10 }}>
         <StatCard label="ACTIVE RETURNS"      value={stats.activePipeline ?? 0}     border={TEAL}   fill="#E5F3F5" textColor={TEAL}   loading={loading}
           breakdown={activeByType.map((b:any)=>({ label:TYPE_LABEL[b.type]??b.type, value:b.count }))} />
-        <StatCard label={`COMPLETED (${periodLbl})`} value={stats.completedInPeriod ?? 0} border={GOLD}   fill="#FEF3C7" textColor={GOLD}   loading={loading}
+        <StatCard label="COMPLETED" value={stats.completedInPeriod ?? 0} border={GOLD}   fill="#FEF3C7" textColor={GOLD}   loading={loading}
           breakdown={completedByType.map((b:any)=>({ label:TYPE_LABEL[b.type]??b.type, value:b.count }))} />
         <StatCard label="ACTIVE FBR CASES"    value={stats.activeFbr ?? 0}          border={BRICK}  fill="#F5E0D2" textColor={BRICK}  loading={loading}
-          breakdown={fbrStages.slice(0,3).map((b:any)=>({ label:FBR_LABEL[b.stage]??b.stage, value:b.count }))} />
-        <StatCard label="OVERDUE"       value={deadlines.overdue ?? 0}     border="#DC2626" fill="#FEE2E2" textColor="#DC2626" loading={loading} hint="Active returns" />
-        <StatCard label="DUE TODAY"     value={deadlines.dueToday ?? 0}    border="#EA580C" fill="#FFEDD5" textColor="#EA580C" loading={loading} hint="Active returns" />
-        <StatCard label="DUE THIS WEEK" value={deadlines.dueThisWeek ?? 0} border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} hint="Active returns" />
+          breakdown={fbrByType.map((b:any)=>({ label:TYPE_LABEL[b.type]??b.type, value:b.count }))} />
+        <StatCard label="OVERDUE"       value={deadlines.overdue ?? 0}     border="#DC2626" fill="#FEE2E2" textColor="#DC2626" loading={loading} />
+        <StatCard label="DUE TODAY"     value={deadlines.dueToday ?? 0}    border="#EA580C" fill="#FFEDD5" textColor="#EA580C" loading={loading} />
+        <StatCard label="DUE THIS WEEK" value={deadlines.dueThisWeek ?? 0} border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
       </div>
 
       {/* ── Row 3 — Completion Gauge + Tax Authority + Pipeline Funnel ── */}

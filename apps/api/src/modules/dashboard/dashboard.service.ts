@@ -218,6 +218,13 @@ export class DashboardService {
       _count: { id: true },
     })
 
+    // ── Active FBR cases by tax type — for the FBR card breakdown ─────────────
+    const fbrByTypeRaw = await this.prisma.fbrCase.groupBy({
+      by: ['taxType'],
+      where: { currentStage: { not: 'CLOSED' as any }, ...fbrTeamFilter, ...createdFilter },
+      _count: { id: true },
+    })
+
     // ── Deadline urgency — live snapshot of active tasks by due-date band ──────
     const now      = new Date()
     const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
@@ -258,6 +265,7 @@ export class DashboardService {
       byAuthority:      byAuthorityRaw.map(s    => ({ authority: s.authority,  count: s._count.id })),
       activeByType:     activeByTypeRaw.map(s   => ({ type: s.taskType,        count: s._count.id })),
       completedByType:  completedByTypeRaw.map(s=> ({ type: s.taskType,        count: s._count.id })),
+      fbrByType:        fbrByTypeRaw.map(s      => ({ type: s.taxType,         count: s._count.id })),
       deadlines:        { overdue, dueToday, dueThisWeek, upcoming, noDueDate },
       monthlyTrend,
       trend,
