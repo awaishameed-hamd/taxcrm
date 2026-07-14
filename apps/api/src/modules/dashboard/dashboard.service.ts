@@ -16,19 +16,34 @@ export class DashboardService {
     const dateFilter = this.buildDateFilter(period, fromDate, toDate)
     const createdFilter = dateFilter ? { createdAt: dateFilter } : {}
 
-    // For Team Lead: scope everything to their team (trainees under them)
-    let teamTraineeIds: string[] | null = null
-    if (actorRole === Role.TEAM_LEAD) {
+    // ── Role scoping ────────────────────────────────────────────────────────────
+    // TRAINEE   → only their own assigned work
+    // TEAM_LEAD → their own work + the work of trainees they lead
+    // MANAGER / PARTNER / ADMIN → everything (no scope filter)
+    let taxTeamFilter:    any = {}
+    let fbrTeamFilter:    any = {}
+    let genTeamFilter:    any = {}
+    let clientTeamFilter: any = {}
+    let scopedUserIds: string[] | null = null   // for team-count + leaderboard shaping
+
+    if (actorRole === Role.TRAINEE) {
+      taxTeamFilter    = { traineeId: actorId }
+      fbrTeamFilter    = { assignedToId: actorId }
+      genTeamFilter    = { assignedToId: actorId }
+      clientTeamFilter = { traineeId: actorId }
+      scopedUserIds    = [actorId]
+    } else if (actorRole === Role.TEAM_LEAD) {
       const trainees = await this.prisma.user.findMany({
         where: { teamLeadId: actorId },
         select: { id: true },
       })
-      teamTraineeIds = trainees.map(t => t.id)
+      const ids = [actorId, ...trainees.map(t => t.id)]
+      taxTeamFilter    = { traineeId:    { in: ids } }
+      fbrTeamFilter    = { OR: [{ assignedToId: { in: ids } }, { client: { traineeId: { in: ids } } }] }
+      genTeamFilter    = { assignedToId: { in: ids } }
+      clientTeamFilter = { traineeId:    { in: trainees.map(t => t.id) } }
+      scopedUserIds    = ids
     }
-    const taxTeamFilter:  any = teamTraineeIds !== null ? { traineeId: { in: teamTraineeIds } } : {}
-    const fbrTeamFilter:  any = teamTraineeIds !== null ? { client: { traineeId: { in: teamTraineeIds } } } : {}
-    const genTeamFilter:  any = teamTraineeIds !== null ? { assignedToId: { in: [actorId, ...teamTraineeIds] } } : {}
-    const clientTeamFilter: any = teamTraineeIds !== null ? { traineeId: { in: teamTraineeIds } } : {}
 
     // ── Parallel counts ───────────────────────────────────────────────────────
     const [
@@ -61,9 +76,11 @@ export class DashboardService {
       }),
 
       // Team Lead sees their trainee count; others see all team members
-      teamTraineeIds !== null
+      actorRole === Role.TEAM_LEAD
         ? this.prisma.user.count({ where: { teamLeadId: actorId } })
-        : this.prisma.user.count({ where: { role: { in: [Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] as any } } }),
+        : actorRole === Role.TRAINEE
+          ? Promise.resolve(0)
+          : this.prisma.user.count({ where: { role: { in: [Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] as any } } }),
 
       this.prisma.salesTaxTask.groupBy({
         by: ['status'],
@@ -180,12 +197,53 @@ export class DashboardService {
       },
     })
 
+    // ── Tax authority breakdown (FBR / PRA / SRB / KPRA / BRA / AJK) ───────────
+    const byAuthorityRaw = await this.prisma.salesTaxTask.groupBy({
+      by: ['authority'],
+      where: { ...taxTeamFilter, ...createdFilter },
+      _count: { id: true },
+    })
+
+    // ── Deadline urgency — live snapshot of active tasks by due-date band ──────
+    const now      = new Date()
+    const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
+    const weekEnd  = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7); weekEnd.setHours(23, 59, 59, 999)
+    const activeDl = { status: { not: 'COMPLETED' as any }, ...taxTeamFilter }
+
+    const [overdue, dueToday, dueThisWeek, upcoming, noDueDate] = await Promise.all([
+      this.prisma.salesTaxTask.count({ where: { ...activeDl, dueDate: { lt: now } } }),
+      this.prisma.salesTaxTask.count({ where: { ...activeDl, dueDate: { gte: now, lte: todayEnd } } }),
+      this.prisma.salesTaxTask.count({ where: { ...activeDl, dueDate: { gt: todayEnd, lte: weekEnd } } }),
+      this.prisma.salesTaxTask.count({ where: { ...activeDl, dueDate: { gt: weekEnd } } }),
+      this.prisma.salesTaxTask.count({ where: { ...activeDl, dueDate: null } }),
+    ])
+
+    // ── Monthly filing trend (created vs completed) for current year ──────────
+    const yearStart = new Date(now.getFullYear(), 0, 1)
+    const [monthCreated, monthCompleted] = await Promise.all([
+      this.prisma.salesTaxTask.findMany({
+        where: { createdAt: { gte: yearStart }, ...taxTeamFilter },
+        select: { createdAt: true },
+      }),
+      this.prisma.salesTaxTask.findMany({
+        where: { status: 'COMPLETED' as any, updatedAt: { gte: yearStart }, ...taxTeamFilter },
+        select: { updatedAt: true },
+      }),
+    ])
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const monthlyTrend = MONTHS.map((m, i) => ({ month: m, created: 0, completed: 0 }))
+    monthCreated.forEach(t   => { monthlyTrend[new Date(t.createdAt).getMonth()].created++ })
+    monthCompleted.forEach(t => { monthlyTrend[new Date(t.updatedAt).getMonth()].completed++ })
+
     return {
       stats: { totalClients, activePipeline, completedInPeriod, activeFbr, teamCount },
       pipelineByStatus: pipelineByStatus.map(s => ({ status: s.status,       count: s._count.id })),
       pipelineByType:   pipelineByTypeRaw.map(s => ({ type: s.taskType,       count: s._count.id })),
       fbrByStage:       fbrByStage.map(s       => ({ stage: s.currentStage,   count: s._count.id })),
       generalByStatus:  generalByStatus.map(s  => ({ status: s.status,        count: s._count.id })),
+      byAuthority:      byAuthorityRaw.map(s    => ({ authority: s.authority,  count: s._count.id })),
+      deadlines:        { overdue, dueToday, dueThisWeek, upcoming, noDueDate },
+      monthlyTrend,
       trend,
       topTrainees,
       recentTasks,

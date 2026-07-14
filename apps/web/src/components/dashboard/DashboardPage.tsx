@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import {
   ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, ComposedChart, Line, Bar,
+  AreaChart, Area, RadialBarChart, RadialBar, PolarAngleAxis,
 } from 'recharts'
 import api from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -67,6 +68,16 @@ const STATUS_COLOR: Record<string, string> = {
   DATA_COLLECTION:'#64748B', DRAFT_PREPARATION:'#6366F1', CLIENT_REVIEW:'#8B5CF6',
   ANNEXURE_UPLOAD:'#A78BFA', INCHARGE_REVIEW:TEAL, CHALLAN_GENERATED:'#0EA5E9',
   SUBMISSION_APPROVAL:GOLD, FILED:BRICK, COMPLETED:FOREST, SENT_BACK:'#DC2626',
+}
+
+// Pakistani tax authorities — federal (FBR) + provincial revenue boards
+const AUTHORITY_META: Record<string, { label: string; color: string }> = {
+  FBR:  { label: 'FBR',  color: NAVY   },
+  PRA:  { label: 'PRA',  color: TEAL   },
+  SRB:  { label: 'SRB',  color: GOLD   },
+  KPRA: { label: 'KPRA', color: BRICK  },
+  BRA:  { label: 'BRA',  color: FOREST },
+  AJK:  { label: 'AJK',  color: PURPLE },
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -195,6 +206,130 @@ function PipelineTreemap({ data }: { data: { status: string; count: number }[] }
   )
 }
 
+// ── Completion Rate — radial gauge (modern KPI) ───────────────────────────────
+function CompletionGauge({ completed, total }: { completed: number; total: number }) {
+  const pct = total > 0 ? Math.round(completed / total * 100) : 0
+  const gradId = 'compGauge'
+  return (
+    <div style={{ position:'relative', width:'100%', height:170, display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <RadialBarChart innerRadius="72%" outerRadius="100%" data={[{ value: pct }]} startAngle={220} endAngle={-40}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%"  stopColor={TEAL} />
+              <stop offset="100%" stopColor={FOREST} />
+            </linearGradient>
+          </defs>
+          <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+          <RadialBar dataKey="value" cornerRadius={12} fill={`url(#${gradId})`} background={{ fill: '#EEF1F4' }} />
+        </RadialBarChart>
+      </ResponsiveContainer>
+      <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
+        <div style={{ fontSize:38, fontWeight:800, color:NAVY, lineHeight:1, fontFamily:F }}>{pct}<span style={{ fontSize:18, color:MUTED }}>%</span></div>
+        <div style={{ fontSize:9, color:MUTED, letterSpacing:'0.1em', marginTop:4, fontFamily:F }}>COMPLETION RATE</div>
+        <div style={{ fontSize:10, color:SLATE, marginTop:6, fontFamily:F }}>
+          <span style={{ color:FOREST, fontWeight:700 }}>{completed}</span> of {total} done
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Tax Authority breakdown — horizontal bars (domain-unique) ─────────────────
+function AuthorityChart({ data }: { data: { authority: string; count: number }[] }) {
+  const rows = Object.keys(AUTHORITY_META)
+    .map(k => ({ key: k, ...AUTHORITY_META[k], count: data.find(d => d.authority === k)?.count ?? 0 }))
+    .filter(r => r.count > 0)
+    .sort((a, b) => b.count - a.count)
+  const max = rows.length ? Math.max(...rows.map(r => r.count)) : 1
+  if (!rows.length) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:170, color:MUTED, fontSize:11, fontFamily:F }}>No returns yet</div>
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:11, paddingTop:6 }}>
+      {rows.map(r => (
+        <div key={r.key} style={{ display:'flex', alignItems:'center', gap:9 }}>
+          <span style={{ minWidth:42, fontSize:11, color:NAVY, fontWeight:700, fontFamily:F }}>{r.label}</span>
+          <div style={{ flex:1, height:20, background:GRIDLN, borderRadius:5, overflow:'hidden' }}>
+            <div style={{ width:`${Math.max(r.count / max * 100, 4)}%`, height:'100%', background:`linear-gradient(90deg, ${r.color}, ${r.color}cc)`, borderRadius:5, transition:'width 0.5s ease' }} />
+          </div>
+          <span style={{ minWidth:26, fontSize:12, fontWeight:800, color:r.color, textAlign:'right', fontFamily:F }}>{r.count}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Deadline Urgency Tracker — the standout CA-firm feature ────────────────────
+function DeadlineTracker({ dl }: { dl: { overdue:number; dueToday:number; dueThisWeek:number; upcoming:number; noDueDate:number } }) {
+  const bands = [
+    { key:'overdue',     label:'Overdue',      value:dl.overdue,     color:'#DC2626', bg:'#FEE2E2', icon:'⚠' },
+    { key:'dueToday',    label:'Due Today',    value:dl.dueToday,    color:'#EA580C', bg:'#FFEDD5', icon:'⏰' },
+    { key:'dueThisWeek', label:'Due This Week',value:dl.dueThisWeek, color:GOLD,      bg:'#FEF3C7', icon:'📅' },
+    { key:'upcoming',    label:'Upcoming',     value:dl.upcoming,    color:TEAL,      bg:'#E5F3F5', icon:'✓'  },
+    { key:'noDueDate',   label:'No Due Date',  value:dl.noDueDate,   color:MUTED,     bg:'#F1F5F9', icon:'—'  },
+  ]
+  const totalActive = bands.reduce((s, b) => s + b.value, 0)
+  return (
+    <div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8, marginBottom:12 }}>
+        {bands.map(b => (
+          <div key={b.key} style={{ background:b.bg, borderRadius:8, padding:'10px 8px', textAlign:'center', border:`1px solid ${b.color}22` }}>
+            <div style={{ fontSize:15, marginBottom:2 }}>{b.icon}</div>
+            <div style={{ fontSize:26, fontWeight:800, color:b.color, lineHeight:1, fontFamily:F }}>{b.value}</div>
+            <div style={{ fontSize:9, color:SLATE, fontWeight:600, marginTop:4, letterSpacing:'0.02em', fontFamily:F }}>{b.label}</div>
+          </div>
+        ))}
+      </div>
+      {totalActive > 0 && (
+        <div style={{ display:'flex', height:8, borderRadius:4, overflow:'hidden' }}>
+          {bands.filter(b => b.value > 0).map(b => (
+            <div key={b.key} style={{ flex:b.value, background:b.color }} title={`${b.label}: ${b.value}`} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Activity Trend — 7-day area chart (created vs completed) ───────────────────
+function ActivityArea({ data }: { data: { date:string; created:number; completed:number }[] }) {
+  const hasData = data.some(d => d.created > 0 || d.completed > 0)
+  if (!hasData) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:170, color:MUTED, fontSize:11, fontFamily:F }}>No activity in the last 7 days</div>
+  return (
+    <ResponsiveContainer width="100%" height={170}>
+      <AreaChart data={data} margin={{ top:6, right:8, left:-22, bottom:0 }}>
+        <defs>
+          <linearGradient id="gCreated" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={TEAL} stopOpacity={0.35} /><stop offset="100%" stopColor={TEAL} stopOpacity={0} /></linearGradient>
+          <linearGradient id="gCompleted" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={GOLD} stopOpacity={0.35} /><stop offset="100%" stopColor={GOLD} stopOpacity={0} /></linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRIDLN} vertical={false} />
+        <XAxis dataKey="date" {...axisProps} />
+        <YAxis {...axisProps} allowDecimals={false} />
+        <Tooltip {...ttipStyle} />
+        <Area type="monotone" dataKey="created"   name="Created"   stroke={TEAL} strokeWidth={2} fill="url(#gCreated)" />
+        <Area type="monotone" dataKey="completed" name="Completed" stroke={GOLD} strokeWidth={2} fill="url(#gCompleted)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+}
+
+// ── Monthly Filing Trend — 12-month area ──────────────────────────────────────
+function MonthlyTrend({ data }: { data: { month:string; created:number; completed:number }[] }) {
+  const hasData = data.some(d => d.created > 0 || d.completed > 0)
+  if (!hasData) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:170, color:MUTED, fontSize:11, fontFamily:F }}>No filings recorded this year</div>
+  return (
+    <ResponsiveContainer width="100%" height={170}>
+      <ComposedChart data={data} margin={{ top:6, right:8, left:-22, bottom:0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRIDLN} vertical={false} />
+        <XAxis dataKey="month" {...axisProps} />
+        <YAxis {...axisProps} allowDecimals={false} />
+        <Tooltip {...ttipStyle} />
+        <Bar dataKey="created"    name="Created"   fill={NAVY} radius={[3,3,0,0]} barSize={11} />
+        <Line type="monotone" dataKey="completed" name="Completed" stroke={GOLD} strokeWidth={2.5} dot={{ r:2.5, fill:GOLD }} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 interface Props { title: string; subtitle: string }
 
@@ -221,20 +356,29 @@ export default function DashboardPage({ title }: Props) {
   useEffect(() => { load() }, [load])
   useAutoRefresh(() => load(true))
 
+  const role        = (user?.role ?? '').toString().toUpperCase()
+  const isTrainee   = role === 'TRAINEE'
+
   const stats       = data?.stats            ?? {}
   const byStatus    = data?.pipelineByStatus  ?? []
   const byType      = data?.pipelineByType    ?? []
   const fbrStages   = data?.fbrByStage        ?? []
   const genStatus   = data?.generalByStatus   ?? []
+  const byAuthority = data?.byAuthority        ?? []
+  const deadlines   = data?.deadlines          ?? { overdue:0, dueToday:0, dueThisWeek:0, upcoming:0, noDueDate:0 }
+  const monthly     = data?.monthlyTrend       ?? []
   const trend       = data?.trend             ?? []
   const topTrainees = data?.topTrainees       ?? []
   const recentTasks = data?.recentTasks       ?? []
   const recentFbr   = data?.recentFbr         ?? []
 
+  // Completion rate — derived from pipeline status distribution
+  const totalPipeline = byStatus.reduce((s: number, b: any) => s + b.count, 0)
+  const completedCount = byStatus.find((b: any) => b.status === 'COMPLETED')?.count ?? 0
+
   const typeDonut = byType.map((b: any) => ({ name: TYPE_LABEL[b.type]  ?? b.type,  value: b.count }))
   const fbrDonut  = fbrStages.map((b: any) => ({ name: FBR_LABEL[b.stage] ?? b.stage, value: b.count }))
   const genDonut  = genStatus.map((b: any) => ({ name: GEN_LABEL[b.status] ?? b.status, value: b.count }))
-  const maxT      = topTrainees.length > 0 ? Math.max(...topTrainees.map((t: any) => t.completed + t.pending), 1) : 1
   const periodLbl = period === 'daily' ? 'TODAY' : period === 'weekly' ? 'THIS WEEK' : period === 'monthly' ? 'THIS MONTH' : 'ALL TIME'
 
   const FBR_CHIP: Record<string, { c: string; bg: string }> = {
@@ -270,45 +414,61 @@ export default function DashboardPage({ title }: Props) {
           breakdown={fbrStages.slice(0,3).map((b:any)=>({ label:FBR_LABEL[b.stage]??b.stage, value:b.count }))} />
       </div>
 
-      {/* ── Row 2 — Top Performers + Returns Status Breakdown ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:10, marginBottom:10 }}>
-        <div style={cardStyle}>
-          <div style={titleStyle}>Top Performers</div>
-          {loading
-            ? <div style={{ display:'flex', flexDirection:'column', gap:9 }}>{[1,2,3,4,5].map(i=><Sk key={i} h={16}/>)}</div>
-            : topTrainees.length === 0
-              ? <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:120, color:MUTED, fontSize:11 }}>No data</div>
-              : <div style={{ display:'flex', flexDirection:'column', gap:9, maxHeight:190, overflowY:'auto' }}>
-                  {topTrainees.map((t:any, i:number) => {
-                    const pct = Math.round(t.completed / maxT * 100)
-                    return (
-                      <div key={i} style={{ display:'flex', alignItems:'center', gap:7 }}>
-                        <div style={{ width:84, fontSize:10, color:NAVY, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flexShrink:0 }}>{t.name}</div>
-                        <div style={{ flex:1, height:17, background:BG, borderRadius:3, position:'relative', overflow:'hidden' }}>
-                          <div style={{ width:`${pct}%`, height:'100%', background:GOLD, borderRadius:3, transition:'width 0.4s' }} />
-                          <div style={{ position:'absolute', left:pct>14?`calc(${pct}% - 22px)`:`${pct+2}%`, top:'50%', transform:'translateY(-50%)', fontSize:9, fontWeight:700, color:pct>14?'#fff':NAVY }}>{t.completed}</div>
-                        </div>
-                        <div style={{ fontSize:10, color:BRICK, fontWeight:700, flexShrink:0, width:20, textAlign:'right' }}>{t.pending}</div>
-                      </div>
-                    )
-                  })}
-                  <div style={{ display:'flex', gap:12, marginTop:4, paddingTop:6, borderTop:`1px solid ${GRIDLN}` }}>
-                    {[[GOLD,'Completed'],[BRICK,'Pending']].map(([c,l]) => (
-                      <div key={l} style={{ display:'flex', alignItems:'center', gap:4, fontSize:9, color:LABEL }}>
-                        <span style={{ width:8, height:8, background:c, borderRadius:2, display:'inline-block' }} />{l}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-          }
+      {/* ── Row 2 — Deadline Urgency Tracker (standout) ── */}
+      <div style={{ ...cardStyle, marginBottom:10 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:2 }}>
+          <div style={titleStyle}>{isTrainee ? 'My Deadline Radar' : 'Deadline Radar — Active Returns'}</div>
+          <div style={{ fontSize:9, color:MUTED, fontFamily:F }}>live snapshot · not affected by period filter</div>
         </div>
+        {loading ? <Sk h={110} /> : <DeadlineTracker dl={deadlines} />}
+      </div>
 
+      {/* ── Row 3 — Completion Gauge + Tax Authority + Pipeline Funnel ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1.3fr', gap:10, marginBottom:10 }}>
+        <div style={cardStyle}>
+          <div style={titleStyle}>Completion Rate</div>
+          {loading ? <Sk h={170} /> : <CompletionGauge completed={completedCount} total={totalPipeline} />}
+        </div>
+        <div style={cardStyle}>
+          <div style={titleStyle}>By Tax Authority</div>
+          {loading ? <Sk h={170} /> : <AuthorityChart data={byAuthority} />}
+        </div>
         <div style={cardStyle}>
           <div style={titleStyle}>Returns Status Breakdown</div>
           {loading
             ? <div style={{ display:'flex', flexDirection:'column', gap:7 }}>{[1,2,3,4,5,6].map(i=><Sk key={i} h={22}/>)}</div>
             : <PipelineFunnel data={byStatus} />
           }
+        </div>
+      </div>
+
+      {/* ── Row 4 — Activity trend (7-day) + Monthly filing trend ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+        <div style={cardStyle}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={titleStyle}>Activity — Last 7 Days</div>
+            <div style={{ display:'flex', gap:12 }}>
+              {[[TEAL,'Created'],[GOLD,'Completed']].map(([c,l]) => (
+                <div key={l} style={{ display:'flex', alignItems:'center', gap:4, fontSize:9, color:LABEL, fontFamily:F }}>
+                  <span style={{ width:8, height:8, background:c, borderRadius:2, display:'inline-block' }} />{l}
+                </div>
+              ))}
+            </div>
+          </div>
+          {loading ? <Sk h={170} /> : <ActivityArea data={trend} />}
+        </div>
+        <div style={cardStyle}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={titleStyle}>Monthly Filing Trend</div>
+            <div style={{ display:'flex', gap:12 }}>
+              {[[NAVY,'Created'],[GOLD,'Completed']].map(([c,l]) => (
+                <div key={l} style={{ display:'flex', alignItems:'center', gap:4, fontSize:9, color:LABEL, fontFamily:F }}>
+                  <span style={{ width:8, height:8, background:c, borderRadius:2, display:'inline-block' }} />{l}
+                </div>
+              ))}
+            </div>
+          </div>
+          {loading ? <Sk h={170} /> : <MonthlyTrend data={monthly} />}
         </div>
       </div>
 
@@ -355,10 +515,11 @@ export default function DashboardPage({ title }: Props) {
         </div>
       </div>
 
-      {/* ── Row 5 — Trainee Performance ── */}
+      {/* ── Row — Trainee Performance (team roles only) ── */}
+      {!isTrainee && (
       <div style={{ marginBottom:10 }}>
         <div style={cardStyle}>
-          <div style={titleStyle}>Trainee Performance: Completed vs Pending</div>
+          <div style={titleStyle}>{role === 'TEAM_LEAD' ? 'My Team: Completed vs Pending' : 'Trainee Performance: Completed vs Pending'}</div>
           {loading ? <Sk h={200} /> : topTrainees.length === 0
             ? <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200, color:MUTED, fontSize:11, fontFamily:F }}>No data</div>
             : (
@@ -388,6 +549,7 @@ export default function DashboardPage({ title }: Props) {
           }
         </div>
       </div>
+      )}
 
     </div>
   )
