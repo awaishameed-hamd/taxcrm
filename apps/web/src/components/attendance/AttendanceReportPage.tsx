@@ -487,7 +487,7 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
                       Edit
                     </button>
                   )}
-                  {canCreate && dateStr >= sevenDaysAgo && dateStr <= todayStr2 && !rec && !isNotJoined && (
+                  {canCreate && dateStr >= sevenDaysAgo && dateStr <= todayStr2 && !rec && (
                     <button onClick={() => openCreate(dateStr)} style={{ position: 'absolute', bottom: 5, right: 5, display: 'flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: 'rgba(242,172,24,0.12)', color: '#b45309', border: '1px solid rgba(242,172,24,0.4)', cursor: 'pointer', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.04em', lineHeight: 1.4 }}
                       onMouseEnter={e => { e.currentTarget.style.background = '#F2AC18'; e.currentTarget.style.color = '#fff' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(242,172,24,0.12)'; e.currentTarget.style.color = '#b45309' }}>
