@@ -369,7 +369,7 @@ export default function AttendanceApprovalPage() {
                     <td style={{ ...tdStyle, fontWeight: 700, color: '#94A3B8', width: 40 }}>{idx + 1}</td>
                     <td style={{ ...tdStyle, fontWeight: 700 }}>{rec.userName}</td>
                     <td style={tdStyle}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: roleStyle.bg, color: roleStyle.color }}>{rec.userRole}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: roleStyle.bg, color: roleStyle.color }}>{rec.userRole.replace(/_/g, ' ')}</span>
                     </td>
                     <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{rec.date}</td>
                     <td style={tdStyle}><EditTimeCell rec={rec} onSaved={onTimeSaved} /></td>
@@ -490,7 +490,7 @@ export default function AttendanceApprovalPage() {
                       <td style={{ ...tdS, color: '#94A3B8', width: 36 }}>{idx + 1}</td>
                       <td style={{ ...tdS, fontWeight: 700 }}>{l.applicant?.fullName}</td>
                       <td style={tdS}>
-                        <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: roleStyle.bg, color: roleStyle.color }}>{l.applicant?.role}</span>
+                        <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: roleStyle.bg, color: roleStyle.color }}>{l.applicant?.role?.replace(/_/g, ' ')}</span>
                       </td>
                       <td style={{ ...tdS, textTransform: 'capitalize' }}>{l.leaveType}</td>
                       <td style={{ ...tdS, whiteSpace: 'nowrap' }}>{l.fromDate?.split('T')[0]}</td>

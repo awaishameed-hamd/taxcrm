@@ -87,7 +87,7 @@ function AttendanceTable({ present, absent, leave }: { present: any[]; absent: a
                     <td style={{ ...tdBase, fontWeight: 700, color: '#94A3B8', width: 40 }}>{rowNum}</td>
                     <td style={{ ...tdBase, fontWeight: 700 }}>{u.fullName}</td>
                     <td style={tdBase}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: rs.bg, color: rs.color }}>{u.role}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: rs.bg, color: rs.color }}>{u.role.replace(/_/g, ' ')}</span>
                     </td>
                     <td style={tdBase}>{u.loginTime ?? <span style={{ color: '#94A3B8' }}>N/A</span>}</td>
                     <td style={tdBase}>

@@ -168,7 +168,7 @@ export default function MyLeavesPage() {
                     </span>
                   </td>
                   <td style={{ padding: '8px 14px', fontSize: 12, color: '#64748B', fontFamily: '"Aptos", sans-serif' }}>
-                    {l.reviewedBy ? `${l.reviewedBy.fullName} (${l.reviewedBy.role})` : 'Pending'}
+                    {l.reviewedBy ? `${l.reviewedBy.fullName} (${l.reviewedBy.role.replace(/_/g, ' ')})` : 'Pending'}
                   </td>
                   <td style={{ padding: '8px 14px', fontSize: 12, color: '#DC2626', fontFamily: '"Aptos", sans-serif' }}>
                     {l.rejectionReason ?? ''}
