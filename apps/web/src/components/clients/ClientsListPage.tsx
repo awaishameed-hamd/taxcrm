@@ -455,6 +455,8 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
     // Password required only when method is set_password
     if (portalMethod === 'set_password' && !password.trim()) e.password = 'Required'
     if (portalMethod === 'set_password' && password && password.length < 8) e.password = 'Minimum 8 characters'
+    // Every client must be assigned to a staff member (manager, team lead, or trainee)
+    if (!form.traineeId?.trim()) e.traineeId = 'Required'
     visibleFields.forEach(f => {
       const key = f.fieldKey || f.field_key
       if (f.isRequired ?? f.is_required) {
@@ -494,6 +496,9 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
       payload.hasWhtService       = hasWhtService
       payload.yearEnd             = yearEnd
       payload.representativeId    = representativeId || null
+      // Always send the assignment — it's mandatory and rendered outside the dynamic field loop above,
+      // so it must not depend on that field's admin-configurable visibility toggle.
+      payload.traineeId           = form.traineeId
 
       if (!isEdit) {
         payload.hasPortalAccess = portalAccess
@@ -594,19 +599,20 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
           </div>
 
           {/* Assign Firm Representative */}
-          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
+          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${errors.traineeId ? '#ef4444' : P.border}` }}>
             <div style={{ padding: '10px 18px', borderBottom: `1px solid ${P.border}`, background: '#F1F5F9' }}>
               <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif" }}>
-                Assign Firm Representative
+                Assign Firm Representative <span style={{ color: '#ef4444' }}>*</span>
               </span>
             </div>
             <div style={{ padding: '12px 18px' }}>
               <StyledSelect
                 value={form['traineeId'] ?? ''}
                 onChange={val => handleChange('traineeId', val)}
-                placeholder="Unassigned"
-                options={[{ value: '', label: 'Unassigned' }, ...(trainees ?? []).map((t: any) => ({ value: t.id, label: t.fullName }))]}
+                placeholder="Select…"
+                options={(trainees ?? []).map((t: any) => ({ value: t.id, label: t.fullName }))}
               />
+              {errors.traineeId && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 5 }}>Every client must be assigned to a staff member</p>}
             </div>
           </div>
 

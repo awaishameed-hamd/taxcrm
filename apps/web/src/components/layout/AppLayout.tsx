@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Sidebar from './Sidebar'
+import { useIdleLogout } from '@/hooks/useIdleLogout'
 
 interface AppLayoutProps {
   children:                  React.ReactNode
@@ -15,6 +16,8 @@ export default function AppLayout({
   onSidebarCollapsedChange,
 }: AppLayoutProps) {
   const [internalCollapsed, setInternalCollapsed] = useState(false)
+
+  useIdleLogout()
 
   const collapsed   = sidebarCollapsed         !== undefined ? sidebarCollapsed         : internalCollapsed
   const setCollapsed = onSidebarCollapsedChange !== undefined ? onSidebarCollapsedChange : setInternalCollapsed

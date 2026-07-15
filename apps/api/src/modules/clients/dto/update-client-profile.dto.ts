@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsDateString, IsOptional, IsString, MinLength } from 'class-validator'
+import { IsArray, IsBoolean, IsDateString, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator'
 
 export class UpdateClientProfileDto {
   @IsOptional() @IsString()               fullName?:     string
@@ -13,7 +13,7 @@ export class UpdateClientProfileDto {
   @IsOptional() @IsString()     strn?:         string
   @IsOptional() @IsString()     businessName?: string
   @IsOptional() @IsString()     businessType?: string
-  @IsOptional() @IsString()     traineeId?:        string
+  @IsOptional() @IsString() @IsNotEmpty({ message: 'Every client must be assigned to a staff member' }) traineeId?: string
   @IsOptional() @IsString()     representativeId?: string
   @IsOptional() @IsArray() @IsString({ each: true }) salesTaxAuthorities?: string[]
   @IsOptional() @IsBoolean()    hasWhtService?: boolean

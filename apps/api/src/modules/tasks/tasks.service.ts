@@ -246,13 +246,14 @@ export class TasksService {
         where: { teamLeadId: callerId },
         select: { id: true },
       })
-      where.traineeId = { in: myTrainees.map(t => t.id) }
+      where.traineeId = { in: [callerId, ...myTrainees.map(t => t.id)] }
     }
     return this.prisma.clientProfile.findMany({
       where,
       select: {
-        id: true, businessName: true,
+        id: true, businessName: true, traineeId: true,
         user: { select: { id: true, fullName: true, userCode: true } },
+        trainee: { select: { id: true, fullName: true } },
       },
       orderBy: { user: { fullName: 'asc' } },
     })

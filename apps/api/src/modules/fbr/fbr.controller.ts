@@ -40,8 +40,8 @@ export class FbrController {
 
   @Get('cases/:id')
   @Roles(...ALL)
-  getCase(@Param('id') id: string) {
-    return this.svc.getCase(id)
+  getCase(@Req() req: any, @Param('id') id: string) {
+    return this.svc.getCase(id, req.user.id, req.user.role)
   }
 
   @Post('cases')

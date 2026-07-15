@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { RolesGuard } from '../../common/guards/roles.guard'
@@ -13,13 +13,13 @@ export class SalesTaxReturnsController {
 
   @Post()
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
-  upsert(@Body() dto: UpsertSalesTaxReturnDto) {
-    return this.svc.upsert(dto)
+  upsert(@Req() req: any, @Body() dto: UpsertSalesTaxReturnDto) {
+    return this.svc.upsert(dto, req.user.id, req.user.role)
   }
 
   @Get()
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
-  find(@Query('clientId') clientId: string, @Query('authority') authority?: string) {
-    return this.svc.findByClient(clientId, authority)
+  find(@Req() req: any, @Query('clientId') clientId: string, @Query('authority') authority?: string) {
+    return this.svc.findByClient(clientId, req.user.id, req.user.role, authority)
   }
 }

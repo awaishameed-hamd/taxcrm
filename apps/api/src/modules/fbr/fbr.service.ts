@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException } from '@nestjs/common'
+﻿import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { Role } from '@ca-firm/shared'
 import {
@@ -81,6 +81,12 @@ export class FbrService {
 
     if (role === Role.TRAINEE) {
       where.assignedToId = userId
+    } else if (role === Role.TEAM_LEAD) {
+      const myTrainees = await this.prisma.user.findMany({
+        where: { teamLeadId: userId },
+        select: { id: true },
+      })
+      where.assignedToId = { in: [userId, ...myTrainees.map(t => t.id)] }
     }
 
     const cases = await this.prisma.fbrCase.findMany({
@@ -98,13 +104,29 @@ export class FbrService {
     return cases
   }
 
-  // â”€â”€ Get single case â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  async getCase(id: string) {
+  // â”€â”€ Get single case (unchecked — for internal use after an authorized action) â”€â”€
+  private async getCaseRaw(id: string) {
     const c = await this.prisma.fbrCase.findUnique({
       where:   { id },
       select: FULL_CASE_SELECT,
     })
     if (!c) throw new NotFoundException('FBR case not found')
+    return c
+  }
+
+  // â”€â”€ Get single case â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  async getCase(id: string, userId: string, role: Role) {
+    const c = await this.getCaseRaw(id)
+
+    const assignedToId = c.assignedTo?.id
+    if (role === Role.TRAINEE) {
+      if (assignedToId !== userId) throw new ForbiddenException('Access denied')
+    } else if (role === Role.TEAM_LEAD) {
+      const myTrainees = await this.prisma.user.findMany({ where: { teamLeadId: userId }, select: { id: true } })
+      const allowed = new Set([userId, ...myTrainees.map(t => t.id)])
+      if (!assignedToId || !allowed.has(assignedToId)) throw new ForbiddenException('Access denied')
+    }
+
     return c
   }
 
@@ -156,7 +178,7 @@ export class FbrService {
       })
     }
 
-    return this.getCase(c.id)
+    return this.getCaseRaw(c.id)
   }
 
   // â”€â”€ Update case â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -359,7 +381,7 @@ export class FbrService {
       data:  { currentStage: returnStage },
     })
 
-    return this.getCase(stay.caseId)
+    return this.getCaseRaw(stay.caseId)
   }
 
   // â”€â”€ Hearings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

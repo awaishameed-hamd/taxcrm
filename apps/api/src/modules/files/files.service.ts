@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { assertClientAccess } from '../../common/utils/client-access.util'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -34,7 +35,8 @@ function fileName(url: string, label?: string): string {
 export class FilesService {
   constructor(private prisma: PrismaService) {}
 
-  async getFolders(clientId: string, taxType: string) {
+  async getFolders(clientId: string, taxType: string, actorId: string, actorRole: string) {
+    await assertClientAccess(this.prisma, clientId, actorId, actorRole as any)
     const tasks = await this.prisma.salesTaxTask.findMany({
       where: { clientId, taskType: taxType },
       select: {

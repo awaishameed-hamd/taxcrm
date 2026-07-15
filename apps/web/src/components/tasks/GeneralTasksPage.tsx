@@ -588,6 +588,18 @@ export function TaskFormModal({
   const fbrYearOk   = !isFbrNotices || !form.fbrTaxYear || (form.fbrTaxYear.length === 4 && Number(form.fbrTaxYear) >= 2000 && Number(form.fbrTaxYear) <= 2099)
   const canSubmit   = !saving && (isPipelineTax || isFbrNotices || !!form.title.trim()) && !!form.clientId && (!canAssignOthers || isFbrNotices || !!form.assignedToId) && (!!taxType || !!form.taxType) && (isFbrNotices || !!form.dueDate) && fbrOtherOk && fbrYearOk
 
+  // Sales Tax / WHT: the assignee is locked to whichever staff member the client is assigned to —
+  // never let it be picked manually, so a client's return can't land with the wrong trainee.
+  const isClientLockedAssignee = isSalesTax || isWHT
+  const selectedClient = clients.find(c => c.id === form.clientId)
+  const lockedAssigneeId   = selectedClient?.traineeId ?? selectedClient?.trainee?.id ?? ''
+  const lockedAssigneeName = selectedClient?.trainee?.fullName ?? ''
+  useEffect(() => {
+    if (!isClientLockedAssignee) return
+    setForm((f: any) => (f.assignedToId === lockedAssigneeId ? f : { ...f, assignedToId: lockedAssigneeId }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClientLockedAssignee, lockedAssigneeId])
+
   // Notice sections — loaded when FBR tab is active, re-loaded on taxType change
   const [noticeSections, setNoticeSections] = useState<{ value: string; label: string }[]>([{ value: '', label: 'None' }])
   const [loadingSections, setLoadingSections] = useState(false)
@@ -844,8 +856,22 @@ export function TaskFormModal({
             </div>
           )}
 
-          {/* Assign to — hidden for FBR notices */}
-          {canAssignOthers && !isFbrNotices && (
+          {/* Assign to — hidden for FBR notices; locked to the client's assigned staff for Sales Tax / WHT */}
+          {canAssignOthers && !isFbrNotices && isClientLockedAssignee && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Assign To</label>
+              <div style={{
+                ...inputStyle, display: 'flex', alignItems: 'center',
+                background: '#F1F5F9', color: lockedAssigneeName ? NAVY : '#D62828',
+                cursor: 'not-allowed',
+              }}>
+                {form.clientId
+                  ? (lockedAssigneeName || 'This client has no assigned trainee — assign one on the Clients page first')
+                  : 'Select a client to see the assignee'}
+              </div>
+            </div>
+          )}
+          {canAssignOthers && !isFbrNotices && !isClientLockedAssignee && (
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Assign To <span style={{ color: '#D62828' }}>*</span></label>
               <SearchableSelect

@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsEmail, IsOptional, IsString, MinLength, IsDateString } from 'class-validator'
+import { IsArray, IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, MinLength, IsDateString } from 'class-validator'
 
 export class CreateClientDto {
   @IsOptional()
@@ -58,9 +58,9 @@ export class CreateClientDto {
   @IsString()
   businessType?: string
 
-  @IsOptional()
   @IsString()
-  traineeId?: string
+  @IsNotEmpty({ message: 'Every client must be assigned to a staff member' })
+  traineeId: string
 
   @IsOptional()
   @IsString()

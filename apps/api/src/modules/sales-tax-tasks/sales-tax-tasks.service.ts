@@ -306,8 +306,20 @@ export class SalesTaxTasksService {
   // ── Manually create a single task (manager / admin) ────────────────────────
 
   async createSingle(dto: { clientId: string; traineeId: string; periodMonth: number; periodYear: number; dueDate?: string; priority?: string; assignerNote?: string; authority?: string; returnType?: string; taskType?: string }, creatorId: string, creatorRole?: string) {
-    if (creatorRole === 'TRAINEE') dto = { ...dto, traineeId: creatorId }
     const taskType   = dto.taskType   ?? 'SALES_TAX'
+    if (taskType === 'SALES_TAX' || taskType === 'WHT') {
+      // Sales Tax / WHT are locked to whichever staff member the client is assigned to —
+      // never trust the client-supplied traineeId for these two types.
+      const client = await this.prisma.clientProfile.findUnique({ where: { id: dto.clientId }, select: { traineeId: true } })
+      if (!client) throw new NotFoundException('Client not found')
+      if (!client.traineeId) throw new BadRequestException('This client has no assigned trainee. Assign a trainee to the client before creating this task.')
+      if (creatorRole === 'TRAINEE' && client.traineeId !== creatorId) {
+        throw new ForbiddenException('This client is not assigned to you')
+      }
+      dto = { ...dto, traineeId: client.traineeId }
+    } else if (creatorRole === 'TRAINEE') {
+      dto = { ...dto, traineeId: creatorId }
+    }
     const authority  = dto.authority  ?? 'FBR'
     const returnType = dto.returnType ?? 'ORIGINAL'
     const exists = await this.prisma.salesTaxTask.findUnique({
