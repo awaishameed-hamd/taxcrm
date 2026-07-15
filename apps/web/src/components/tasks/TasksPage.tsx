@@ -1723,10 +1723,9 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                                      : cIdx === 0    ? { label:'To Do',       color:'#fff', bg:'#DC2626' }
                                      :                 { label:'In Progress', color:'#fff', bg:'#F97316' }
                     const clientName = t.client?.businessName ?? t.client?.user?.fullName ?? ''
-                    const dueStr     = t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'No due date'
                     return (
                       <button key={t.id} onClick={() => { setSelectedPipe(t); setAdvanceForm({}) }}
-                        style={{ display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', cursor:'pointer', borderBottom:`1px solid ${P.border}`, background: isActive ? '#E8EEF7' : '#F8FAFC', borderLeft: isActive ? `3px solid ${TEAL}` : '3px solid transparent' }}
+                        style={{ display:'block', width:'100%', textAlign:'left', padding:'7px 12px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:6, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
                         onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                         onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
 
@@ -1734,28 +1733,11 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                           const auth = t.authority ?? 'FBR'
                           const a = authorityStyle(auth)
                           return (
-                            <div style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
-                              {/* Sr circle */}
-                              <span style={{ flexShrink:0, width:22, height:22, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:2 }}>{idx + 1}</span>
-
-                              {/* Right: 2 rows */}
-                              <div style={{ flex:1, minWidth:0 }}>
-                                {/* Row 1: client name + status */}
-                                <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:5 }}>
-                                  <span style={{ fontSize:12, fontWeight:700, color: isActive ? TEAL : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
-                                  <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color:ov.color, background:ov.bg, flexShrink:0 }}>{ov.label}</span>
-                                </div>
-                                {/* Row 2: dashed chips + authority */}
-                                <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                                  {isSalesTaxTab && <span style={{ fontSize:10, fontWeight:700, color:a.color, background:a.bg, border:`1px solid ${a.color}22`, padding:'2px 8px', borderRadius:6 }}>{auth}</span>}
-                                  {(() => { const rt = returnTypeStyle(t.returnType ?? 'ORIGINAL'); return <span style={{ fontSize:10, fontWeight:700, color:rt.color, background:rt.bg, border:`1px solid ${rt.color}22`, padding:'2px 8px', borderRadius:6 }}>{rt.label}</span> })()}
-                                  <span style={{ fontSize:10, fontWeight:600, color:'#0E7490', background:'#ECFEFF', border:'1px solid #A5F3FC', padding:'2px 8px', borderRadius:6 }}>{periodLabel(t.taskType, t.periodMonth, t.periodYear)}</span>
-                                  <span style={{ fontSize:10, fontWeight:600, color:'#475569', background:'#EFF6FF', border:'1px solid #BFDBFE', padding:'2px 8px', borderRadius:6 }}>Due: {dueStr}</span>
-                                  {(role === 'manager' || role === 'team_lead') && t.trainee?.fullName && (
-                                    <span style={{ fontSize:10, fontWeight:600, color:'#B45309', border:'1.5px dashed #D97706', background:'#FFFBEB', padding:'2px 8px', borderRadius:6 }}>{t.trainee.fullName}</span>
-                                  )}
-                                </div>
-                              </div>
+                            <div style={{ display:'flex', gap:9, alignItems:'center' }}>
+                              <span style={{ flexShrink:0, width:20, height:20, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
+                              <span style={{ fontSize:12, fontWeight:700, color: isActive ? TEAL : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
+                              {isSalesTaxTab && <span style={{ fontSize:10, fontWeight:700, color:a.color, background:a.bg, border:`1px solid ${a.color}22`, padding:'2px 8px', borderRadius:6, flexShrink:0 }}>{auth}</span>}
+                              <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color:ov.color, background:ov.bg, flexShrink:0 }}>{ov.label}</span>
                             </div>
                           )
                         })()}
@@ -1773,28 +1755,15 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                 {filteredGen.map((t, idx) => {
                   const isActive = selectedGen?.id === t.id
                   const sm = GEN_STATUS[t.status] ?? { color:NAVY, bg:'#eee', label: t.status }
-                  const dueStr = t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'N/A'
-                  const doneSteps = (t.steps ?? []).filter((s:any) => s.isDone).length
-                  const totalSteps = (t.steps ?? []).length
                   return (
                     <button key={t.id} onClick={() => setSelectedGen(t)}
-                      style={{ display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', cursor:'pointer', borderBottom:`1px solid ${P.border}`, background: isActive ? '#E8EEF7' : '#F8FAFC', borderLeft: isActive ? `3px solid ${TEAL}` : '3px solid transparent' }}
+                      style={{ display:'block', width:'100%', textAlign:'left', padding:'7px 12px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:6, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
-                      <div style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
-                        <span style={{ flexShrink:0, width:22, height:22, borderRadius:5, background:TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:2 }}>{idx + 1}</span>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:5 }}>
-                            <span style={{ fontSize:12, fontWeight:700, color: isActive ? TEAL : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</span>
-                            <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color:sm.color, background:sm.bg, flexShrink:0 }}>{sm.label}</span>
-                          </div>
-                          <div style={{ display:'flex', gap:5, flexWrap:'wrap' as const }}>
-                            {t.client?.businessName && <span style={{ fontSize:10, fontWeight:700, color:'#1565C0', background:'#E3F0FB', border:'1px solid #1565C022', padding:'2px 8px', borderRadius:6 }}>{t.client.businessName}</span>}
-                            {t.assignedTo?.fullName && <span style={{ fontSize:10, fontWeight:600, color:'#475569', background:'#F1F5F9', border:'1px solid #E2E8F0', padding:'2px 8px', borderRadius:6 }}>{t.assignedTo.fullName}</span>}
-                            {dueStr !== 'N/A' && <span style={{ fontSize:10, fontWeight:600, color:'#0E7490', background:'#ECFEFF', border:'1px solid #A5F3FC', padding:'2px 8px', borderRadius:6 }}>Due: {dueStr}</span>}
-                            {totalSteps > 0 && <span style={{ fontSize:10, fontWeight:600, color:'#374151', background:'#F3F4F6', border:'1px solid #D1D5DB', padding:'2px 8px', borderRadius:6 }}>{doneSteps}/{totalSteps} steps</span>}
-                          </div>
-                        </div>
+                      <div style={{ display:'flex', gap:9, alignItems:'center' }}>
+                        <span style={{ flexShrink:0, width:20, height:20, borderRadius:5, background:TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
+                        <span style={{ fontSize:12, fontWeight:700, color: isActive ? TEAL : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</span>
+                        <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color:sm.color, background:sm.bg, flexShrink:0 }}>{sm.label}</span>
                       </div>
                     </button>
                   )
@@ -1832,6 +1801,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                       <div style={{ display:'flex', gap:9, alignItems:'center' }}>
                         <span style={{ flexShrink:0, width:20, height:20, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
                         <span style={{ fontSize:12, fontWeight:700, color: isActive ? '#1565C0' : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
+                        {(() => { const a = authorityStyle('FBR'); return <span style={{ fontSize:10, fontWeight:700, color:a.color, background:a.bg, border:`1px solid ${a.color}22`, padding:'2px 8px', borderRadius:6, flexShrink:0 }}>FBR</span> })()}
                         <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color: stage.color, background: stage.bg, flexShrink:0, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{stage.label}</span>
                       </div>
                     </button>
