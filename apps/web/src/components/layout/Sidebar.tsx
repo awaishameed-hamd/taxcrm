@@ -297,12 +297,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     return () => { sock.off('notification', onNotif) }
   }, [user?.id])
 
-  // Opening a notification marks it read — no separate "mark all read" action needed
-  const markOneRead = async (n: any) => {
-    if (n.isRead) return
-    setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x))
-    setUnreadCount(c => Math.max(0, c - 1))
-    await api.patch(`/notifications/${n.id}/read`).catch(() => {})
+  // Opening the notifications panel marks everything read — the badge count clears immediately
+  const markAllReadOnOpen = () => {
+    if (unreadCount === 0) return
+    setNotifs(prev => prev.map(n => ({ ...n, isRead: true })))
+    setUnreadCount(0)
+    api.patch('/notifications/read-all').catch(() => {})
   }
 
   const deleteNotif = async (id: string) => {
@@ -779,11 +779,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   )
                 }
                 return filtered.map(n => (
-                <div key={n.id} onClick={() => markOneRead(n)} style={{
+                <div key={n.id} style={{
                   position: 'relative', padding: '8px 28px 8px 12px', borderBottom: `1px solid #f0f0f0`,
                   background: n.isRead ? 'transparent' : '#EFF6FF',
                   borderLeft: `3px solid ${n.isRead ? 'transparent' : C.teal}`,
-                  cursor: n.isRead ? 'default' : 'pointer',
                 }}>
                   <button onClick={e => { e.stopPropagation(); deleteNotif(n.id) }} title="Delete notification"
                     style={{
@@ -809,7 +808,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
 
         {/* Bell button row */}
-        <button onClick={() => setShowNotifs(v => !v)} title="Notifications"
+        <button onClick={() => { setShowNotifs(v => !v); markAllReadOnOpen() }} title="Notifications"
           style={{
             display: 'flex', alignItems: 'center', gap: 10, width: '100%',
             padding: '0.5rem 0.75rem', borderRadius: 8, border: 0,
