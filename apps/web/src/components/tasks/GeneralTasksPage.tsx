@@ -757,6 +757,15 @@ export function TaskFormModal({
                   ]}
                 />
               </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Authority <span style={{ color: '#D62828' }}>*</span></label>
+                <SearchableSelect
+                  value={form.authority ?? 'FBR'}
+                  onChange={val => setForm((f: any) => ({ ...f, authority: val }))}
+                  options={['FBR','PRA','SRB','KPRA','BRA','AJK'].map(a => ({ value: a, label: a }))}
+                  placeholder="Select authority…"
+                />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label style={labelStyle}>Tax Type <span style={{ color: '#D62828' }}>*</span></label>

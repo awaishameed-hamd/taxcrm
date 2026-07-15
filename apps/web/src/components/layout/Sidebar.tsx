@@ -394,6 +394,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           noticeSection: ntForm.fbrNoticeSection || undefined,
           noticeNumber:  ntForm.fbrNoticeNumber  || undefined,
           description:  ntForm.description   || undefined,
+          authority:    ntForm.authority || 'FBR',
           assignedToId: effectiveAssignedToId,
         })
         setShowNewTask(false)

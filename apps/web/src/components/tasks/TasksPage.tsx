@@ -1801,7 +1801,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                       <div style={{ display:'flex', gap:9, alignItems:'center' }}>
                         <span style={{ flexShrink:0, width:20, height:20, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
                         <span style={{ fontSize:12, fontWeight:700, color: isActive ? '#1565C0' : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
-                        {(() => { const a = authorityStyle('FBR'); return <span style={{ fontSize:10, fontWeight:700, color:a.color, background:a.bg, border:`1px solid ${a.color}22`, padding:'2px 8px', borderRadius:6, flexShrink:0 }}>FBR</span> })()}
+                        {(() => { const auth = c.authority ?? 'FBR'; const a = authorityStyle(auth); return <span style={{ fontSize:10, fontWeight:700, color:a.color, background:a.bg, border:`1px solid ${a.color}22`, padding:'2px 8px', borderRadius:6, flexShrink:0 }}>{auth}</span> })()}
                         <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color: stage.color, background: stage.bg, flexShrink:0, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{stage.label}</span>
                       </div>
                     </button>

@@ -9,6 +9,7 @@ export class CreateFbrCaseDto {
   @IsOptional() @IsString() noticeNumber?: string
   @IsOptional() @IsString() description?: string
   @IsOptional() @IsString() assignedToId?: string
+  @IsOptional() @IsString() authority?: string
 }
 
 export class UpdateFbrCaseDto {

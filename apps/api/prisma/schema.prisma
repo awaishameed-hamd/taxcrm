@@ -880,6 +880,7 @@ model FbrCase {
   noticeSection String?
   noticeNumber  String?
   description  String? @db.Text
+  authority    String  @default("FBR")
 
   assignedToId String?
   assignedTo   User?   @relation("FbrCaseAssignee", fields: [assignedToId], references: [id])
