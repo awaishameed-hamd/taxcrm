@@ -35,8 +35,9 @@ export class ClientsService {
         email,
         phone:           dto.phone,
         password:        hashed,
-        role:            Role.CLIENT,
-        hasPortalAccess: dto.hasPortalAccess ?? false,
+        role:                 Role.CLIENT,
+        hasPortalAccess:      dto.hasPortalAccess ?? false,
+        attendanceApplicable: false, // Clients are never staff — attendance never applies to them
         clientProfile: {
           create: {
             cnic:                dto.cnic,

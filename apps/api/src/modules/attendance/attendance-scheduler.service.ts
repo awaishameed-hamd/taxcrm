@@ -1,8 +1,11 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
-import { DayType, AttendanceStatus } from '@prisma/client'
+import { DayType, AttendanceStatus, Role } from '@prisma/client'
 import { PrismaService }    from '../prisma/prisma.service'
 import { AttendanceService } from './attendance.service'
+
+// Attendance is a firm-staff concept only — Clients (and Representatives) must never be marked
+const INTERNAL_STAFF_ROLES: Role[] = [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE]
 
 @Injectable()
 export class AttendanceSchedulerService implements OnModuleInit {
@@ -105,7 +108,7 @@ export class AttendanceSchedulerService implements OnModuleInit {
 
       // All eligible users
       const users = await this.prisma.user.findMany({
-        where:  { isActive: true, attendanceApplicable: true },
+        where:  { isActive: true, attendanceApplicable: true, role: { in: INTERNAL_STAFF_ROLES } },
         select: { id: true },
       })
       const userIds = users.map(u => u.id)
@@ -188,7 +191,7 @@ export class AttendanceSchedulerService implements OnModuleInit {
 
       // All applicable users
       const users = await this.prisma.user.findMany({
-        where:  { isActive: true, attendanceApplicable: true },
+        where:  { isActive: true, attendanceApplicable: true, role: { in: INTERNAL_STAFF_ROLES } },
         select: { id: true },
       })
       const userIds = users.map(u => u.id)

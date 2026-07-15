@@ -10,6 +10,10 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 
+// Attendance is a firm-staff concept only — Clients (and Representatives) must never appear in it,
+// no matter what their attendanceApplicable flag says.
+const INTERNAL_STAFF_ROLES: Role[] = [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE]
+
 // ── Default settings (used when DB has no row) ────────────────────────────────
 export const DEFAULT_SETTINGS = {
   reporting_time:       '09:00',  // earliest time attendance can be marked (attendance window start)
@@ -388,7 +392,7 @@ export class AttendanceService {
     const endDate   = new Date(now.getFullYear(), now.getMonth() + 1, 1)
 
     const attWhere: any = {
-      user:           { attendanceApplicable: true },
+      user:           { attendanceApplicable: true, role: { in: INTERNAL_STAFF_ROLES } },
       date:           { gte: startDate, lt: endDate },
       approvalStatus: 'pending',
     }
@@ -416,7 +420,7 @@ export class AttendanceService {
   }
 
   async getReport(month: number | null, year: number | null, actorRole: Role, actorId: string, targetUserId?: string) {
-    const where: any = { user: { attendanceApplicable: true } }
+    const where: any = { user: { attendanceApplicable: true, role: { in: INTERNAL_STAFF_ROLES } } }
     if (month && year) {
       const startDate = new Date(`${year}-${String(month).padStart(2,'0')}-01T00:00:00Z`)
       const endDate   = new Date(year, month, 1)
@@ -628,7 +632,7 @@ export class AttendanceService {
 
     // All applicable users with their creation date (attendance only relevant from createdAt onwards)
     const users = await this.prisma.user.findMany({
-      where:  { attendanceApplicable: true },
+      where:  { attendanceApplicable: true, role: { in: INTERNAL_STAFF_ROLES } },
       select: { id: true, createdAt: true },
     })
     if (users.length === 0) return { created: 0 }
