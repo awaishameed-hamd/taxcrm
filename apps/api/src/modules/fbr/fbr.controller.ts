@@ -83,8 +83,8 @@ export class FbrController {
 
   @Patch('notice-rounds/:id')
   @Roles(...ALL)
-  updateNoticeRound(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateNoticeRoundDto) {
-    return this.svc.updateNoticeRound(id, dto, req.user.id, req.user.role)
+  updateNoticeRound(@Param('id') id: string, @Body() dto: UpdateNoticeRoundDto) {
+    return this.svc.updateNoticeRound(id, dto)
   }
 
   // ── Appeal ────────────────────────────────────────────────────────────────
@@ -95,9 +95,9 @@ export class FbrController {
   }
 
   @Patch('appeals/:id')
-  @Roles(...ALL)
-  updateAppeal(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateAppealDto) {
-    return this.svc.updateAppeal(id, dto, req.user.id, req.user.role)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  updateAppeal(@Param('id') id: string, @Body() dto: UpdateAppealDto) {
+    return this.svc.updateAppeal(id, dto)
   }
 
   // ── Stay Application ──────────────────────────────────────────────────────
@@ -109,8 +109,8 @@ export class FbrController {
 
   @Patch('stays/:id')
   @Roles(...ALL)
-  updateStay(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateStayDto) {
-    return this.svc.updateStay(id, dto, req.user.id, req.user.role)
+  updateStay(@Param('id') id: string, @Body() dto: UpdateStayDto) {
+    return this.svc.updateStay(id, dto)
   }
 
   @Post('stays/:id/resume')
