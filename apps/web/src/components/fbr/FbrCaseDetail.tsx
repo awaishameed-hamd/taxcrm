@@ -559,9 +559,7 @@ function AppealFlow({ appeal: a, caseId, onReload }: { appeal: any; caseId: stri
                       ))}
                     </div>
                   )}
-                  {!canManagerAct ? (
-                    <WaitingFor label="a Manager or Team Lead" />
-                  ) : showHearing ? (
+                  {showHearing ? (
                     <div style={{ display:'flex', gap:8, flexWrap:'wrap' as const }}>
                       <input type="date" value={hearingDate} onChange={e => setHearingDate(e.target.value)} style={{ padding:'6px 10px', borderRadius:6, border:`1.5px solid ${TEAL}`, fontSize:12, fontFamily:F, outline:'none' }} />
                       <Btn label="Add Hearing" onClick={async () => {

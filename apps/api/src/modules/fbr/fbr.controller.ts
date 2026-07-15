@@ -122,14 +122,14 @@ export class FbrController {
   // ── Hearings ──────────────────────────────────────────────────────────────
   @Post('cases/:id/hearings')
   @Roles(...ALL)
-  addHearing(@Param('id') caseId: string, @Body() dto: AddHearingDto, @Req() req: any) {
-    return this.svc.addHearing(caseId, dto, req.user.role)
+  addHearing(@Param('id') caseId: string, @Body() dto: AddHearingDto) {
+    return this.svc.addHearing(caseId, dto)
   }
 
   @Patch('hearings/:id')
   @Roles(...ALL)
-  updateHearing(@Param('id') id: string, @Body() dto: UpdateHearingDto, @Req() req: any) {
-    return this.svc.updateHearing(id, dto, req.user.role)
+  updateHearing(@Param('id') id: string, @Body() dto: UpdateHearingDto) {
+    return this.svc.updateHearing(id, dto)
   }
 
   // ── Clients dropdown ──────────────────────────────────────────────────────
