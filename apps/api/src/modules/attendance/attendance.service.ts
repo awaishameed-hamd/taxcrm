@@ -304,22 +304,31 @@ export class AttendanceService {
     const daysInMonth = new Date(year, month, 0).getDate()
     const today       = new Date().toISOString().split('T')[0]
 
+    // Days before this user even existed aren't "absent" — they hadn't joined yet
+    const joinedUser = await this.prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } })
+    const joinDateStr = joinedUser?.createdAt
+      ? new Date(joinedUser.createdAt).toISOString().split('T')[0]
+      : null
+
     const calendar = []
-    const summary  = { present: 0, absent: 0, late: 0, leave: 0, weekend: 0, working_days: 0 }
+    const summary  = { present: 0, absent: 0, late: 0, leave: 0, weekend: 0, working_days: 0, not_joined: 0 }
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr  = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
       const dayOfWeek = new Date(dateStr).getDay()
       const wd       = wdMap.get(dateStr)
       const att      = attMap.get(dateStr)
-      const isUpcoming = dateStr > today
+      const isUpcoming  = dateStr > today
+      const isNotJoined = joinDateStr !== null && dateStr < joinDateStr
 
       // Resolve day type — fall back to calendar (weekend vs weekday) when there's no WorkingDay override
       const isHoliday = wd?.dayType === DayType.HOLIDAY
       const isWeekend = wd ? wd.dayType === DayType.WEEKEND : (dayOfWeek === 0 || dayOfWeek === 6)
 
       let status: string
-      if (isHoliday) {
+      if (isNotJoined) {
+        status = 'not_joined'
+      } else if (isHoliday) {
         status = 'leave'
       } else if (isWeekend) {
         status = 'weekend'
@@ -342,9 +351,12 @@ export class AttendanceService {
       else if (status === 'late') { summary.late++; summary.present++ }
       else if (status === 'leave') summary.leave++
       else if (status === 'weekend') summary.weekend++
+      else if (status === 'not_joined') summary.not_joined++
 
-      const resolvedType = wd?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
-      if (resolvedType === DayType.WORKING_DAY) summary.working_days++
+      if (!isNotJoined) {
+        const resolvedType = wd?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
+        if (resolvedType === DayType.WORKING_DAY) summary.working_days++
+      }
 
       calendar.push({
         date:           dateStr,
@@ -360,16 +372,10 @@ export class AttendanceService {
       })
     }
 
-    // Get user's joining date
-    const user = await this.prisma.user.findUnique({
-      where:  { id: userId },
-      select: { createdAt: true },
-    })
-
     return {
       calendar,
       summary,
-      joining_date: user?.createdAt?.toISOString().split('T')[0] ?? null,
+      joining_date: joinDateStr,
     }
   }
 

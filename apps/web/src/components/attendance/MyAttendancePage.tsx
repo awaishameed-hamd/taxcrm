@@ -12,13 +12,14 @@ const MODULE_START_YEAR  = 2026
 const MODULE_START_MONTH = 1
 
 const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
-  present:  { bg: '#E6F4F6', color: P.deepTeal,  label: 'Present'  },
-  absent:   { bg: '#FFEBEE', color: '#C62828',    label: 'Absent'   },
-  late:     { bg: '#FFF3E0', color: P.brick,      label: 'Late'     },
-  leave:    { bg: '#E3F2FD', color: '#1565C0',    label: 'Leave'    },
-  weekend:  { bg: '#E2E8F0', color: '#475569',    label: 'Weekend'  },
-  holiday:  { bg: '#F3E5F5', color: '#6A1B9A',    label: 'Holiday'  },
-  upcoming: { bg: '#F1F5F9', color: '#475569',    label: 'N/A'      },
+  present:    { bg: '#E6F4F6', color: P.deepTeal,  label: 'Present'    },
+  absent:     { bg: '#FFEBEE', color: '#C62828',    label: 'Absent'     },
+  late:       { bg: '#FFF3E0', color: P.brick,      label: 'Late'       },
+  leave:      { bg: '#E3F2FD', color: '#1565C0',    label: 'Leave'      },
+  weekend:    { bg: '#E2E8F0', color: '#475569',    label: 'Weekend'    },
+  holiday:    { bg: '#F3E5F5', color: '#6A1B9A',    label: 'Holiday'    },
+  upcoming:   { bg: '#F1F5F9', color: '#475569',    label: 'N/A'        },
+  not_joined: { bg: '#FEF3C7', color: '#B45309',    label: 'Not Joined' },
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -38,18 +39,19 @@ function StatusPill({ status }: { status: string }) {
 }
 
 const CAL: Record<string, { bg: string; pill: string; pillText: string; dayColor: string }> = {
-  present:  { bg: '#bbf7d0', pill: '#16a34a', pillText: '#fff',    dayColor: '#14532d' },
-  late:     { bg: '#fde68a', pill: '#d97706', pillText: '#fff',    dayColor: '#78350f' },
-  absent:   { bg: '#fecaca', pill: '#dc2626', pillText: '#fff',    dayColor: '#7f1d1d' },
-  leave:    { bg: '#bfdbfe', pill: '#2563eb', pillText: '#fff',    dayColor: '#1e3a8a' },
-  holiday:  { bg: '#ddd6fe', pill: '#7c3aed', pillText: '#fff',    dayColor: '#4c1d95' },
-  weekend:  { bg: '#e2e8f0', pill: '#64748b', pillText: '#fff',    dayColor: '#475569' },
-  upcoming: { bg: '#FFFFFF', pill: '',        pillText: '',        dayColor: '#cbd5e1' },
+  present:    { bg: '#bbf7d0', pill: '#16a34a', pillText: '#fff',    dayColor: '#14532d' },
+  late:       { bg: '#fde68a', pill: '#d97706', pillText: '#fff',    dayColor: '#78350f' },
+  absent:     { bg: '#fecaca', pill: '#dc2626', pillText: '#fff',    dayColor: '#7f1d1d' },
+  leave:      { bg: '#bfdbfe', pill: '#2563eb', pillText: '#fff',    dayColor: '#1e3a8a' },
+  holiday:    { bg: '#ddd6fe', pill: '#7c3aed', pillText: '#fff',    dayColor: '#4c1d95' },
+  weekend:    { bg: '#e2e8f0', pill: '#64748b', pillText: '#fff',    dayColor: '#475569' },
+  upcoming:   { bg: '#FFFFFF', pill: '',        pillText: '',        dayColor: '#cbd5e1' },
+  not_joined: { bg: '#fef3c7', pill: '#b45309', pillText: '#fff',    dayColor: '#78350f' },
 }
 
 const CAL_LABEL: Record<string, string> = {
   present: 'Present', late: 'Late', absent: 'Absent',
-  leave: 'Leave', holiday: 'Holiday', weekend: 'Off', upcoming: '',
+  leave: 'Leave', holiday: 'Holiday', weekend: 'Off', upcoming: '', not_joined: 'Not Joined',
 }
 
 function CalendarView({ calendar, year, month }: { calendar: any[]; year: number; month: number }) {
@@ -151,7 +153,7 @@ function CalendarView({ calendar, year, month }: { calendar: any[]; year: number
 
       {/* Legend */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', marginTop: 20 }}>
-        {(['present','late','absent','leave','weekend'] as const).map(k => (
+        {(['present','late','absent','leave','weekend','not_joined'] as const).map(k => (
           <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{
               display: 'inline-block', padding: '2px 10px', borderRadius: 6,
@@ -232,7 +234,7 @@ export default function MyAttendancePage() {
     { label: 'Late',         val: summary.late ?? 0,     border: '#64748B', fill: '#D4DAE3' },
     { label: 'Leave',        val: summary.leave,         border: '#1565C0', fill: '#BDDAF8' },
     { label: 'Weekends',     val: summary.weekend,       border: '#64748B', fill: '#E2E8F0' },
-    { label: 'Not Joined',   val: 0,                     border: '#B45309', fill: '#FEF3C7' },
+    { label: 'Not Joined',   val: summary.not_joined ?? 0, border: '#B45309', fill: '#FEF3C7' },
   ]
 
   const tdBase: React.CSSProperties = {
@@ -319,10 +321,11 @@ export default function MyAttendancePage() {
                   : calendar.length === 0
                     ? <tr><td colSpan={6} style={{ padding: '48px 16px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>No records found.</td></tr>
                     : calendar.map((row, idx) => {
-                      const isWeekend  = row.status === 'weekend'
-                      const isUpcoming = row.status === 'upcoming'
+                      const isWeekend   = row.status === 'weekend'
+                      const isUpcoming  = row.status === 'upcoming'
+                      const isNotJoined = row.status === 'not_joined'
                       return (
-                        <tr key={row.date} style={{ background: '#fff', opacity: isWeekend ? 0.65 : 1, transition: 'background .15s' }}
+                        <tr key={row.date} style={{ background: '#fff', opacity: (isWeekend || isNotJoined) ? 0.65 : 1, transition: 'background .15s' }}
                           onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F8FAFC'}
                           onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#fff'}>
                           <td style={{ ...tdBase, fontWeight: 700, color: '#94A3B8', width: 40 }}>{idx + 1}</td>
@@ -349,7 +352,7 @@ export default function MyAttendancePage() {
                             )}
                           </td>
                           <td style={tdBase}>
-                            {isUpcoming || isWeekend
+                            {isUpcoming || isWeekend || isNotJoined
                               ? <span style={{ color: '#94A3B8' }}>N/A</span>
                               : <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: row.approval_status === 'approved' ? '#BBF0D6' : '#FECACA', color: row.approval_status === 'approved' ? '#15803D' : '#B91C1C' }}>
                                   {row.approval_status === 'approved' ? 'Approved' : 'Pending'}
