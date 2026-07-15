@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service'
 
 const FIXED_STEP_KEYS = [
   'DATA_COLLECTION','DRAFT_PREPARATION','CLIENT_REVIEW','ANNEXURE_UPLOAD',
-  'INCHARGE_REVIEW','CHALLAN_GENERATED','SUBMISSION_APPROVAL','FILED',
+  'INCHARGE_REVIEW','CHALLAN_GENERATED','FILED',
 ]
 
 const DEFAULT_STEPS = [
@@ -13,8 +13,7 @@ const DEFAULT_STEPS = [
   { stepKey: 'ANNEXURE_UPLOAD',     label: 'Upload Draft Return on Portal',                      description: 'Upload the approved draft return on the tax portal.',                                           approvedBy: 'TRAINEE',  displayOrder: 3 },
   { stepKey: 'INCHARGE_REVIEW',     label: 'Get it Reviewed by Job-Incharge',                   description: 'Submit for manager review before generating challan.',                                           approvedBy: 'MANAGER',  displayOrder: 4 },
   { stepKey: 'CHALLAN_GENERATED',   label: 'Generate Challan / PSID and Send to Client',        description: 'Generate the payment challan or PSID and share with the client.',                               approvedBy: 'TRAINEE',  displayOrder: 5 },
-  { stepKey: 'SUBMISSION_APPROVAL', label: 'Get Approval from Job In-Charge for Submission',    description: 'Get final manager approval before submitting the return.',                                       approvedBy: 'MANAGER',  displayOrder: 6 },
-  { stepKey: 'FILED',               label: 'Submit Task and Issue Invoice',                      description: 'File the return on the portal and issue the fee invoice to the client.',                        approvedBy: 'TRAINEE',  displayOrder: 7 },
+  { stepKey: 'FILED',               label: 'Submit Task and Issue Invoice',                      description: 'File the return on the portal and issue the fee invoice to the client.',                        approvedBy: 'TRAINEE',  displayOrder: 6 },
 ]
 
 const TASK_TYPES = ['SALES_TAX', 'INCOME_TAX', 'WHT']

@@ -20,7 +20,6 @@ const TRAINEE_STEPS: SalesTaxTaskStatus[] = [
 // Steps that only manager can advance
 const MANAGER_STEPS: SalesTaxTaskStatus[] = [
   SalesTaxTaskStatus.INCHARGE_REVIEW,
-  SalesTaxTaskStatus.SUBMISSION_APPROVAL,
 ]
 
 // What comes next in the pipeline
@@ -30,7 +29,7 @@ const NEXT_STATUS: Partial<Record<SalesTaxTaskStatus, SalesTaxTaskStatus>> = {
   [SalesTaxTaskStatus.CLIENT_REVIEW]:     SalesTaxTaskStatus.ANNEXURE_UPLOAD,
   [SalesTaxTaskStatus.ANNEXURE_UPLOAD]:   SalesTaxTaskStatus.INCHARGE_REVIEW,
   [SalesTaxTaskStatus.INCHARGE_REVIEW]:   SalesTaxTaskStatus.CHALLAN_GENERATED,
-  [SalesTaxTaskStatus.CHALLAN_GENERATED]: SalesTaxTaskStatus.SUBMISSION_APPROVAL,
+  [SalesTaxTaskStatus.CHALLAN_GENERATED]: SalesTaxTaskStatus.FILED,
   [SalesTaxTaskStatus.SUBMISSION_APPROVAL]: SalesTaxTaskStatus.FILED,
   [SalesTaxTaskStatus.FILED]:             SalesTaxTaskStatus.COMPLETED,
 }
@@ -78,7 +77,6 @@ export class SalesTaxTasksService {
   async listForManager(status?: string, taskType?: string, userId?: string, role?: string) {
     const managerStatuses = [
       SalesTaxTaskStatus.INCHARGE_REVIEW,
-      SalesTaxTaskStatus.SUBMISSION_APPROVAL,
       SalesTaxTaskStatus.SENT_BACK,
       SalesTaxTaskStatus.COMPLETED,
     ]
@@ -384,7 +382,6 @@ export class SalesTaxTasksService {
   async summaryCounts(userId: string, role: string, view?: string) {
     const approvalStatuses = [
       SalesTaxTaskStatus.INCHARGE_REVIEW,
-      SalesTaxTaskStatus.SUBMISSION_APPROVAL,
       SalesTaxTaskStatus.SENT_BACK,
     ]
 

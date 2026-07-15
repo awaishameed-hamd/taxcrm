@@ -28,7 +28,6 @@ const PIPE_STATUS: Record<string, { label: string; color: string; bg: string }> 
   ANNEXURE_UPLOAD:     { label: 'Annexure Upload',     color: '#7B2D8E', bg: '#F3E8F7' },
   INCHARGE_REVIEW:     { label: 'Incharge Review',     color: '#C25A1F', bg: '#F5E0D2' },
   CHALLAN_GENERATED:   { label: 'Challan / PSID',      color: '#132E57', bg: '#E8EEF7' },
-  SUBMISSION_APPROVAL: { label: 'Submission Approval', color: '#C25A1F', bg: '#F5E0D2' },
   FILED:               { label: 'Filed',               color: '#3A6B3A', bg: '#EBF5EB' },
   COMPLETED:           { label: 'Completed',           color: '#3A6B3A', bg: '#D4EDDA' },
   SENT_BACK:           { label: 'Sent Back',           color: '#D62828', bg: '#FDECEA' },
@@ -36,7 +35,7 @@ const PIPE_STATUS: Record<string, { label: string; color: string; bg: string }> 
 const ADVANCE_LABEL: Record<string,string> = {
   DATA_COLLECTION:'Mark Data Collected', DRAFT_PREPARATION:'Send to Client for Review',
   CLIENT_REVIEW:'Client Reviewed, Move Forward', ANNEXURE_UPLOAD:'Annexures Uploaded, Submit to Manager',
-  CHALLAN_GENERATED:'Challan Attached, Request Final Approval', FILED:'Mark as Filed & Issue Invoice',
+  CHALLAN_GENERATED:'Challan Attached, Proceed to Filing', FILED:'Mark as Filed & Issue Invoice',
 }
 
 type StepDef = { key: string; label: string; by: string }
@@ -49,7 +48,6 @@ const DEFAULT_STEPS: StepDef[] = [
   { key:'ANNEXURE_UPLOAD',    label:'Upload Draft Return on Portal',                      by:'Trainee' },
   { key:'INCHARGE_REVIEW',    label:'Get it reviewed by Job-Incharge',                    by:'Manager' },
   { key:'CHALLAN_GENERATED',  label:'Generate Challan / PSID and sent to Client',         by:'Trainee' },
-  { key:'SUBMISSION_APPROVAL',label:'Get approval from Job In-Charge for Submission',     by:'Manager' },
   { key:'FILED',              label:'Submit your task',                                    by:'Trainee' },
 ]
 
@@ -912,7 +910,6 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     }
     const triggerStep = (key: string) => {
       if (key === 'INCHARGE_REVIEW')     return handleManagerApprove
-      if (key === 'SUBMISSION_APPROVAL') return handleManagerApprove
       // FILED step on SALES_TAX / INCOME_TAX tasks must open the modal first (summary data required)
       if (key === 'FILED' && (selectedPipe.taskType === 'SALES_TAX' || selectedPipe.taskType === 'INCOME_TAX')) return () => setAdvanceModal(true)
       return handleAdvance
