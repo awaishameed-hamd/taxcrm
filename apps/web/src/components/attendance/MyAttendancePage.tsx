@@ -13,7 +13,7 @@ const MODULE_START_MONTH = 1
 
 const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
   present:    { bg: P.deepTeal, color: '#fff',       label: 'Present'    },
-  absent:     { bg: '#FFEBEE', color: '#C62828',    label: 'Absent'     },
+  absent:     { bg: '#C62828', color: '#fff',       label: 'Absent'     },
   late:       { bg: P.brick,   color: '#fff',       label: 'Late'       },
   leave:      { bg: '#E3F2FD', color: '#1565C0',    label: 'Leave'      },
   weekend:    { bg: '#E2E8F0', color: '#475569',    label: 'Weekend'    },
