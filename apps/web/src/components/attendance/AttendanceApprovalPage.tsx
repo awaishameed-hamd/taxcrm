@@ -93,7 +93,7 @@ export default function AttendanceApprovalPage() {
   const [statusTab, setStatusTab] = useState('all')
   const [records,   setRecords]   = useState<any[]>([])
   const [loading,   setLoading]   = useState(true)
-  const [confirm,   setConfirm]   = useState<{ id: string; action: 'approve' | 'absent'; name: string } | null>(null)
+  const [confirm,   setConfirm]   = useState<{ id: string; name: string } | null>(null)
   const [acting,    setActing]    = useState(false)
   const [bulkConfirm, setBulkConfirm] = useState(false)
   const [bulkActing,  setBulkActing]  = useState(false)
@@ -162,16 +162,21 @@ export default function AttendanceApprovalPage() {
     if (!confirm) return
     setActing(true)
     try {
-      const endpoint = confirm.action === 'approve' ? 'approve' : 'reject'
-      await api.patch(`/attendance/${confirm.id}/${endpoint}`)
+      await api.patch(`/attendance/${confirm.id}/reject`)
       setRecords(prev => prev.map(r => r.id === confirm.id
-        ? confirm.action === 'approve'
-          ? { ...r, approvalStatus: 'approved' }
-          : { ...r, approvalStatus: 'rejected', status: 'ABSENT', isLate: false, lateMinutes: null }
+        ? { ...r, approvalStatus: 'rejected', status: 'ABSENT', isLate: false, lateMinutes: null }
         : r
       ))
       setConfirm(null)
     } catch { setConfirm(null) } finally { setActing(false) }
+  }
+
+  // Approve is a one-click action — no confirmation popup (unlike Mark Absent, which still overrides the logged-in status)
+  async function approveDirect(id: string) {
+    try {
+      await api.patch(`/attendance/${id}/approve`)
+      setRecords(prev => prev.map(r => r.id === id ? { ...r, approvalStatus: 'approved' } : r))
+    } catch { /* ignore */ }
   }
 
   function onTimeSaved(id: string, newTime: string) {
@@ -382,11 +387,11 @@ export default function AttendanceApprovalPage() {
                     <td style={tdStyle}>
                       {isPending && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <button onClick={() => setConfirm({ id: rec.id, action: 'approve', name: rec.userName })}
+                          <button onClick={() => approveDirect(rec.id)}
                             style={{ padding: '3px 10px', borderRadius: 6, background: '#16A34A', color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
                             Approve
                           </button>
-                          <button onClick={() => setConfirm({ id: rec.id, action: 'absent', name: rec.userName })}
+                          <button onClick={() => setConfirm({ id: rec.id, name: rec.userName })}
                             style={{ padding: '3px 10px', borderRadius: 6, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
                             Mark Absent
                           </button>
@@ -555,19 +560,15 @@ export default function AttendanceApprovalPage() {
         </div>
       )}
 
-      {/* Confirm dialog */}
+      {/* Confirm dialog — Mark Absent only; Approve is now a direct one-click action */}
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !acting && setConfirm(null)} />
           <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center border border-gray-200">
-            <div className="text-4xl mb-3">{confirm.action === 'approve' ? '✅' : '🚫'}</div>
-            <h3 className="text-base font-bold text-gray-800 mb-2">
-              {confirm.action === 'approve' ? 'Approve Attendance' : 'Mark as Absent'}
-            </h3>
+            <div className="text-4xl mb-3">🚫</div>
+            <h3 className="text-base font-bold text-gray-800 mb-2">Mark as Absent</h3>
             <p className="text-sm text-gray-500 mb-5">
-              {confirm.action === 'approve'
-                ? `Confirm and approve this attendance record for ${confirm.name}?`
-                : `Mark ${confirm.name} as Absent? This will override their logged-in attendance.`}
+              Mark {confirm.name} as Absent? This will override their logged-in attendance.
             </p>
             <div className="flex gap-3 justify-center">
               <button onClick={() => setConfirm(null)} disabled={acting}
@@ -575,12 +576,8 @@ export default function AttendanceApprovalPage() {
                 Cancel
               </button>
               <button onClick={doAction} disabled={acting}
-                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${
-                  confirm.action === 'approve'
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    : 'bg-red-600 text-white hover:bg-red-700'
-                }`}>
-                {acting ? 'Processing…' : confirm.action === 'approve' ? 'Approve' : 'Mark Absent'}
+                className="px-5 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 bg-red-600 text-white hover:bg-red-700">
+                {acting ? 'Processing…' : 'Mark Absent'}
               </button>
             </div>
           </div>
