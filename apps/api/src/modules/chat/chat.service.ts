@@ -219,6 +219,26 @@ export class ChatService {
     return lastSeenAt
   }
 
+  // Lightweight total for the sidebar badge — skips last-message/participant lookups
+  async getUnreadCount(userId: string) {
+    const participations = await this.prisma.conversationParticipant.findMany({
+      where:  { userId },
+      select: { conversationId: true, lastReadAt: true },
+    })
+    const counts = await Promise.all(
+      participations.map(p =>
+        this.prisma.message.count({
+          where: {
+            conversationId: p.conversationId,
+            senderId:       { not: userId },
+            ...(p.lastReadAt ? { createdAt: { gt: p.lastReadAt } } : {}),
+          },
+        }),
+      ),
+    )
+    return counts.reduce((sum, c) => sum + c, 0)
+  }
+
   async getConversationsByUser(userId: string) {
     const conversations = await this.prisma.conversation.findMany({
       where: {

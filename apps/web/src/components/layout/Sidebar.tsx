@@ -8,6 +8,7 @@ import { useAuth, usePermission } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import { TaskFormModal } from '@/components/tasks/GeneralTasksPage'
 import { getSocket } from '@/lib/socket'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 // ── Palette — exact match to Call Center CRM Sidebar.jsx ──────────────────────
 const C = {
@@ -305,6 +306,40 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     setNotifs([])
     setUnreadCount(0)
   }
+
+  // ── Sidebar nav badges: Tasks, Task Approval, Attendance Approval, Chats ────
+  const [navCounts, setNavCounts] = useState<{ tasks: number; taskApproval: number; attApproval: number; messages: number }>({
+    tasks: 0, taskApproval: 0, attApproval: 0, messages: 0,
+  })
+
+  const fetchNavCounts = useCallback(() => {
+    if (!user) return
+    if (user.role !== Role.CLIENT) {
+      api.get('/sales-tax-tasks/summary-counts', { params: { view: 'my' } }).then(r => {
+        const d = r.data?.data ?? r.data
+        const total = (d.SALES_TAX ?? 0) + (d.INCOME_TAX ?? 0) + (d.WHT ?? 0) + (d.NOTICES ?? 0) + (d.GENERAL ?? 0)
+        setNavCounts(c => ({ ...c, tasks: total }))
+      }).catch(() => {})
+      if (user.role !== Role.TRAINEE) {
+        api.get('/sales-tax-tasks/summary-counts', { params: { view: 'approval' } }).then(r => {
+          const d = r.data?.data ?? r.data
+          const total = (d.SALES_TAX ?? 0) + (d.INCOME_TAX ?? 0) + (d.WHT ?? 0) + (d.NOTICES ?? 0)
+          setNavCounts(c => ({ ...c, taskApproval: total }))
+        }).catch(() => {})
+        api.get('/attendance/pending-count').then(r => {
+          const d = r.data?.data ?? r.data
+          setNavCounts(c => ({ ...c, attApproval: typeof d === 'number' ? d : (d.count ?? 0) }))
+        }).catch(() => {})
+      }
+    }
+    api.get('/chat/unread-count').then(r => {
+      const d = r.data?.data ?? r.data
+      setNavCounts(c => ({ ...c, messages: typeof d === 'number' ? d : (d.count ?? 0) }))
+    }).catch(() => {})
+  }, [user])
+
+  useEffect(() => { fetchNavCounts() }, [fetchNavCounts])
+  useAutoRefresh(fetchNavCounts)
 
   const openNewTask = useCallback(async () => {
     setNtForm({ ...BLANK_FORM })
@@ -605,6 +640,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
           const item = entry
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+          const badgeCount = item.key === 'tasks' ? navCounts.tasks
+            : item.key === 'taskApproval' ? navCounts.taskApproval
+            : item.key === 'messages' ? navCounts.messages
+            : 0
           return (
             <Link key={item.href} href={item.href}
               style={{
@@ -622,7 +661,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <svg width={18} height={18} fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke={isActive ? C.teal : C.iconMuted} style={{ flexShrink: 0 }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[item.icon] ?? ICONS.dashboard} />
               </svg>
-              {item.label}
+              <span style={{ flex: 1 }}>{item.label}</span>
+              {badgeCount > 0 && (
+                <span style={{
+                  minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px',
+                  background: isActive ? C.teal : '#E53935', color: '#fff',
+                  fontSize: 10.5, fontWeight: 700, lineHeight: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>{badgeCount > 99 ? '99+' : badgeCount}</span>
+              )}
             </Link>
           )
         })}
@@ -659,7 +706,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <svg width={16} height={16} fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke={isActive ? C.teal : C.iconMuted} style={{ flexShrink: 0 }}>
                   <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[item.icon] ?? ICONS.dashboard} />
                 </svg>
-                {item.label}
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.key === 'attApproval' && navCounts.attApproval > 0 && (
+                  <span style={{
+                    minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px',
+                    background: isActive ? C.teal : '#E53935', color: '#fff',
+                    fontSize: 10.5, fontWeight: 700, lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>{navCounts.attApproval > 99 ? '99+' : navCounts.attApproval}</span>
+                )}
               </Link>
             )
           })}

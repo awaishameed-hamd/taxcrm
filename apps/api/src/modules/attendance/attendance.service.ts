@@ -370,6 +370,40 @@ export class AttendanceService {
 
   // ── Attendance report (all users, manager/partner) ──────────────────────────
 
+  // ── Sidebar badge: how many attendance/leave records are awaiting this actor's approval ──
+  async pendingApprovalCount(actorRole: Role, actorId: string) {
+    const now = new Date()
+    const startDate = new Date(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01T00:00:00Z`)
+    const endDate   = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+    const attWhere: any = {
+      user:           { attendanceApplicable: true },
+      date:           { gte: startDate, lt: endDate },
+      approvalStatus: 'pending',
+    }
+    if (actorRole === Role.TEAM_LEAD) {
+      const trainees = await this.prisma.user.findMany({ where: { teamLeadId: actorId }, select: { id: true } })
+      attWhere.userId = { in: [actorId, ...trainees.map(t => t.id)] }
+    }
+
+    // Leave approvals are Admin/Partner/Manager only — Team Leads don't approve leaves.
+    // Mirrors the CAN_APPROVE hierarchy in leaves.service.ts (Manager can't approve other Managers' leaves).
+    const leaveApprovableRoles: Record<string, Role[]> = {
+      [Role.PARTNER]: [Role.TRAINEE, Role.TEAM_LEAD, Role.MANAGER],
+      [Role.ADMIN]:   [Role.TRAINEE, Role.TEAM_LEAD, Role.MANAGER, Role.PARTNER],
+      [Role.MANAGER]: [Role.TRAINEE, Role.TEAM_LEAD],
+    }
+    const approvableRoles = leaveApprovableRoles[actorRole] ?? []
+
+    const [attCount, leaveCount] = await Promise.all([
+      this.prisma.attendance.count({ where: attWhere }),
+      approvableRoles.length
+        ? this.prisma.leaveApplication.count({ where: { status: 'pending', applicant: { role: { in: approvableRoles } } } })
+        : Promise.resolve(0),
+    ])
+    return attCount + leaveCount
+  }
+
   async getReport(month: number | null, year: number | null, actorRole: Role, actorId: string, targetUserId?: string) {
     const where: any = { user: { attendanceApplicable: true } }
     if (month && year) {

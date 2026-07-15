@@ -407,13 +407,15 @@ export class SalesTaxTasksService {
       fbrWhere = { assignedToId: userId, currentStage: { not: 'CLOSED' } }
     }
 
-    const [st, it, wht, notices] = await Promise.all([
+    const [st, it, wht, notices, general] = await Promise.all([
       this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'SALES_TAX'  } }),
       this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'INCOME_TAX' } }),
       this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'WHT'        } }),
       this.prisma.fbrCase.count({ where: fbrWhere }),
+      // General Tasks have no approval workflow — this count only means anything for the "my tasks" view
+      this.prisma.task.count({ where: { assignedToId: userId, status: { not: 'DONE' } } }),
     ])
-    return { SALES_TAX: st, INCOME_TAX: it, WHT: wht, NOTICES: notices }
+    return { SALES_TAX: st, INCOME_TAX: it, WHT: wht, NOTICES: notices, GENERAL: general }
   }
 
   // ── Admin/Partner/Manager: delete any task ────────────────────────────────────

@@ -33,6 +33,13 @@ export class AttendanceController {
     return this.svc.getMyAttendance(user.id, month, year)
   }
 
+  // ── Sidebar badge count ─────────────────────────────────────────────────────
+  @Get('pending-count')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  getPendingCount(@CurrentUser() user: any) {
+    return this.svc.pendingApprovalCount(user.role, user.id)
+  }
+
   // ── Report (manager / partner) ─────────────────────────────────────────────
   @Get('report')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)

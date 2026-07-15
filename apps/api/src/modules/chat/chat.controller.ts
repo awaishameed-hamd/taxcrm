@@ -24,6 +24,12 @@ export class ChatController {
     return this.chatService.getConversationsByUser(user.id)
   }
 
+  // ── Sidebar badge: total unread messages across all conversations ──────────
+  @Get('unread-count')
+  getUnreadCount(@CurrentUser() user: { id: string }) {
+    return this.chatService.getUnreadCount(user.id)
+  }
+
   // ── Start (or resume) a direct 1:1 chat — not tied to a tax return ─────────
   @Post('conversations/direct')
   getOrCreateDirect(
