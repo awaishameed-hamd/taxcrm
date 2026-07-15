@@ -15,6 +15,17 @@ import {
   CreateNoticeSectionDto,
 } from './dto/fbr.dto'
 
+// Review/approval steps in the FBR workflow are Manager+ or Partner+ tier decisions —
+// a Trainee must never be able to complete these themselves, no matter what the client sends.
+const MANAGER_TIER: Role[] = [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD]
+const PARTNER_TIER: Role[] = [Role.ADMIN, Role.PARTNER]
+
+function assertRoleTier(actorRole: Role | string | undefined, tier: Role[], action: string) {
+  if (!actorRole || !tier.includes(actorRole as Role)) {
+    throw new ForbiddenException(`Only ${tier.includes(Role.TEAM_LEAD) ? 'a Manager or Team Lead' : 'a Partner'} can ${action}`)
+  }
+}
+
 const CASE_SELECT = {
   id: true,
   caseNumber: true,
@@ -240,7 +251,15 @@ export class FbrService {
     return round
   }
 
-  async updateNoticeRound(id: string, dto: UpdateNoticeRoundDto) {
+  async updateNoticeRound(id: string, dto: UpdateNoticeRoundDto, actorId: string, actorRole: Role) {
+    // Manager+ tier: receiving the notice, doc-list approval, internal review, and the FBR outcome decision
+    if (dto.noticeDate !== undefined || dto.dueDate !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'log a notice as received')
+    if (dto.docListApprovedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'approve the document list')
+    if (dto.internalReviewedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'mark the internal review done')
+    if (dto.outcome !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'record the FBR outcome')
+    // Partner+ tier: final sign-off
+    if (dto.partnerApprovedAt !== undefined) assertRoleTier(actorRole, PARTNER_TIER, 'give final approval')
+
     const data: any = {}
     const dateFields = [
       'noticeDate', 'dueDate', 'adjournmentDate', 'docListCreatedAt', 'docListApprovedAt',
@@ -251,12 +270,15 @@ export class FbrService {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f] ? new Date((dto as any)[f]) : null
     }
     const strFields = [
-      'docListApprovedById', 'internalReviewById', 'partnerApprovedById',
       'submissionMethod', 'submissionRef', 'outcome', 'challanRef', 'notes',
     ]
     for (const f of strFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f]
     }
+    // Who actually approved/reviewed is always the caller — never trust a client-supplied id
+    if (dto.docListApprovedAt   !== undefined) data.docListApprovedById = dto.docListApprovedAt   ? actorId : null
+    if (dto.internalReviewedAt  !== undefined) data.internalReviewById  = dto.internalReviewedAt  ? actorId : null
+    if (dto.partnerApprovedAt   !== undefined) data.partnerApprovedById = dto.partnerApprovedAt    ? actorId : null
     if (dto.adjournmentApplied !== undefined) data.adjournmentApplied = dto.adjournmentApplied
     if (dto.challanPaid        !== undefined) data.challanPaid        = dto.challanPaid
 
@@ -295,7 +317,13 @@ export class FbrService {
     return appeal
   }
 
-  async updateAppeal(id: string, dto: UpdateAppealDto) {
+  async updateAppeal(id: string, dto: UpdateAppealDto, actorId: string, actorRole: Role) {
+    // Manager+ tier: internal review and the appeal outcome decision
+    if (dto.internalReviewedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'mark the appeal internal review done')
+    if (dto.outcome !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'record the appeal outcome')
+    // Partner+ tier: final sign-off
+    if (dto.partnerApprovedAt !== undefined) assertRoleTier(actorRole, PARTNER_TIER, 'give final approval on the appeal')
+
     const data: any = {}
     const dateFields = [
       'feePaidAt', 'groundsPreparedAt', 'internalReviewedAt', 'partnerApprovedAt',
@@ -305,12 +333,15 @@ export class FbrService {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f] ? new Date((dto as any)[f]) : null
     }
     const strFields = [
-      'appealType', 'feeChallanRef', 'submissionMethod', 'internalReviewById',
-      'partnerApprovedById', 'submissionRef', 'outcome', 'challanRef', 'notes',
+      'appealType', 'feeChallanRef', 'submissionMethod',
+      'submissionRef', 'outcome', 'challanRef', 'notes',
     ]
     for (const f of strFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f]
     }
+    // Who actually reviewed/approved is always the caller — never trust a client-supplied id
+    if (dto.internalReviewedAt !== undefined) data.internalReviewById  = dto.internalReviewedAt ? actorId : null
+    if (dto.partnerApprovedAt  !== undefined) data.partnerApprovedById = dto.partnerApprovedAt   ? actorId : null
     if (dto.isLate           !== undefined) data.isLate           = dto.isLate
     if (dto.condonationFiled !== undefined) data.condonationFiled = dto.condonationFiled
     if (dto.challanPaid      !== undefined) data.challanPaid      = dto.challanPaid
@@ -349,16 +380,22 @@ export class FbrService {
     return stay
   }
 
-  async updateStay(id: string, dto: UpdateStayDto) {
+  async updateStay(id: string, dto: UpdateStayDto, actorId: string, actorRole: Role) {
+    // Manager+ tier: reviewing the stay application and deciding its outcome
+    if (dto.reviewedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'mark the stay application reviewed')
+    if (dto.outcome    !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'record the stay application outcome')
+
     const data: any = {}
     const dateFields = ['reviewedAt', 'submittedAt', 'hearingDate', 'decidedAt']
     for (const f of dateFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f] ? new Date((dto as any)[f]) : null
     }
-    const strFields = ['reason', 'reviewedById', 'submissionMethod', 'submissionRef', 'outcome', 'notes']
+    const strFields = ['reason', 'submissionMethod', 'submissionRef', 'outcome', 'notes']
     for (const f of strFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f]
     }
+    // Who actually reviewed is always the caller — never trust a client-supplied id
+    if (dto.reviewedAt !== undefined) data.reviewedById = dto.reviewedAt ? actorId : null
 
     return this.prisma.fbrStayApplication.update({ where: { id }, data, include: { attachments: true } })
   }
