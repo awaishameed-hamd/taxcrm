@@ -128,7 +128,7 @@ export class FbrService {
   // Every step-completion field stores only a raw userId; resolve them all in one
   // batch query so the UI can show who actually did each step instead of just their role.
   private readonly ACTOR_ID_FIELDS = [
-    'noticeLoggedById', 'docListCreatedById', 'docListApprovedById', 'draftPreparedById',
+    'noticeLoggedById', 'adjournmentAppliedById', 'docListCreatedById', 'docListApprovedById', 'draftPreparedById',
     'internalReviewById', 'partnerApprovedById', 'submittedById', 'outcomeById',
     'condonationFiledById', 'groundsPreparedById', 'reviewedById', 'resumedById', 'createdById',
   ]
@@ -314,7 +314,7 @@ export class FbrService {
     if (dto.partnerApprovedAt   !== undefined) data.partnerApprovedById = dto.partnerApprovedAt    ? actorId : null
     if (dto.submittedAt         !== undefined) data.submittedById      = dto.submittedAt           ? actorId : null
     if (dto.outcome             !== undefined) data.outcomeById        = (dto.outcome && dto.outcome !== 'PENDING') ? actorId : null
-    if (dto.adjournmentApplied !== undefined) data.adjournmentApplied = dto.adjournmentApplied
+    if (dto.adjournmentApplied !== undefined) { data.adjournmentApplied = dto.adjournmentApplied; data.adjournmentAppliedById = dto.adjournmentApplied ? actorId : null }
     if (dto.challanPaid        !== undefined) data.challanPaid        = dto.challanPaid
 
     const round = await this.prisma.fbrNoticeRound.update({

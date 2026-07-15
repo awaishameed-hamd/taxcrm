@@ -17,9 +17,9 @@ const PARTNER_TIER = ['ADMIN', 'PARTNER']
 
 function WaitingFor({ label }: { label: string }) {
   return (
-    <div style={{ fontSize: 11.5, fontStyle: 'italic', color: '#94A3B8', fontFamily: F, padding: '4px 0' }}>
-      Waiting for {label} to complete this step
-    </div>
+    <span style={{ fontSize: 11, fontWeight: 600, color: '#92400E', background: '#FEF3C7', padding: '2px 8px', borderRadius: 4, flexShrink: 0, fontFamily: F }}>
+      With {label}
+    </span>
   )
 }
 
@@ -315,8 +315,8 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
   type S = { key: string; label: string; role: 'Trainee'|'Manager'|'Partner'; done: boolean; doneDate?: string|null; undoField?: Record<string,any>; actorId?: string|null }
   const steps: S[] = [
     { key:'recv',    label:'Notice Received from Client',                        role:'Trainee', done: !!r.noticeDate,              doneDate: r.noticeDate,         undoField: { noticeDate: null, dueDate: null }, actorId: r.noticeLoggedById },
-    { key:'action',  label:'Choose Response Action',                             role:'Trainee', done: r.adjournmentApplied || !!r.docListCreatedAt, doneDate: null, undoField: { adjournmentApplied: false } },
-    ...(r.adjournmentApplied ? [{ key:'adj', label:'Adjournment Applied',        role:'Trainee' as const, done: true,              doneDate: null,                 undoField: { adjournmentApplied: false } }] : []),
+    { key:'action',  label:'Choose Response Action',                             role:'Trainee', done: r.adjournmentApplied || !!r.docListCreatedAt, doneDate: null, undoField: { adjournmentApplied: false }, actorId: r.adjournmentApplied ? r.adjournmentAppliedById : r.docListCreatedById },
+    ...(r.adjournmentApplied ? [{ key:'adj', label:'Adjournment Applied',        role:'Trainee' as const, done: true,              doneDate: null,                 undoField: { adjournmentApplied: false }, actorId: r.adjournmentAppliedById }] : []),
     { key:'docList', label:'Document Requirement List Created',                  role:'Trainee', done: !!r.docListCreatedAt,        doneDate: r.docListCreatedAt,   undoField: { docListCreatedAt: null }, actorId: r.docListCreatedById },
     { key:'approve', label:'Document List Reviewed and Approved',                role:'Manager', done: !!r.docListApprovedAt,       doneDate: r.docListApprovedAt,  undoField: { docListApprovedAt: null }, actorId: r.docListApprovedById },
     { key:'draft',   label:'Documents Collected and Draft Reply Prepared',       role:'Trainee', done: !!r.draftPreparedAt,         doneDate: r.draftPreparedAt,    undoField: { draftPreparedAt: null }, actorId: r.draftPreparedById },
@@ -386,15 +386,15 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
               )}
               {isActive && step.key==='docList'  && <Btn label="Mark Created"              onClick={() => markDone('docListCreatedAt')}    disabled={loading} />}
               {isActive && step.key==='approve'   && (canManagerAct
-                ? <Btn label="Mark Approved"  color={PURPLE} onClick={() => markDone('docListApprovedAt')}   disabled={loading} />
-                : <WaitingFor label="a Manager or Team Lead" />)}
+                ? <Btn label="Mark Approved"  color={GREEN} onClick={() => markDone('docListApprovedAt')}   disabled={loading} />
+                : <WaitingFor label="Manager" />)}
               {isActive && step.key==='draft'     && <Btn label="Mark Done"                 onClick={() => markDone('draftPreparedAt')}     disabled={loading} />}
               {isActive && step.key==='review'    && (canManagerAct
-                ? <Btn label="Mark Reviewed"  color={PURPLE} onClick={() => markDone('internalReviewedAt')}  disabled={loading} />
-                : <WaitingFor label="a Manager or Team Lead" />)}
+                ? <Btn label="Mark Reviewed"  color={GREEN} onClick={() => markDone('internalReviewedAt')}  disabled={loading} />
+                : <WaitingFor label="Manager" />)}
               {isActive && step.key==='partner'   && (canPartnerAct
                 ? <Btn label="Approved by Sir Asif" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} />
-                : <WaitingFor label="a Partner" />)}
+                : <WaitingFor label="Partner" />)}
               {isActive && step.key==='submit'    && (
                 <>
                   <Btn label="Submitted on IRIS"   onClick={() => markDone('submittedAt', { submissionMethod:'IRIS' })}   disabled={loading} />
@@ -415,7 +415,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
             <Btn label="Further Notice Issued" color="#1E40AF" onClick={() => patch({ outcome:'FURTHER_NOTICE' })} disabled={loading} />
             <Btn label="Order Against Client"  color={DANGER}  onClick={() => patch({ outcome:'ORDER_AGAINST' })}  disabled={loading} />
           </OutcomeStep>
-        ) : <WaitingFor label="a Manager or Team Lead" />
+        ) : <WaitingFor label="Manager" />
       )}
       {!isPending && (
         <ResultCard
@@ -547,11 +547,11 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
                 </>
               )}
               {isActive && step.key==='review'  && (canManagerAct
-                ? <Btn label="Mark Reviewed" color={PURPLE} onClick={() => markDone('internalReviewedAt')} disabled={loading} />
-                : <WaitingFor label="a Manager or Team Lead" />)}
+                ? <Btn label="Mark Reviewed" color={GREEN} onClick={() => markDone('internalReviewedAt')} disabled={loading} />
+                : <WaitingFor label="Manager" />)}
               {isActive && step.key==='partner' && (canPartnerAct
                 ? <Btn label="Approved by Sir Asif" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} />
-                : <WaitingFor label="a Partner" />)}
+                : <WaitingFor label="Partner" />)}
               {isActive && step.key==='submit'  && (
                 <>
                   <Btn label="Submitted on IRIS"  onClick={() => markDone('submittedAt', { submissionMethod:'IRIS' })}   disabled={loading} />
@@ -571,7 +571,7 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
                     </div>
                   )}
                   {!canManagerAct ? (
-                    <WaitingFor label="a Manager or Team Lead" />
+                    <WaitingFor label="Manager" />
                   ) : showHearing ? (
                     <div style={{ display:'flex', gap:8, flexWrap:'wrap' as const }}>
                       <input type="date" value={hearingDate} onChange={e => setHearingDate(e.target.value)} style={{ padding:'6px 10px', borderRadius:6, border:`1.5px solid ${TEAL}`, fontSize:12, fontFamily:F, outline:'none' }} />
@@ -602,7 +602,7 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
             <Btn label="Decided in Favour of Client" color={GREEN}  onClick={() => patch({ outcome:'IN_FAVOR', orderDate: new Date().toISOString() })} disabled={loading} />
             <Btn label="Order Against Client"         color={DANGER} onClick={() => patch({ outcome:'AGAINST',  orderDate: new Date().toISOString() })} disabled={loading} />
           </OutcomeStep>
-        ) : <WaitingFor label="a Manager or Team Lead" />
+        ) : <WaitingFor label="Manager" />
       )}
       {!isPending && (
         <ResultCard
@@ -713,8 +713,8 @@ function StayFlow({ stay: s, onReload, actors }: { stay: any; onReload: () => vo
               actorName={step.actorId ? actors[step.actorId]?.fullName : undefined}
               noteSection={isActive ? noteArea : undefined}>
               {isActive && step.key==='review' && (canManagerAct
-                ? <Btn label="Mark Prepared and Reviewed" color={PURPLE} onClick={() => markDone({ reviewedAt: new Date().toISOString() })} disabled={loading} />
-                : <WaitingFor label="a Manager or Team Lead" />)}
+                ? <Btn label="Mark Prepared and Reviewed" color={GREEN} onClick={() => markDone({ reviewedAt: new Date().toISOString() })} disabled={loading} />
+                : <WaitingFor label="Manager" />)}
               {isActive && step.key==='submit' && (
                 <>
                   <Btn label="Submitted (IRIS)"   onClick={() => markDone({ submittedAt: new Date().toISOString(), submissionMethod:'IRIS' })}   disabled={loading} />
@@ -734,7 +734,7 @@ function StayFlow({ stay: s, onReload, actors }: { stay: any; onReload: () => vo
             <Btn label="Stay Granted"  color={GREEN}  onClick={() => patch({ outcome:'GRANTED',  decidedAt: new Date().toISOString() })} disabled={loading} />
             <Btn label="Stay Rejected" color={DANGER} onClick={() => patch({ outcome:'REJECTED', decidedAt: new Date().toISOString() })} disabled={loading} />
           </OutcomeStep>
-        ) : <WaitingFor label="a Manager or Team Lead" />
+        ) : <WaitingFor label="Manager" />
       )}
       {!isPending && (
         <ResultCard

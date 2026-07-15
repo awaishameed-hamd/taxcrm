@@ -912,11 +912,12 @@ model FbrNoticeRound {
 
   roundNumber Int @default(1)
 
-  noticeDate         DateTime?
-  noticeLoggedById   String?
-  dueDate            DateTime?
-  adjournmentApplied Boolean   @default(false)
-  adjournmentDate    DateTime?
+  noticeDate           DateTime?
+  noticeLoggedById     String?
+  dueDate              DateTime?
+  adjournmentApplied   Boolean   @default(false)
+  adjournmentAppliedById String?
+  adjournmentDate      DateTime?
 
   docListCreatedAt    DateTime?
   docListCreatedById  String?
