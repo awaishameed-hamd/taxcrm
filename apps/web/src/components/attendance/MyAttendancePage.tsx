@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { useAuth } from '@/contexts/AuthContext'
+import { formatTime12h } from '@/lib/utils'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -156,7 +157,7 @@ function CalendarView({ calendar, year, month, userName, userRole, summary }: {
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {row?.login_time && (
                   <span style={{ fontSize: 16, fontWeight: 900, color: cs.dayColor, fontFamily: '"Aptos", sans-serif', letterSpacing: '0.05em' }}>
-                    {row.login_time}
+                    {formatTime12h(row.login_time)}
                   </span>
                 )}
               </div>
@@ -370,7 +371,7 @@ export default function MyAttendancePage() {
                           <td style={tdBase}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               {row.login_time
-                                ? <span style={{ fontWeight: 700, color: P.teal }}>{row.login_time}</span>
+                                ? <span style={{ fontWeight: 700, color: P.teal }}>{formatTime12h(row.login_time)}</span>
                                 : <span style={{ color: '#94A3B8' }}>N/A</span>}
                               {row.manually_edited && (
                                 <span style={{ fontSize: 9, fontWeight: 700, background: P.gold + '22', color: P.gold, border: `1px solid ${P.gold}55`, padding: '0 4px', borderRadius: 3 }}>EDITED</span>

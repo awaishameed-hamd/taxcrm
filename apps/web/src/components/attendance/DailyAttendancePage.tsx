@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { formatTime12h } from '@/lib/utils'
 
 function todayStr() {
   return new Date().toISOString().split('T')[0]
@@ -89,7 +90,7 @@ function AttendanceTable({ present, absent, leave }: { present: any[]; absent: a
                     <td style={tdBase}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: rs.bg, color: rs.color }}>{u.role.replace(/_/g, ' ')}</span>
                     </td>
-                    <td style={tdBase}>{u.loginTime ?? <span style={{ color: '#94A3B8' }}>N/A</span>}</td>
+                    <td style={tdBase}>{formatTime12h(u.loginTime) ?? <span style={{ color: '#94A3B8' }}>N/A</span>}</td>
                     <td style={tdBase}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: ss.bg, color: ss.color }}>{ss.label}</span>

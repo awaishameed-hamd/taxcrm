@@ -6,6 +6,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { formatTime12h } from '@/lib/utils'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const MODULE_START_YEAR  = 2026
@@ -279,7 +280,7 @@ function AllTimeDetailModal({ emp, onClose }: { emp: EmpSummary; onClose: () => 
                           {statusLabel(r.status)}
                         </span>
                       </td>
-                      <td style={{ padding: '6px 12px', color: P.textMuted, fontSize: 12 }}>{r.loginTime ?? ''}</td>
+                      <td style={{ padding: '6px 12px', color: P.textMuted, fontSize: 12 }}>{formatTime12h(r.loginTime) ?? ''}</td>
                       <td style={{ padding: '6px 12px', color: r.lateMinutes ? '#d97706' : P.textMuted, fontSize: 12, fontWeight: r.lateMinutes ? 700 : 400 }}>
                         {r.lateMinutes ? `${r.lateMinutes}m` : ''}
                       </td>
@@ -345,7 +346,8 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
   function openCreate(dateStr: string) {
     setEditId('NEW')
     setEditDate(dateStr)
-    setEditForm({ status: 'PRESENT', loginTime: '', notes: '' })
+    // Only ever used for gap-filling days with no record (Absent/Not Joined) — default to 10 AM
+    setEditForm({ status: 'PRESENT', loginTime: '10:00', notes: '' })
   }
 
   async function saveEdit() {
@@ -463,7 +465,7 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {rec?.loginTime && (
                       <span style={{ fontSize: 16, fontWeight: 900, color: cs?.dayColor ?? P.navy, fontFamily: '"Aptos", sans-serif', letterSpacing: '0.05em' }}>
-                        {rec.loginTime}
+                        {formatTime12h(rec.loginTime)}
                       </span>
                     )}
                   </div>
@@ -525,7 +527,12 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
                   ].map(({ key, label, activeBg, activeText }) => {
                     const isActive = editForm.status === key
                     return (
-                      <button key={key} onClick={() => setEditForm(f => ({ ...f, status: key }))} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: '"Aptos", sans-serif', cursor: 'pointer', transition: 'all 0.15s', background: isActive ? activeBg : '#F8FAFC', color: isActive ? activeText : P.textMuted, border: isActive ? `1.5px solid ${activeBg}` : `1.5px solid ${P.border}`, boxShadow: isActive ? `0 2px 8px ${activeBg}40` : 'none' }}>
+                      <button key={key} onClick={() => setEditForm(f => ({
+                        ...f,
+                        status: key,
+                        // Switching to Present/Late from a status with no login time (e.g. Absent, Not Joined) — default to 10 AM
+                        loginTime: (key === 'PRESENT' || key === 'LATE') && !f.loginTime ? '10:00' : f.loginTime,
+                      }))} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: '"Aptos", sans-serif', cursor: 'pointer', transition: 'all 0.15s', background: isActive ? activeBg : '#F8FAFC', color: isActive ? activeText : P.textMuted, border: isActive ? `1.5px solid ${activeBg}` : `1.5px solid ${P.border}`, boxShadow: isActive ? `0 2px 8px ${activeBg}40` : 'none' }}>
                         {label}
                       </button>
                     )
@@ -534,7 +541,7 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
               </div>
               {(editForm.status === 'PRESENT' || editForm.status === 'LATE') && (
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.textMuted, fontFamily: '"Aptos", sans-serif', marginBottom: 6 }}>Login Time (24h)</label>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.textMuted, fontFamily: '"Aptos", sans-serif', marginBottom: 6 }}>Login Time</label>
                   <input type="time" value={editForm.loginTime} onChange={e => setEditForm(f => ({ ...f, loginTime: e.target.value }))}
                     style={{ border: `1.5px solid ${P.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 13, fontWeight: 600, outline: 'none', fontFamily: '"Aptos", sans-serif', color: P.textHeading, background: '#F8FAFC' }} />
                 </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { formatTime12h } from '@/lib/utils'
 
 const labelCls     = 'block text-xs font-bold uppercase tracking-widest mb-1'
 const inputCls     = 'rounded-lg px-3 py-1.5 text-sm outline-none transition'
@@ -70,7 +71,7 @@ function EditTimeCell({ rec, onSaved }: { rec: any; onSaved: (id: string, time: 
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs font-bold text-gray-700" style={{ fontFamily: '"Aptos", sans-serif', letterSpacing: '0.04em' }}>
-        {rec.loginTime ?? 'N/A'}
+        {formatTime12h(rec.loginTime) ?? 'N/A'}
       </span>
       {rec.approvalStatus === 'pending' && (
         <button onClick={() => setEditing(true)}

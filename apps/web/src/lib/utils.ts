@@ -50,6 +50,17 @@ export const STATUS_BADGE_CLASSES: Record<TaxReturnStatus, string> = {
   [TaxReturnStatus.COMPLETED]:        'bg-green-100 text-green-700',
 }
 
+// Display-only: converts a raw "HH:MM" (24h) time string to 12-hour with AM/PM.
+// Never use this for values fed into <input type="time">, which always requires 24h "HH:MM".
+export function formatTime12h(time: string | null | undefined): string | null {
+  if (!time) return null
+  const [h, m] = time.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return time
+  const period = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`
+}
+
 export function formatFileSize(bytes: number) {
   if (bytes < 1024)        return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
