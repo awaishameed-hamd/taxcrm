@@ -581,6 +581,7 @@ export function TaskFormModal({
   const PIPELINE_TAX_TYPES = ['sales_tax', 'income_tax', 'wht']
   const isSalesTax     = form.taxType === 'sales_tax'
   const isIncomeTax    = form.taxType === 'income_tax'
+  const isAdvanceTax   = isIncomeTax && form.incomeTaxKind === 'advance_tax'
   const isWHT          = form.taxType === 'wht'
   const isPipelineTax  = PIPELINE_TAX_TYPES.includes(form.taxType)
   const isFbrNotices   = form.taxType === 'notices'
@@ -647,6 +648,23 @@ export function TaskFormModal({
             </div>
           )}
 
+          {/* Income Tax: which kind of task — regular return, or a quarterly advance tax payment */}
+          {isIncomeTax && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Income Tax Type <span style={{ color: '#D62828' }}>*</span></label>
+              <SearchableSelect
+                value={form.incomeTaxKind ?? 'return'}
+                onChange={val => setForm((f: any) => ({ ...f, incomeTaxKind: val }))}
+                options={[
+                  { value: 'return',      label: 'Income Tax Return' },
+                  { value: 'advance_tax', label: 'Quarterly Advance Tax' },
+                ]}
+                placeholder="Select…"
+                borderColor="#E0DDD5"
+              />
+            </div>
+          )}
+
           {/* Pipeline tax extra fields (Sales Tax / Income Tax / WHT) */}
           {!taxType && isPipelineTax && (
             <>
@@ -698,7 +716,19 @@ export function TaskFormModal({
                     />
                   </div>
                 )}
-                {/* Income Tax: no month/quarter selection */}
+                {/* Quarter — Income Tax's Quarterly Advance Tax only. Stores the first month of the
+                    quarter (1/4/7/10) so a manual pick lines up with the auto-generated tasks. */}
+                {isAdvanceTax && (
+                  <div>
+                    <label style={labelStyle}>Quarter <span style={{ color: '#D62828' }}>*</span></label>
+                    <StyledSelect
+                      value={String(form.periodMonth ?? 1)}
+                      onChange={val => setForm((f: any) => ({ ...f, periodMonth: Number(val) }))}
+                      options={['Q1 (Jan–Mar)','Q2 (Apr–Jun)','Q3 (Jul–Sep)','Q4 (Oct–Dec)'].map((q, i) => ({ value: String(i*3+1), label: q }))}
+                    />
+                  </div>
+                )}
+                {/* Income Tax Return: no month/quarter selection */}
                 <div>
                   <label style={labelStyle}>Period Year <span style={{ color: '#D62828' }}>*</span></label>
                   <StyledSelect

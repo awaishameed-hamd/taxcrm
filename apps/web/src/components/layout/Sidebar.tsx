@@ -205,7 +205,7 @@ const AVATAR_KEY_PREFIX = 'ca_firm_avatar_'
 
 interface SidebarProps { collapsed: boolean; onToggle: () => void }
 
-const BLANK_FORM = { title: '', clientId: '', priority: 'MEDIUM', dueDate: '', assignedToId: '', description: '', taxType: '', periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), authority: 'FBR', returnType: 'ORIGINAL', fbrEntryPoint: 'FRESH_NOTICE', fbrTaxType: 'INCOME_TAX', fbrTaxYear: '', fbrNoticeSection: '', fbrNoticeNumber: '', fbrTaxTypeOther: '' }
+const BLANK_FORM = { title: '', clientId: '', priority: 'MEDIUM', dueDate: '', assignedToId: '', description: '', taxType: '', incomeTaxKind: 'return', periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), authority: 'FBR', returnType: 'ORIGINAL', fbrEntryPoint: 'FRESH_NOTICE', fbrTaxType: 'INCOME_TAX', fbrTaxYear: '', fbrNoticeSection: '', fbrNoticeNumber: '', fbrTaxTypeOther: '' }
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, logout, permissions } = useAuth()
@@ -370,7 +370,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       if (isPipelineTask) {
         const ttMap: Record<string, string> = { sales_tax: 'SALES_TAX', income_tax: 'INCOME_TAX', wht: 'WHT' }
         const taskType    = ttMap[ntForm.taxType] ?? 'SALES_TAX'
-        const periodMonth = ntForm.taxType === 'income_tax' ? 0 : Number(ntForm.periodMonth)
+        const periodMonth = ntForm.taxType === 'income_tax'
+          ? (ntForm.incomeTaxKind === 'advance_tax' ? Number(ntForm.periodMonth) : 0)
+          : Number(ntForm.periodMonth)
         await api.post('/sales-tax-tasks', {
           clientId:     ntForm.clientId,
           traineeId:    effectiveAssignedToId ?? user?.id,

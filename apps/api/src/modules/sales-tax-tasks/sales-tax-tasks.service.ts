@@ -327,9 +327,9 @@ export class SalesTaxTasksService {
       select: { id: true, status: true, trainee: { select: { fullName: true, userCode: true } } },
     })
     if (exists) {
-      const typeLabel   = taskType === 'INCOME_TAX' ? 'Income Tax' : taskType === 'SALES_TAX' ? 'Sales Tax' : taskType
+      const typeLabel   = taskType === 'INCOME_TAX' ? (dto.periodMonth > 0 ? 'Quarterly Advance Tax' : 'Income Tax') : taskType === 'SALES_TAX' ? 'Sales Tax' : taskType
       const periodLabel = taskType === 'INCOME_TAX'
-        ? `${dto.periodYear}`
+        ? (dto.periodMonth > 0 ? `Q${Math.ceil(dto.periodMonth / 3)} ${dto.periodYear}` : `${dto.periodYear}`)
         : `${dto.periodMonth}/${dto.periodYear}`
       if (exists.status === SalesTaxTaskStatus.COMPLETED) {
         throw new ConflictException(`A ${typeLabel} task for this client (${periodLabel}) was already completed. Check "Completed Tasks" or delete it first to create a new one.`)
