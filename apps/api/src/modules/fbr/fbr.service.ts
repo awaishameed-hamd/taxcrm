@@ -122,7 +122,37 @@ export class FbrService {
       select: FULL_CASE_SELECT,
     })
     if (!c) throw new NotFoundException('FBR case not found')
-    return c
+    return this.attachActors(c)
+  }
+
+  // Every step-completion field stores only a raw userId; resolve them all in one
+  // batch query so the UI can show who actually did each step instead of just their role.
+  private readonly ACTOR_ID_FIELDS = [
+    'noticeLoggedById', 'docListCreatedById', 'docListApprovedById', 'draftPreparedById',
+    'internalReviewById', 'partnerApprovedById', 'submittedById', 'outcomeById',
+    'condonationFiledById', 'groundsPreparedById', 'reviewedById', 'resumedById', 'createdById',
+  ]
+
+  private async attachActors<T extends { noticeRounds?: any[]; appeal?: any; stayApplications?: any[]; hearings?: any[] }>(c: T) {
+    const ids = new Set<string>()
+    const collect = (obj: any) => {
+      if (!obj) return
+      for (const f of this.ACTOR_ID_FIELDS) if (obj[f]) ids.add(obj[f])
+    }
+    for (const r of c.noticeRounds ?? []) collect(r)
+    collect(c.appeal)
+    for (const s of c.stayApplications ?? []) collect(s)
+    for (const h of c.hearings ?? []) collect(h)
+    for (const h of c.appeal?.hearings ?? []) collect(h)
+
+    if (ids.size === 0) return { ...c, actors: {} as Record<string, { id: string; fullName: string; role: string }> }
+
+    const users = await this.prisma.user.findMany({
+      where:  { id: { in: [...ids] } },
+      select: { id: true, fullName: true, role: true },
+    })
+    const actors = Object.fromEntries(users.map(u => [u.id, u]))
+    return { ...c, actors }
   }
 
   // â”€â”€ Get single case â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -275,10 +305,15 @@ export class FbrService {
     for (const f of strFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f]
     }
-    // Who actually approved/reviewed is always the caller — never trust a client-supplied id
+    // Who actually did each step is always the caller — never trust a client-supplied id
+    if (dto.noticeDate          !== undefined) data.noticeLoggedById   = dto.noticeDate          ? actorId : null
+    if (dto.docListCreatedAt    !== undefined) data.docListCreatedById = dto.docListCreatedAt     ? actorId : null
     if (dto.docListApprovedAt   !== undefined) data.docListApprovedById = dto.docListApprovedAt   ? actorId : null
+    if (dto.draftPreparedAt     !== undefined) data.draftPreparedById  = dto.draftPreparedAt       ? actorId : null
     if (dto.internalReviewedAt  !== undefined) data.internalReviewById  = dto.internalReviewedAt  ? actorId : null
     if (dto.partnerApprovedAt   !== undefined) data.partnerApprovedById = dto.partnerApprovedAt    ? actorId : null
+    if (dto.submittedAt         !== undefined) data.submittedById      = dto.submittedAt           ? actorId : null
+    if (dto.outcome             !== undefined) data.outcomeById        = (dto.outcome && dto.outcome !== 'PENDING') ? actorId : null
     if (dto.adjournmentApplied !== undefined) data.adjournmentApplied = dto.adjournmentApplied
     if (dto.challanPaid        !== undefined) data.challanPaid        = dto.challanPaid
 
@@ -339,11 +374,14 @@ export class FbrService {
     for (const f of strFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f]
     }
-    // Who actually reviewed/approved is always the caller — never trust a client-supplied id
+    // Who actually did each step is always the caller — never trust a client-supplied id
+    if (dto.groundsPreparedAt !== undefined) data.groundsPreparedById = dto.groundsPreparedAt ? actorId : null
     if (dto.internalReviewedAt !== undefined) data.internalReviewById  = dto.internalReviewedAt ? actorId : null
     if (dto.partnerApprovedAt  !== undefined) data.partnerApprovedById = dto.partnerApprovedAt   ? actorId : null
+    if (dto.submittedAt        !== undefined) data.submittedById       = dto.submittedAt          ? actorId : null
+    if (dto.outcome            !== undefined) data.outcomeById         = (dto.outcome && dto.outcome !== 'PENDING') ? actorId : null
     if (dto.isLate           !== undefined) data.isLate           = dto.isLate
-    if (dto.condonationFiled !== undefined) data.condonationFiled = dto.condonationFiled
+    if (dto.condonationFiled !== undefined) { data.condonationFiled = dto.condonationFiled; data.condonationFiledById = dto.condonationFiled ? actorId : null }
     if (dto.challanPaid      !== undefined) data.challanPaid      = dto.challanPaid
 
     const appeal = await this.prisma.fbrAppeal.update({
@@ -394,8 +432,10 @@ export class FbrService {
     for (const f of strFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f]
     }
-    // Who actually reviewed is always the caller — never trust a client-supplied id
+    // Who actually did each step is always the caller — never trust a client-supplied id
     if (dto.reviewedAt !== undefined) data.reviewedById = dto.reviewedAt ? actorId : null
+    if (dto.submittedAt !== undefined) data.submittedById = dto.submittedAt ? actorId : null
+    if (dto.outcome !== undefined) data.outcomeById = (dto.outcome && dto.outcome !== 'PENDING') ? actorId : null
 
     return this.prisma.fbrStayApplication.update({ where: { id }, data, include: { attachments: true } })
   }
@@ -422,7 +462,7 @@ export class FbrService {
   }
 
   // â”€â”€ Hearings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  async addHearing(caseId: string, dto: AddHearingDto, actorRole: Role) {
+  async addHearing(caseId: string, dto: AddHearingDto, actorId: string, actorRole: Role) {
     assertRoleTier(actorRole, MANAGER_TIER, 'schedule a hearing date')
     return this.prisma.fbrHearing.create({
       data: {
@@ -430,6 +470,7 @@ export class FbrService {
         appealId:     dto.appealId,
         scheduledDate: new Date(dto.scheduledDate),
         notes:        dto.notes,
+        createdById:  actorId,
       },
     })
   }

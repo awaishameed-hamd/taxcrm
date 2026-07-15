@@ -913,14 +913,17 @@ model FbrNoticeRound {
   roundNumber Int @default(1)
 
   noticeDate         DateTime?
+  noticeLoggedById   String?
   dueDate            DateTime?
   adjournmentApplied Boolean   @default(false)
   adjournmentDate    DateTime?
 
   docListCreatedAt    DateTime?
+  docListCreatedById  String?
   docListApprovedAt   DateTime?
   docListApprovedById String?
   draftPreparedAt     DateTime?
+  draftPreparedById   String?
   internalReviewedAt  DateTime?
   internalReviewById  String?
   partnerApprovedAt   DateTime?
@@ -928,9 +931,11 @@ model FbrNoticeRound {
 
   submissionMethod FbrSubmissionMethod?
   submittedAt      DateTime?
+  submittedById    String?
   submissionRef    String?
 
   outcome       FbrNoticeOutcome @default(PENDING)
+  outcomeById   String?
   orderDate     DateTime?
   challanPaid   Boolean          @default(false)
   challanPaidAt DateTime?
@@ -953,26 +958,30 @@ model FbrAppeal {
   caseId String  @unique
   case   FbrCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  appealType       FbrAppealType @default(CIR_APPEALS)
-  isLate           Boolean       @default(false)
-  condonationFiled Boolean       @default(false)
+  appealType         FbrAppealType @default(CIR_APPEALS)
+  isLate             Boolean       @default(false)
+  condonationFiled   Boolean       @default(false)
+  condonationFiledById String?
 
   feeChallanRef String?
   feePaidAt     DateTime?
 
-  submissionMethod    FbrSubmissionMethod?
-  groundsPreparedAt   DateTime?
-  internalReviewedAt  DateTime?
-  internalReviewById  String?
-  partnerApprovedAt   DateTime?
-  partnerApprovedById String?
-  submittedAt         DateTime?
-  submissionRef       String?
+  submissionMethod     FbrSubmissionMethod?
+  groundsPreparedAt    DateTime?
+  groundsPreparedById  String?
+  internalReviewedAt   DateTime?
+  internalReviewById   String?
+  partnerApprovedAt    DateTime?
+  partnerApprovedById  String?
+  submittedAt          DateTime?
+  submittedById        String?
+  submissionRef        String?
 
   hearings    FbrHearing[]
   attachments FbrAttachment[]
 
   outcome       FbrAppealOutcome @default(PENDING)
+  outcomeById   String?
   orderDate     DateTime?
   challanPaid   Boolean          @default(false)
   challanPaidAt DateTime?
@@ -1000,12 +1009,14 @@ model FbrStayApplication {
 
   submissionMethod FbrSubmissionMethod?
   submittedAt      DateTime?
+  submittedById    String?
   submissionRef    String?
 
   hearingDate DateTime?
 
-  outcome   FbrStayOutcome @default(PENDING)
-  decidedAt DateTime?
+  outcome     FbrStayOutcome @default(PENDING)
+  outcomeById String?
+  decidedAt   DateTime?
 
   resumedAt   DateTime?
   resumedById String?
@@ -1033,6 +1044,8 @@ model FbrHearing {
 
   outcome FbrHearingOutcome @default(PENDING)
   notes   String? @db.Text
+
+  createdById String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -1063,6 +1063,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
             const att = isDone ? stepAttachment(step.key) : null
             const isLast = idx === taskSteps.length - 1
             const dotColor = isDone ? '#16a34a' : isSentBackRow ? '#dc2626' : isActive ? TEAL : '#CBD5E1'
+            const doneInfo = isDone ? stepCompletedInfo(step.key) : null
 
             return (
               <React.Fragment key={step.key}>
@@ -1079,10 +1080,14 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                   <div style={{ background: isDone ? '#F0FDF4' : isActive ? '#fff' : '#FAFAFA', border:`1px solid ${isDone ? '#BBF7D0' : isActive ? (isSentBackRow ? '#FECACA' : '#BAE6FD') : '#E2E8F0'}`, borderRadius:8, padding:'10px 14px' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                       <span style={{ flex:1, fontSize:13, fontWeight: isActive ? 600 : isDone ? 400 : 500, color: isDone ? '#64748B' : NAVY, lineHeight:1.4 }}>{step.label}</span>
-                      {!isSelfManaged && <span style={{ fontSize:10, fontWeight:600, color: isManagerStep ? NAVY : '#166534', background: isManagerStep ? '#EFF6FF' : '#F0FDF4', padding:'2px 8px', borderRadius:4, flexShrink:0 }}>{step.by}</span>}
+                      {!isSelfManaged && (
+                        isDone && doneInfo?.by
+                          ? <span style={{ fontSize:10, fontWeight:600, color:'#166534', background:'#F0FDF4', padding:'2px 8px', borderRadius:4, flexShrink:0 }}>{doneInfo.by}</span>
+                          : <span style={{ fontSize:10, fontWeight:600, color: isManagerStep ? NAVY : '#166534', background: isManagerStep ? '#EFF6FF' : '#F0FDF4', padding:'2px 8px', borderRadius:4, flexShrink:0 }}>{step.by}</span>
+                      )}
                       {isDone && (() => {
                         const isLastDone = stepIdx === curIdx - 1 && role === 'trainee' && isTraineeStep && !isCompleted
-                        const info = stepCompletedInfo(step.key)
+                        const info = doneInfo
                         return (
                           <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0, flexWrap:'wrap', justifyContent:'flex-end' }}>
                             <span style={{ fontSize:11, fontWeight:600, color:'#16a34a' }}>✓ Done</span>

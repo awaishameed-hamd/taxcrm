@@ -39,6 +39,15 @@ function RoleTag({ role }: { role: 'Trainee' | 'Manager' | 'Partner' }) {
   )
 }
 
+// ── Actor tag (who actually did it, once known) ─────────────────────────────────
+function ActorTag({ name }: { name: string }) {
+  return (
+    <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, flexShrink: 0, fontFamily: F, color: '#166534', background: '#F0FDF4' }}>
+      {name}
+    </span>
+  )
+}
+
 // ── Arrow connector ───────────────────────────────────────────────────────────
 function StepArrow({ done }: { done: boolean }) {
   const col = done ? '#BBF7D0' : '#E2E8F0'
@@ -76,10 +85,11 @@ type StepCardProps = {
   isDone: boolean; isActive: boolean
   doneDate?: string | null; undoable?: boolean
   onUndo?: () => void; actionLoading?: boolean
+  actorName?: string | null
   children?: React.ReactNode
   noteSection?: React.ReactNode
 }
-function StepCard({ idx, label, role, isDone, isActive, doneDate, undoable, onUndo, actionLoading, children, noteSection }: StepCardProps) {
+function StepCard({ idx, label, role, isDone, isActive, doneDate, undoable, onUndo, actionLoading, actorName, children, noteSection }: StepCardProps) {
   const isFuture = !isDone && !isActive
   const dotBg   = isDone ? GREEN : isActive ? TEAL : '#E2E8F0'
   const cardBg  = isDone ? '#F0FDF4' : isActive ? '#fff' : '#FAFAFA'
@@ -99,7 +109,7 @@ function StepCard({ idx, label, role, isDone, isActive, doneDate, undoable, onUn
         <div style={{ background: cardBg, border: `1px solid ${cardBdr}`, borderRadius: 8, padding: '10px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
             <span style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 600 : isDone ? 400 : 500, color: isFuture ? '#94A3B8' : isDone ? '#64748B' : NAVY, lineHeight: 1.4, fontFamily: F }}>{label}</span>
-            <RoleTag role={role} />
+            {isDone && actorName ? <ActorTag name={actorName} /> : <RoleTag role={role} />}
             {isDone && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' as const }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: GREEN, fontFamily: F }}>Done</span>
@@ -111,16 +121,12 @@ function StepCard({ idx, label, role, isDone, isActive, doneDate, undoable, onUn
                 )}
               </div>
             )}
-            {isActive  && <span style={{ fontSize: 11, fontWeight: 600, color: TEAL, background: '#E0F2FE', padding: '2px 8px', borderRadius: 4, fontFamily: F }}>In Progress</span>}
+            {isActive && children}
+            {isActive && !children && <span style={{ fontSize: 11, fontWeight: 600, color: TEAL, background: '#E0F2FE', padding: '2px 8px', borderRadius: 4, fontFamily: F }}>In Progress</span>}
             {isFuture  && <span style={{ fontSize: 10, color: '#CBD5E1', background: '#F8FAFC', padding: '2px 8px', borderRadius: 4, fontFamily: F }}>Pending</span>}
           </div>
-          {isActive && (children || noteSection) && (
+          {isActive && noteSection && (
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #E2E8F0' }}>
-              {children && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const, marginBottom: noteSection ? 10 : 0 }}>
-                  {children}
-                </div>
-              )}
               {noteSection}
             </div>
           )}
@@ -209,7 +215,7 @@ function OutcomeStep({ question, children }: { question: string; children: React
 }
 
 // ── Result card ───────────────────────────────────────────────────────────────
-function ResultCard({ label, color, onUndo, loading, children }: { label: string; color: string; onUndo: () => void; loading: boolean; children?: React.ReactNode }) {
+function ResultCard({ label, color, onUndo, loading, actorName, children }: { label: string; color: string; onUndo: () => void; loading: boolean; actorName?: string | null; children?: React.ReactNode }) {
   const BG: Record<string, string> = { [GREEN]: '#F0FDF4', [DANGER]: '#FEF2F2', '#1E40AF': '#EFF6FF', [PURPLE]: '#FAF5FF' }
   const BD: Record<string, string> = { [GREEN]: '#BBF7D0', [DANGER]: '#FECACA', '#1E40AF': '#BFDBFE', [PURPLE]: '#DDD6FE' }
   const TX: Record<string, string> = { [GREEN]: '#14532D', [DANGER]: '#7F1D1D', '#1E40AF': '#1E3A8A', [PURPLE]: '#4C1D95' }
@@ -222,8 +228,9 @@ function ResultCard({ label, color, onUndo, loading, children }: { label: string
       </div>
       <div style={{ flex: 1, marginLeft: 10, paddingTop: 8 }}>
         <div style={{ background: BG[color] ?? '#F9FAFB', border: `1px solid ${BD[color] ?? '#E2E8F0'}`, borderRadius: 8, padding: '10px 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const }}>
             <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: TX[color] ?? NAVY, fontFamily: F }}>{label}</span>
+            {actorName && <ActorTag name={actorName} />}
             <button onClick={onUndo} disabled={loading} style={{ padding: '3px 9px', borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: '#F1F5F9', color: '#64748B', border: '1px solid #E2E8F0', fontFamily: F, opacity: loading ? 0.5 : 1 }}>Undo</button>
           </div>
           {children && <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BD[color] ?? '#E2E8F0'}` }}>{children}</div>}
@@ -245,8 +252,9 @@ function Btn({ label, color = TEAL, onClick, disabled = false }: { label: string
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTICE ROUND FLOW
 // ─────────────────────────────────────────────────────────────────────────────
-function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurther }: {
+function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurther, actors }: {
   round: any; caseCreatedAt: string; onReload: () => void; isLast: boolean; onAddFurther?: () => void
+  actors: Record<string, { id: string; fullName: string; role: string }>
 }) {
   const { user } = useAuth()
   const canManagerAct = MANAGER_TIER.includes(user?.role ?? '')
@@ -304,17 +312,17 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
       attachUploading={attachUploading} onUpload={handleUpload} />
   )
 
-  type S = { key: string; label: string; role: 'Trainee'|'Manager'|'Partner'; done: boolean; doneDate?: string|null; undoField?: Record<string,any> }
+  type S = { key: string; label: string; role: 'Trainee'|'Manager'|'Partner'; done: boolean; doneDate?: string|null; undoField?: Record<string,any>; actorId?: string|null }
   const steps: S[] = [
-    { key:'recv',    label:'Notice Received from Client',                        role:'Trainee', done: !!r.noticeDate,              doneDate: r.noticeDate,         undoField: { noticeDate: null, dueDate: null } },
+    { key:'recv',    label:'Notice Received from Client',                        role:'Trainee', done: !!r.noticeDate,              doneDate: r.noticeDate,         undoField: { noticeDate: null, dueDate: null }, actorId: r.noticeLoggedById },
     { key:'action',  label:'Choose Response Action',                             role:'Trainee', done: r.adjournmentApplied || !!r.docListCreatedAt, doneDate: null, undoField: { adjournmentApplied: false } },
     ...(r.adjournmentApplied ? [{ key:'adj', label:'Adjournment Applied',        role:'Trainee' as const, done: true,              doneDate: null,                 undoField: { adjournmentApplied: false } }] : []),
-    { key:'docList', label:'Document Requirement List Created',                  role:'Trainee', done: !!r.docListCreatedAt,        doneDate: r.docListCreatedAt,   undoField: { docListCreatedAt: null } },
-    { key:'approve', label:'Document List Reviewed and Approved',                role:'Manager', done: !!r.docListApprovedAt,       doneDate: r.docListApprovedAt,  undoField: { docListApprovedAt: null } },
-    { key:'draft',   label:'Documents Collected and Draft Reply Prepared',       role:'Trainee', done: !!r.draftPreparedAt,         doneDate: r.draftPreparedAt,    undoField: { draftPreparedAt: null } },
-    { key:'review',  label:'Internal Review and Comments Incorporated',          role:'Manager', done: !!r.internalReviewedAt,      doneDate: r.internalReviewedAt, undoField: { internalReviewedAt: null } },
-    { key:'partner', label:'Final Approval by Sir Asif',                         role:'Partner', done: !!r.partnerApprovedAt,       doneDate: r.partnerApprovedAt,  undoField: { partnerApprovedAt: null } },
-    { key:'submit',  label:`Submitted to FBR${r.submissionMethod ? ` (${r.submissionMethod})` : ''}`, role:'Trainee', done: !!r.submittedAt, doneDate: r.submittedAt, undoField: { submittedAt: null, submissionMethod: null } },
+    { key:'docList', label:'Document Requirement List Created',                  role:'Trainee', done: !!r.docListCreatedAt,        doneDate: r.docListCreatedAt,   undoField: { docListCreatedAt: null }, actorId: r.docListCreatedById },
+    { key:'approve', label:'Document List Reviewed and Approved',                role:'Manager', done: !!r.docListApprovedAt,       doneDate: r.docListApprovedAt,  undoField: { docListApprovedAt: null }, actorId: r.docListApprovedById },
+    { key:'draft',   label:'Documents Collected and Draft Reply Prepared',       role:'Trainee', done: !!r.draftPreparedAt,         doneDate: r.draftPreparedAt,    undoField: { draftPreparedAt: null }, actorId: r.draftPreparedById },
+    { key:'review',  label:'Internal Review and Comments Incorporated',          role:'Manager', done: !!r.internalReviewedAt,      doneDate: r.internalReviewedAt, undoField: { internalReviewedAt: null }, actorId: r.internalReviewById },
+    { key:'partner', label:'Final Approval by Sir Asif',                         role:'Partner', done: !!r.partnerApprovedAt,       doneDate: r.partnerApprovedAt,  undoField: { partnerApprovedAt: null }, actorId: r.partnerApprovedById },
+    { key:'submit',  label:`Submitted to FBR${r.submissionMethod ? ` (${r.submissionMethod})` : ''}`, role:'Trainee', done: !!r.submittedAt, doneDate: r.submittedAt, undoField: { submittedAt: null, submissionMethod: null }, actorId: r.submittedById },
   ]
 
   const curIdx    = steps.findIndex(s => !s.done)
@@ -350,6 +358,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
           <React.Fragment key={step.key}>
             <StepCard idx={idx} label={step.label} role={step.role} isDone={isDone} isActive={isActive}
               doneDate={step.doneDate} undoable={isLastDone} onUndo={() => patch(step.undoField!)} actionLoading={loading}
+              actorName={step.actorId ? actors[step.actorId]?.fullName : undefined}
               noteSection={isActive ? noteArea : undefined}>
               {isActive && step.key==='recv' && (
                 <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'flex-end' }}>
@@ -413,6 +422,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
           label={r.outcome==='ACCEPTED'?'Reply Accepted by FBR': r.outcome==='FURTHER_NOTICE'?'Further Explanation Notice Issued':'Order Against Client'}
           color={r.outcome==='ACCEPTED'?GREEN: r.outcome==='FURTHER_NOTICE'?'#1E40AF':DANGER}
           onUndo={() => patch({ outcome:'PENDING' })} loading={loading}
+          actorName={r.outcomeById ? actors[r.outcomeById]?.fullName : undefined}
         >
           {r.outcome==='FURTHER_NOTICE' && isLast && onAddFurther && (
             <Btn label={`Start Round ${r.roundNumber+1}`} color={PURPLE} onClick={onAddFurther} disabled={loading} />
@@ -431,7 +441,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
 // ─────────────────────────────────────────────────────────────────────────────
 // APPEAL FLOW
 // ─────────────────────────────────────────────────────────────────────────────
-function AppealFlow({ appeal: a, caseId, onReload }: { appeal: any; caseId: string; onReload: () => void }) {
+function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; caseId: string; onReload: () => void; actors: Record<string, { id: string; fullName: string; role: string }> }) {
   const { user } = useAuth()
   const canManagerAct = MANAGER_TIER.includes(user?.role ?? '')
   const canPartnerAct = PARTNER_TIER.includes(user?.role ?? '')
@@ -488,16 +498,16 @@ function AppealFlow({ appeal: a, caseId, onReload }: { appeal: any; caseId: stri
       attachUploading={attachUploading} onUpload={handleUpload} />
   )
 
-  type S = { key: string; label: string; role: 'Trainee'|'Manager'|'Partner'; done: boolean; doneDate?: string|null; undoField?: Record<string,any> }
+  type S = { key: string; label: string; role: 'Trainee'|'Manager'|'Partner'; done: boolean; doneDate?: string|null; undoField?: Record<string,any>; actorId?: string|null }
   const steps: S[] = [
     { key:'recv',    label:'Commissioner Order Received',                               role:'Manager', done: true,                    doneDate: a.createdAt },
     { key:'due',     label:'Due Date Check (30 days from order)',                       role:'Trainee', done: true,                    doneDate: null },
-    ...(a.isLate ? [{ key:'cond', label:'Condonation of Delay Application Filed',      role:'Trainee' as const, done: !!a.condonationFiled, doneDate: null, undoField: { condonationFiled: false } }] : []),
-    { key:'grounds', label:'Fee Challan Prepared and Grounds of Appeal Drafted',        role:'Trainee', done: !!a.groundsPreparedAt,   doneDate: a.groundsPreparedAt, undoField: { groundsPreparedAt: null } },
-    { key:'review',  label:'Internal Review by Senior',                                 role:'Manager', done: !!a.internalReviewedAt,  doneDate: a.internalReviewedAt, undoField: { internalReviewedAt: null } },
-    { key:'partner', label:'Final Approval by Sir Asif',                                role:'Partner', done: !!a.partnerApprovedAt,   doneDate: a.partnerApprovedAt,  undoField: { partnerApprovedAt: null } },
-    { key:'submit',  label:`Appeal Submitted${a.submissionMethod ? ` (${a.submissionMethod})` : ''}`, role:'Trainee', done: !!a.submittedAt, doneDate: a.submittedAt, undoField: { submittedAt: null, submissionMethod: null } },
-    { key:'hearing', label:'Hearing Date Scheduled',                                    role:'Manager', done: (a.hearings?.length ?? 0) > 0, doneDate: a.hearings?.[0]?.scheduledDate },
+    ...(a.isLate ? [{ key:'cond', label:'Condonation of Delay Application Filed',      role:'Trainee' as const, done: !!a.condonationFiled, doneDate: null, undoField: { condonationFiled: false }, actorId: a.condonationFiledById }] : []),
+    { key:'grounds', label:'Fee Challan Prepared and Grounds of Appeal Drafted',        role:'Trainee', done: !!a.groundsPreparedAt,   doneDate: a.groundsPreparedAt, undoField: { groundsPreparedAt: null }, actorId: a.groundsPreparedById },
+    { key:'review',  label:'Internal Review by Senior',                                 role:'Manager', done: !!a.internalReviewedAt,  doneDate: a.internalReviewedAt, undoField: { internalReviewedAt: null }, actorId: a.internalReviewById },
+    { key:'partner', label:'Final Approval by Sir Asif',                                role:'Partner', done: !!a.partnerApprovedAt,   doneDate: a.partnerApprovedAt,  undoField: { partnerApprovedAt: null }, actorId: a.partnerApprovedById },
+    { key:'submit',  label:`Appeal Submitted${a.submissionMethod ? ` (${a.submissionMethod})` : ''}`, role:'Trainee', done: !!a.submittedAt, doneDate: a.submittedAt, undoField: { submittedAt: null, submissionMethod: null }, actorId: a.submittedById },
+    { key:'hearing', label:'Hearing Date Scheduled',                                    role:'Manager', done: (a.hearings?.length ?? 0) > 0, doneDate: a.hearings?.[0]?.scheduledDate, actorId: a.hearings?.[0]?.createdById },
   ]
 
   const curIdx    = steps.findIndex(s => !s.done)
@@ -527,6 +537,7 @@ function AppealFlow({ appeal: a, caseId, onReload }: { appeal: any; caseId: stri
           <React.Fragment key={step.key}>
             <StepCard idx={idx} label={step.label} role={step.role} isDone={isDone} isActive={isActive}
               doneDate={step.doneDate} undoable={isLastDone} onUndo={() => patch(step.undoField!)} actionLoading={loading}
+              actorName={step.actorId ? actors[step.actorId]?.fullName : undefined}
               noteSection={isActive && step.key !== 'hearing' ? noteArea : undefined}>
               {isActive && step.key==='cond'    && <Btn label="Condonation Filed" color={DANGER} onClick={() => patch({ condonationFiled:true })} disabled={loading} />}
               {isActive && step.key==='grounds' && (
@@ -598,6 +609,7 @@ function AppealFlow({ appeal: a, caseId, onReload }: { appeal: any; caseId: stri
           label={a.outcome==='IN_FAVOR'?'Appeal Decided in Favour of Client':'Appeal Decided Against Client'}
           color={a.outcome==='IN_FAVOR'?GREEN:DANGER}
           onUndo={() => patch({ outcome:'PENDING', orderDate:null })} loading={loading}
+          actorName={a.outcomeById ? actors[a.outcomeById]?.fullName : undefined}
         >
           {a.outcome==='AGAINST' && !a.challanPaid && <Btn label="Mark Tax Demand Paid" color={GREEN} onClick={() => patch({ challanPaid:true, challanPaidAt:new Date().toISOString() })} disabled={loading} />}
           {a.outcome==='AGAINST' &&  a.challanPaid && <span style={{ fontSize:12, color:GREEN, fontWeight:600, fontFamily:F }}>Tax Demand Paid</span>}
@@ -610,7 +622,7 @@ function AppealFlow({ appeal: a, caseId, onReload }: { appeal: any; caseId: stri
 // ─────────────────────────────────────────────────────────────────────────────
 // STAY FLOW
 // ─────────────────────────────────────────────────────────────────────────────
-function StayFlow({ stay: s, onReload }: { stay: any; onReload: () => void }) {
+function StayFlow({ stay: s, onReload, actors }: { stay: any; onReload: () => void; actors: Record<string, { id: string; fullName: string; role: string }> }) {
   const { user } = useAuth()
   const canManagerAct = MANAGER_TIER.includes(user?.role ?? '')
   const [loading, setLoading]             = useState(false)
@@ -660,11 +672,11 @@ function StayFlow({ stay: s, onReload }: { stay: any; onReload: () => void }) {
       attachUploading={attachUploading} onUpload={handleUpload} />
   )
 
-  type S = { key: string; label: string; role: 'Trainee'|'Manager'|'Partner'; done: boolean; doneDate?: string|null; undoField?: Record<string,any> }
+  type S = { key: string; label: string; role: 'Trainee'|'Manager'|'Partner'; done: boolean; doneDate?: string|null; undoField?: Record<string,any>; actorId?: string|null }
   const steps: S[] = [
     { key:'recv',   label:'Recovery Notice Received from Client',       role:'Manager', done: true,            doneDate: s.triggeredAt ?? s.createdAt },
-    { key:'review', label:'Stay Application Prepared and Reviewed',     role:'Manager', done: !!s.reviewedAt,  doneDate: s.reviewedAt,  undoField: { reviewedAt: null } },
-    { key:'submit', label:`Application Submitted${s.submissionMethod ? ` (${s.submissionMethod})` : ''}`, role:'Trainee', done: !!s.submittedAt, doneDate: s.submittedAt, undoField: { submittedAt: null } },
+    { key:'review', label:'Stay Application Prepared and Reviewed',     role:'Manager', done: !!s.reviewedAt,  doneDate: s.reviewedAt,  undoField: { reviewedAt: null }, actorId: s.reviewedById },
+    { key:'submit', label:`Application Submitted${s.submissionMethod ? ` (${s.submissionMethod})` : ''}`, role:'Trainee', done: !!s.submittedAt, doneDate: s.submittedAt, undoField: { submittedAt: null }, actorId: s.submittedById },
   ]
 
   const curIdx    = steps.findIndex(st => !st.done)
@@ -698,6 +710,7 @@ function StayFlow({ stay: s, onReload }: { stay: any; onReload: () => void }) {
           <React.Fragment key={step.key}>
             <StepCard idx={idx} label={step.label} role={step.role} isDone={isDone} isActive={isActive}
               doneDate={step.doneDate} undoable={isLastDone} onUndo={() => patch(step.undoField!)} actionLoading={loading}
+              actorName={step.actorId ? actors[step.actorId]?.fullName : undefined}
               noteSection={isActive ? noteArea : undefined}>
               {isActive && step.key==='review' && (canManagerAct
                 ? <Btn label="Mark Prepared and Reviewed" color={PURPLE} onClick={() => markDone({ reviewedAt: new Date().toISOString() })} disabled={loading} />
@@ -728,6 +741,7 @@ function StayFlow({ stay: s, onReload }: { stay: any; onReload: () => void }) {
           label={s.outcome==='GRANTED'?'Stay Granted, FBR Recovery Stopped':'Stay Rejected, FBR Recovery Proceeds'}
           color={s.outcome==='GRANTED'?GREEN:DANGER}
           onUndo={() => patch({ outcome:'PENDING', decidedAt:null })} loading={loading}
+          actorName={s.outcomeById ? actors[s.outcomeById]?.fullName : undefined}
         >
           {s.outcome==='GRANTED' && (
             !s.resumedAt
@@ -903,16 +917,16 @@ export default function FbrCaseDetail({ case: c, onUpdated, onReload, onMarkInco
             {(c.noticeRounds ?? []).map((r: any, i: number) => (
               <div key={r.id} style={{ marginBottom: i < c.noticeRounds.length-1 ? 32 : 0 }}>
                 {i > 0 && <div style={{ height: 1, background: '#F1F5F9', margin: '0 0 24px' }} />}
-                <NoticeRoundFlow round={r} caseCreatedAt={c.createdAt} onReload={onReload} isLast={i===c.noticeRounds.length-1} onAddFurther={i===c.noticeRounds.length-1 ? addRound : undefined} />
+                <NoticeRoundFlow round={r} caseCreatedAt={c.createdAt} onReload={onReload} isLast={i===c.noticeRounds.length-1} onAddFurther={i===c.noticeRounds.length-1 ? addRound : undefined} actors={c.actors ?? {}} />
               </div>
             ))}
           </>
         )}
-        {activeTab==='appeal' && c.appeal && <AppealFlow appeal={c.appeal} caseId={c.id} onReload={onReload} />}
+        {activeTab==='appeal' && c.appeal && <AppealFlow appeal={c.appeal} caseId={c.id} onReload={onReload} actors={c.actors ?? {}} />}
         {activeTab==='stay'   && hasStay   && (c.stayApplications ?? []).map((s: any, i: number) => (
           <div key={s.id} style={{ marginBottom: i < c.stayApplications.length-1 ? 24 : 0 }}>
             {i > 0 && <div style={{ height: 1, background: '#F1F5F9', margin: '0 0 20px' }} />}
-            <StayFlow stay={s} onReload={onReload} />
+            <StayFlow stay={s} onReload={onReload} actors={c.actors ?? {}} />
           </div>
         ))}
       </div>

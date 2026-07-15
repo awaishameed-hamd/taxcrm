@@ -123,7 +123,7 @@ export class FbrController {
   @Post('cases/:id/hearings')
   @Roles(...ALL)
   addHearing(@Param('id') caseId: string, @Body() dto: AddHearingDto, @Req() req: any) {
-    return this.svc.addHearing(caseId, dto, req.user.role)
+    return this.svc.addHearing(caseId, dto, req.user.id, req.user.role)
   }
 
   @Patch('hearings/:id')
