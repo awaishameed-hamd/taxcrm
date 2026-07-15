@@ -17,6 +17,7 @@ export class UpdateClientProfileDto {
   @IsOptional() @IsString()     representativeId?: string
   @IsOptional() @IsArray() @IsString({ each: true }) salesTaxAuthorities?: string[]
   @IsOptional() @IsBoolean()    hasWhtService?: boolean
+  @IsOptional() @IsBoolean()    hasAdvanceTaxService?: boolean
   @IsOptional() @IsString()     yearEnd?:      string
   @IsOptional()                 extraFields?:  Record<string, any>
 }

@@ -95,7 +95,8 @@ function monthName(m: number) {
 
 // Period display: depends on taskType stored in DB
 function periodLabel(taskType: string | undefined, periodMonth: number, periodYear: number) {
-  if (taskType === 'INCOME_TAX') return `FY ${periodYear}`
+  // Income Tax: periodMonth 0 = the regular annual return, 1/4/7/10 = a Quarterly Advance Tax task
+  if (taskType === 'INCOME_TAX') return periodMonth > 0 ? `Q${periodMonth} Advance Tax ${periodYear}` : `FY ${periodYear}`
   if (taskType === 'WHT') return `Q${periodMonth} ${periodYear}`
   return `${monthName(periodMonth)} ${periodYear}`
 }

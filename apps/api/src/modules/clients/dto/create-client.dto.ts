@@ -76,6 +76,10 @@ export class CreateClientDto {
   hasWhtService?: boolean
 
   @IsOptional()
+  @IsBoolean()
+  hasAdvanceTaxService?: boolean
+
+  @IsOptional()
   @IsString()
   yearEnd?: string
 

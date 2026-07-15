@@ -264,8 +264,9 @@ model ClientProfile {
 
   // Services enabled for this client
   // Sales Tax: which authorities are active (FBR, PRA, SRB, KPRA, BRA, AJK)
-  salesTaxAuthorities String[] @default([])
-  hasWhtService       Boolean  @default(false)
+  salesTaxAuthorities  String[] @default([])
+  hasWhtService        Boolean  @default(false)
+  hasAdvanceTaxService Boolean  @default(false)
 
   // Assigned representative
   representativeId String?

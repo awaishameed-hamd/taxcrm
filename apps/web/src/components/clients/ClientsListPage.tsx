@@ -386,6 +386,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
   const SALES_TAX_AUTHORITIES = ['FBR', 'PRA', 'SRB', 'KPRA', 'BRA', 'AJK']
   const [salesTaxAuthorities, setSalesTaxAuthorities] = useState<string[]>(initial?.salesTaxAuthorities ?? [])
   const [hasWhtService,       setHasWhtService]       = useState<boolean>(initial?.hasWhtService ?? false)
+  const [hasAdvanceTaxService, setHasAdvanceTaxService] = useState<boolean>(initial?.hasAdvanceTaxService ?? false)
   const [yearEnd,             setYearEnd]             = useState<string>(initial?.yearEnd ?? 'JUNE')
 
   const toggleAuthority = (auth: string) => {
@@ -494,6 +495,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
 
       payload.salesTaxAuthorities = salesTaxAuthorities
       payload.hasWhtService       = hasWhtService
+      payload.hasAdvanceTaxService = hasAdvanceTaxService
       payload.yearEnd             = yearEnd
       payload.representativeId    = representativeId || null
       // Always send the assignment — it's mandatory and rendered outside the dynamic field loop above,
@@ -699,7 +701,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
             </div>
 
             {/* WHT */}
-            <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ padding: '12px 18px', borderBottom: `1px solid ${P.border}`, display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, fontFamily: "'Aptos', sans-serif", flex: 1 }}>
                 Withholding Tax (WHT) FBR
               </div>
@@ -720,6 +722,31 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
               </button>
               <span style={{ fontSize: 12, fontWeight: 700, color: hasWhtService ? TEAL : '#94A3B8', fontFamily: "'Aptos', sans-serif", minWidth: 28 }}>
                 {hasWhtService ? 'ON' : 'OFF'}
+              </span>
+            </div>
+
+            {/* Quarterly Advance Tax */}
+            <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, fontFamily: "'Aptos', sans-serif", flex: 1 }}>
+                Quarterly Advance Tax
+              </div>
+              <button
+                type="button"
+                onClick={() => setHasAdvanceTaxService(v => !v)}
+                style={{
+                  width: 44, height: 24, borderRadius: 12, border: 'none', padding: 0,
+                  background: hasAdvanceTaxService ? TEAL : '#CBD5E1',
+                  cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 2, left: hasAdvanceTaxService ? 22 : 2,
+                  width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.25)', transition: 'left 0.2s', display: 'block',
+                }} />
+              </button>
+              <span style={{ fontSize: 12, fontWeight: 700, color: hasAdvanceTaxService ? TEAL : '#94A3B8', fontFamily: "'Aptos', sans-serif", minWidth: 28 }}>
+                {hasAdvanceTaxService ? 'ON' : 'OFF'}
               </span>
             </div>
           </div>

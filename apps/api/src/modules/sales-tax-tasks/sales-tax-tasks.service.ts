@@ -544,6 +544,59 @@ export class SalesTaxTasksService {
     return results
   }
 
+  // ── Auto-create quarterly Advance Tax tasks (1 per client per quarter) ────────
+  // Same cadence/logic as WHT above, but filed under taskType INCOME_TAX so it
+  // shows up in the Income Tax tab/filters/Tax Summary/Files alongside regular
+  // Income Tax returns instead of getting its own tab.
+
+  async createQuarterlyAdvanceTaxTasks(quarter: number, year: number) {
+    // quarter 1=Jan-Mar, 2=Apr-Jun, 3=Jul-Sep, 4=Oct-Dec
+    // We store periodMonth as the first month of the quarter (1, 4, 7, 10) —
+    // the regular annual Income Tax return uses periodMonth 0, so these never collide.
+    const periodMonth = (quarter - 1) * 3 + 1
+
+    const clients = await this.prisma.clientProfile.findMany({
+      where: { hasAdvanceTaxService: true, traineeId: { not: null } },
+      select: { id: true, traineeId: true },
+    })
+
+    const results = { created: 0, skipped: 0 }
+    for (const client of clients) {
+      const exists = await this.prisma.salesTaxTask.findUnique({
+        where: {
+          clientId_periodMonth_periodYear_authority_returnType_taskType: {
+            clientId: client.id, periodMonth, periodYear: year,
+            authority: 'FBR', returnType: 'ORIGINAL', taskType: 'INCOME_TAX',
+          },
+        },
+      })
+      if (exists) { results.skipped++; continue }
+
+      await this.prisma.salesTaxTask.create({
+        data: {
+          clientId:    client.id,
+          traineeId:   client.traineeId!,
+          periodMonth,
+          periodYear:  year,
+          taskType:    'INCOME_TAX',
+          authority:   'FBR',
+          returnType:  'ORIGINAL',
+          status:      SalesTaxTaskStatus.DATA_COLLECTION,
+          history: {
+            create: {
+              fromStatus: null,
+              toStatus:   SalesTaxTaskStatus.DATA_COLLECTION,
+              actedById:  client.traineeId!,
+              comment:    `Auto-created quarterly Advance Tax task (Q${quarter} ${year})`,
+            },
+          },
+        },
+      })
+      results.created++
+    }
+    return results
+  }
+
   // ── Internal: perform status transition + log history ───────────────────────
 
   private async transition(

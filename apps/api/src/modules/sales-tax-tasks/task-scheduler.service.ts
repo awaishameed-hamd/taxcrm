@@ -31,4 +31,16 @@ export class TaskSchedulerService {
     const result = await this.salesTaxTasksService.createQuarterlyWhtTasks(quarter, year)
     this.logger.log(`WHT auto-create done: created=${result.created}, skipped=${result.skipped}`)
   }
+
+  // Quarterly Advance Tax (Income Tax): 1st of Jan, Apr, Jul, Oct at 00:15
+  @Cron('15 0 1 1,4,7,10 *')
+  async handleQuarterlyAdvanceTax() {
+    const now   = new Date()
+    const month = now.getMonth() + 1
+    const year  = now.getFullYear()
+    const quarter = Math.ceil(month / 3)
+    this.logger.log(`Auto-creating Quarterly Advance Tax tasks for Q${quarter} ${year}`)
+    const result = await this.salesTaxTasksService.createQuarterlyAdvanceTaxTasks(quarter, year)
+    this.logger.log(`Advance Tax auto-create done: created=${result.created}, skipped=${result.skipped}`)
+  }
 }

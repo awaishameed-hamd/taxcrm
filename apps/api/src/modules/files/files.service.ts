@@ -12,7 +12,8 @@ function quarterLabel(month: number): string {
 }
 
 function periodLabel(taskType: string, month: number, year: number): string {
-  if (taskType === 'INCOME_TAX') return `${year}`
+  // Income Tax: month 0 = the regular annual return, 1/4/7/10 = a Quarterly Advance Tax task
+  if (taskType === 'INCOME_TAX') return month > 0 ? `${year} ${quarterLabel(month)} Advance Tax` : `${year}`
   if (taskType === 'WHT')        return `${year} ${quarterLabel(month)}`
   return `${MONTH_NAMES[month - 1]} ${year}`
 }

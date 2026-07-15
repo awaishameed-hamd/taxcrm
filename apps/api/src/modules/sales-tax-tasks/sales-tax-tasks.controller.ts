@@ -168,4 +168,11 @@ export class SalesTaxTasksController {
   createQuarterlyWht(@Body('quarter') quarter: number, @Body('year') year: number) {
     return this.service.createQuarterlyWhtTasks(quarter, year)
   }
+
+  // ── Admin/Partner: manually trigger quarterly Advance Tax task creation ───────
+  @Post('admin/create-quarterly-advance-tax')
+  @Roles(Role.ADMIN, Role.PARTNER)
+  createQuarterlyAdvanceTax(@Body('quarter') quarter: number, @Body('year') year: number) {
+    return this.service.createQuarterlyAdvanceTaxTasks(quarter, year)
+  }
 }
