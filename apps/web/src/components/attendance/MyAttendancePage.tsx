@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { useAuth } from '@/contexts/AuthContext'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -54,7 +55,10 @@ const CAL_LABEL: Record<string, string> = {
   leave: 'Leave', holiday: 'Holiday', weekend: 'Off', upcoming: '', not_joined: 'Not Joined',
 }
 
-function CalendarView({ calendar, year, month }: { calendar: any[]; year: number; month: number }) {
+function CalendarView({ calendar, year, month, userName, userRole, summary }: {
+  calendar: any[]; year: number; month: number; userName?: string; userRole?: string
+  summary: { present?: number; absent?: number; late?: number; leave?: number }
+}) {
   const daysInMonth = new Date(year, month, 0).getDate()
   const firstDay    = new Date(year, month - 1, 1).getDay()
   const todayStr    = new Date().toISOString().split('T')[0]
@@ -63,7 +67,37 @@ function CalendarView({ calendar, year, month }: { calendar: any[]; year: number
   calendar.forEach(r => { dayMap[parseInt(r.date.split('-')[2], 10)] = r })
 
   return (
-    <div style={{ padding: '20px 20px 28px' }}>
+    <div>
+      {/* Header bar — matches Attendance Report's calendar header */}
+      <div style={{ background: '#64748B', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h2 style={{ fontFamily: "'Angelos', sans-serif", fontSize: 20, display: 'inline-block', transform: 'skewX(12deg)', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
+            {userName ?? 'My Attendance'}
+          </h2>
+          {userRole && (
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: '"Aptos", sans-serif' }}>
+              {userRole.replace(/_/g, ' ')}
+            </span>
+          )}
+          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 600, fontFamily: '"Aptos", sans-serif' }}>
+            {MONTH_NAMES[month - 1]} {year}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 12 }}>
+          {[
+            { label: 'Present', val: summary.present ?? 0, color: '#86efac' },
+            { label: 'Absent',  val: summary.absent ?? 0,  color: '#fca5a5' },
+            { label: 'Late',    val: summary.late ?? 0,    color: '#fde68a' },
+            { label: 'Leave',   val: summary.leave ?? 0,   color: '#93c5fd' },
+          ].map(({ label, val, color }) => (
+            <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#F1F5F9', fontFamily: '"Aptos", sans-serif', fontWeight: 700 }}>
+              <span style={{ color }}>{val}</span> {label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: '20px 20px 28px' }}>
 
       {/* Day-of-week header */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5, marginBottom: 8 }}>
@@ -165,6 +199,7 @@ function CalendarView({ calendar, year, month }: { calendar: any[]; year: number
           </div>
         ))}
       </div>
+      </div>
     </div>
   )
 }
@@ -180,6 +215,7 @@ const pillSelect: React.CSSProperties = {
 }
 
 export default function MyAttendancePage() {
+  const { user } = useAuth()
   const now      = new Date()
   const nowYear  = now.getFullYear()
   const nowMonth = now.getMonth() + 1
@@ -374,7 +410,7 @@ export default function MyAttendancePage() {
             ? <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 160 }}>
                 <div style={{ width: 32, height: 32, borderRadius: '50%', border: `4px solid ${P.teal}30`, borderTopColor: P.teal, animation: 'spin 0.75s linear infinite' }} />
               </div>
-            : <CalendarView calendar={calendar} year={year} month={month} />
+            : <CalendarView calendar={calendar} year={year} month={month} userName={user?.fullName} userRole={user?.role} summary={summary} />
         )}
       </div>
     </div>

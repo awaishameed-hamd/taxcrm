@@ -438,7 +438,7 @@ export class AttendanceService {
     const records = await this.prisma.attendance.findMany({
       where,
       include: {
-        user: { select: { id: true, fullName: true, role: true, isActive: true } },
+        user: { select: { id: true, fullName: true, role: true, isActive: true, createdAt: true } },
       },
       orderBy: [{ date: 'asc' }, { user: { fullName: 'asc' } }],
     })
@@ -449,6 +449,7 @@ export class AttendanceService {
       userName:    r.user.fullName,
       userRole:    r.user.role,
       isActive:    r.user.isActive,
+      joinDate:    r.user.createdAt.toISOString().split('T')[0],
       date:        r.date.toISOString().split('T')[0],
       loginTime:   r.loginTime
         ? new Date(r.loginTime).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false })

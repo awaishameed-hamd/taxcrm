@@ -44,6 +44,7 @@ interface EmpSummary {
   userName:  string
   userRole:  string
   isActive:  boolean
+  joinDate?: string
   present:   number
   late:      number
   absent:    number
@@ -55,7 +56,7 @@ function buildSummaries(records: any[]): EmpSummary[] {
   const map = new Map<string, EmpSummary>()
   for (const r of records) {
     if (!map.has(r.userId)) {
-      map.set(r.userId, { userId: r.userId, userName: r.userName, userRole: r.userRole, isActive: r.isActive ?? true, present: 0, late: 0, absent: 0, leave: 0, records: [] })
+      map.set(r.userId, { userId: r.userId, userName: r.userName, userRole: r.userRole, isActive: r.isActive ?? true, joinDate: r.joinDate, present: 0, late: 0, absent: 0, leave: 0, records: [] })
     }
     const s = map.get(r.userId)!
     s.records.push(r)
@@ -325,12 +326,13 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
   }, [records])
 
   const CAL_MAP: Record<string, { bg: string; pill: string; pillText: string; dayColor: string; label: string }> = {
-    PRESENT: { bg: '#bbf7d0', pill: '#16a34a', pillText: '#fff', dayColor: '#14532d', label: 'Present' },
-    LATE:    { bg: '#fde68a', pill: '#d97706', pillText: '#fff', dayColor: '#78350f', label: 'Late'    },
-    ABSENT:  { bg: '#fecaca', pill: '#dc2626', pillText: '#fff', dayColor: '#7f1d1d', label: 'Absent'  },
-    LEAVE:   { bg: '#bfdbfe', pill: '#2563eb', pillText: '#fff', dayColor: '#1e3a8a', label: 'Leave'   },
-    HOLIDAY: { bg: '#ddd6fe', pill: '#7c3aed', pillText: '#fff', dayColor: '#4c1d95', label: 'Holiday' },
-    WEEKEND: { bg: '#e2e8f0', pill: '#64748b', pillText: '#fff', dayColor: '#475569', label: 'Off'     },
+    PRESENT:    { bg: '#bbf7d0', pill: '#16a34a', pillText: '#fff', dayColor: '#14532d', label: 'Present'    },
+    LATE:       { bg: '#fde68a', pill: '#d97706', pillText: '#fff', dayColor: '#78350f', label: 'Late'       },
+    ABSENT:     { bg: '#fecaca', pill: '#dc2626', pillText: '#fff', dayColor: '#7f1d1d', label: 'Absent'     },
+    LEAVE:      { bg: '#bfdbfe', pill: '#2563eb', pillText: '#fff', dayColor: '#1e3a8a', label: 'Leave'      },
+    HOLIDAY:    { bg: '#ddd6fe', pill: '#7c3aed', pillText: '#fff', dayColor: '#4c1d95', label: 'Holiday'    },
+    WEEKEND:    { bg: '#e2e8f0', pill: '#64748b', pillText: '#fff', dayColor: '#475569', label: 'Off'        },
+    NOT_JOINED: { bg: '#fef3c7', pill: '#b45309', pillText: '#fff', dayColor: '#78350f', label: 'Not Joined' },
   }
   const todayStr = new Date().toISOString().split('T')[0]
 
@@ -435,12 +437,13 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5 }}>
             {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
-              const dateStr  = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-              const rec      = dayMap[d]
-              const weekend  = !rec && isWeekendDay(dateStr)
-              const status   = rec?.status ?? (weekend ? 'WEEKEND' : null)
-              const cs       = status ? (CAL_MAP[status] ?? null) : null
-              const isToday  = dateStr === todayStr
+              const dateStr    = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+              const rec        = dayMap[d]
+              const isNotJoined = !rec && !!emp.joinDate && dateStr < emp.joinDate
+              const weekend    = !rec && !isNotJoined && isWeekendDay(dateStr)
+              const status     = isNotJoined ? 'NOT_JOINED' : (rec?.status ?? (weekend ? 'WEEKEND' : null))
+              const cs         = status ? (CAL_MAP[status] ?? null) : null
+              const isToday    = dateStr === todayStr
               const inEditWin = canEdit && dateStr >= sevenDaysAgo && dateStr <= todayStr2
 
               return (
@@ -484,7 +487,7 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
                       Edit
                     </button>
                   )}
-                  {canCreate && dateStr >= sevenDaysAgo && dateStr <= todayStr2 && !rec && (
+                  {canCreate && dateStr >= sevenDaysAgo && dateStr <= todayStr2 && !rec && !isNotJoined && (
                     <button onClick={() => openCreate(dateStr)} style={{ position: 'absolute', bottom: 5, right: 5, display: 'flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: 'rgba(242,172,24,0.12)', color: '#b45309', border: '1px solid rgba(242,172,24,0.4)', cursor: 'pointer', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.04em', lineHeight: 1.4 }}
                       onMouseEnter={e => { e.currentTarget.style.background = '#F2AC18'; e.currentTarget.style.color = '#fff' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(242,172,24,0.12)'; e.currentTarget.style.color = '#b45309' }}>
