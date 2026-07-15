@@ -34,19 +34,18 @@ function SendBackButton({ onClick }: { onClick: () => void }) {
 
 function SendBackModal({ onCancel, onConfirm, loading }: { onCancel: () => void; onConfirm: (comment: string) => void; loading: boolean }) {
   const [comment, setComment] = useState('')
-  const tooShort = comment.trim().length < 5
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 12, padding: 20, width: 380, maxWidth: '90vw', fontFamily: F }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Send Back to Trainee</div>
-        <div style={{ fontSize: 12, color: '#64748B', marginBottom: 12 }}>A reason is required. The trainee will see this comment.</div>
-        <textarea value={comment} onChange={e => setComment(e.target.value)} rows={3} placeholder="Reason for sending back..."
-          style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 13, outline: 'none', resize: 'none', fontFamily: F }} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-          <button onClick={onCancel} disabled={loading} style={{ padding: '7px 14px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#F1F5F9', color: '#64748B', border: '1px solid #E2E8F0', fontFamily: F }}>Cancel</button>
-          <button onClick={() => onConfirm(comment)} disabled={loading || tooShort}
-            style={{ padding: '7px 16px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: (loading || tooShort) ? 'default' : 'pointer', background: DANGER, color: '#fff', border: 'none', fontFamily: F, opacity: (loading || tooShort) ? 0.5 : 1 }}>
-            Send Back
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', fontFamily: F }}>
+        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 900, color: '#D62828', fontFamily: F }}>Send Back to Trainee</h3>
+        <p style={{ margin: '0 0 16px', fontSize: 12, color: '#64748B', fontFamily: F }}>A reason is required. The trainee will see this comment.</p>
+        <textarea value={comment} onChange={e => setComment(e.target.value)} rows={4} placeholder="Explain what needs to be fixed…"
+          style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 13, fontFamily: F, outline: 'none', resize: 'none', marginBottom: 16 }} />
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} disabled={loading} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: F, color: '#475569' }}>Cancel</button>
+          <button onClick={() => onConfirm(comment)} disabled={loading || !comment.trim()}
+            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#D62828', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: F, opacity: (loading || !comment.trim()) ? 0.6 : 1 }}>
+            {loading ? 'Sending…' : 'Send Back'}
           </button>
         </div>
       </div>
