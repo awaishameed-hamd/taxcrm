@@ -314,22 +314,27 @@ export class AttendanceService {
       const att      = attMap.get(dateStr)
       const isUpcoming = dateStr > today
 
-      let status: string
+      // Resolve day type — fall back to calendar (weekend vs weekday) when there's no WorkingDay override
+      const isHoliday = wd?.dayType === DayType.HOLIDAY
+      const isWeekend = wd ? wd.dayType === DayType.WEEKEND : (dayOfWeek === 0 || dayOfWeek === 6)
 
-      if (!wd) {
-        // No working day config: weekends show as weekend, weekdays as upcoming/absent
-        status = dayOfWeek === 0 || dayOfWeek === 6 ? 'weekend' : (isUpcoming ? 'upcoming' : 'absent')
-      } else if (wd.dayType === DayType.WEEKEND) {
+      let status: string
+      if (isHoliday) {
+        status = 'leave'
+      } else if (isWeekend) {
         status = 'weekend'
-      } else if (wd.dayType === DayType.HOLIDAY) {
+      } else if (isUpcoming) {
+        status = 'upcoming'
+      } else if (!att) {
+        // A real attendance record always wins over the day-type fallback — this used to be
+        // skipped entirely when there was no WorkingDay row, showing "Absent" even with a login.
+        status = 'absent'
+      } else if (att.status === AttendanceStatus.LATE) {
+        status = 'late'
+      } else if (att.status === AttendanceStatus.LEAVE) {
         status = 'leave'
       } else {
-        // Working day
-        if (isUpcoming) status = 'upcoming'
-        else if (!att)  status = 'absent'
-        else if (att.status === AttendanceStatus.LATE) status = 'late'
-        else if (att.status === AttendanceStatus.LEAVE) status = 'leave'
-        else status = 'present'
+        status = 'present'
       }
 
       if (status === 'present')  summary.present++
