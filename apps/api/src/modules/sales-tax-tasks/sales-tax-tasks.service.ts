@@ -381,7 +381,7 @@ export class SalesTaxTasksService {
     return task
   }
 
-  async summaryCounts(userId: string, role: string) {
+  async summaryCounts(userId: string, role: string, view?: string) {
     const approvalStatuses = [
       SalesTaxTaskStatus.INCHARGE_REVIEW,
       SalesTaxTaskStatus.SUBMISSION_APPROVAL,
@@ -395,18 +395,16 @@ export class SalesTaxTasksService {
       // Trainee: only their own assigned tasks
       taxWhere = { traineeId: userId, status: { not: SalesTaxTaskStatus.COMPLETED } }
       fbrWhere = { assignedToId: userId, currentStage: { not: 'CLOSED' } }
-    } else if (role === 'MANAGER') {
-      // Manager: tasks pending their approval
-      taxWhere = { status: { in: approvalStatuses } }
-      fbrWhere = { currentStage: { not: 'CLOSED' } }
-    } else if (role === 'TEAM_LEAD') {
-      // Team lead: tasks from their team pending approval
-      taxWhere = { status: { in: approvalStatuses }, trainee: { teamLeadId: userId } }
-      fbrWhere = { currentStage: { not: 'CLOSED' }, assignedTo: { teamLeadId: userId } }
+    } else if (view === 'approval') {
+      // Task Approval tab: tasks pending review — the whole team for Team Lead, firm-wide otherwise
+      const teamFilter    = role === 'TEAM_LEAD' ? { trainee: { teamLeadId: userId } } : {}
+      const teamFilterFbr = role === 'TEAM_LEAD' ? { assignedTo: { teamLeadId: userId } } : {}
+      taxWhere = { status: { in: approvalStatuses }, ...teamFilter }
+      fbrWhere = { currentStage: { not: 'CLOSED' }, ...teamFilterFbr }
     } else {
-      // Admin / Partner: all active tasks
-      taxWhere = { status: { not: SalesTaxTaskStatus.COMPLETED } }
-      fbrWhere = { currentStage: { not: 'CLOSED' } }
+      // Tasks tab ("my tasks"): whatever's assigned directly to this user, regardless of role
+      taxWhere = { traineeId: userId, status: { not: SalesTaxTaskStatus.COMPLETED } }
+      fbrWhere = { assignedToId: userId, currentStage: { not: 'CLOSED' } }
     }
 
     const [st, it, wht, notices] = await Promise.all([

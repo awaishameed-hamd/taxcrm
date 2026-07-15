@@ -355,13 +355,13 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
 
   // ── Fetch tab summary counts ────────────────────────────────────────────────
   useEffect(() => {
-    api.get('/sales-tax-tasks/summary-counts')
+    api.get('/sales-tax-tasks/summary-counts', { params: { view: defaultManagerView } })
       .then(r => {
         const d = r.data?.data ?? r.data
         setTabCounts(prev => ({ ...prev, sales_tax: d.SALES_TAX ?? 0, income_tax: d.INCOME_TAX ?? 0, wht: d.WHT ?? 0, notices: d.NOTICES ?? 0 }))
       })
       .catch(() => {})
-  }, [])
+  }, [defaultManagerView])
 
   // ── Fetch pipeline tasks ────────────────────────────────────────────────────
   const fetchPipeTasks = useCallback(async (silent = false) => {
@@ -409,7 +409,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     fetchPipeTasks(true)
     fetchGenTasks(true)
     fetchFbrCases(true)
-    api.get('/sales-tax-tasks/summary-counts').then(r => {
+    api.get('/sales-tax-tasks/summary-counts', { params: { view: defaultManagerView } }).then(r => {
       const d = r.data?.data ?? r.data
       setTabCounts(prev => ({ ...prev, sales_tax: d.SALES_TAX ?? 0, income_tax: d.INCOME_TAX ?? 0, wht: d.WHT ?? 0, notices: d.NOTICES ?? 0 }))
     }).catch(() => {})
