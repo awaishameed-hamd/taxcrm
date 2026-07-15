@@ -422,7 +422,8 @@ export class FbrService {
   }
 
   // â”€â”€ Hearings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  async addHearing(caseId: string, dto: AddHearingDto) {
+  async addHearing(caseId: string, dto: AddHearingDto, actorRole: Role) {
+    assertRoleTier(actorRole, MANAGER_TIER, 'schedule a hearing date')
     return this.prisma.fbrHearing.create({
       data: {
         caseId,
@@ -433,7 +434,8 @@ export class FbrService {
     })
   }
 
-  async updateHearing(id: string, dto: UpdateHearingDto) {
+  async updateHearing(id: string, dto: UpdateHearingDto, actorRole: Role) {
+    assertRoleTier(actorRole, MANAGER_TIER, 'update a hearing')
     const data: any = {}
     if (dto.scheduledDate !== undefined) data.scheduledDate = new Date(dto.scheduledDate)
     if (dto.adjournedTo   !== undefined) data.adjournedTo   = dto.adjournedTo ? new Date(dto.adjournedTo) : null
