@@ -1462,7 +1462,13 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                           ? <span style={{ fontSize:11, fontWeight:700, color:'#1565C0', background:'#E3F0FB', padding:'2px 8px', borderRadius:5, width:'fit-content' }}>Active</span>
                           : <span style={{ fontSize:11, color:'#16a34a', fontWeight:600 }}>{closedStr}</span>
                         }
-                        <button onClick={() => setSelectedFbr(c)}
+                        <button onClick={() => {
+                          setSelectedFbr(c)
+                          api.get(`/fbr/cases/${c.id}`).then(r => {
+                            const d = r.data?.data ?? r.data
+                            if (d) setSelectedFbr(d)
+                          }).catch(() => {})
+                        }}
                           style={{ padding:'5px 14px', borderRadius:7, border:'1.5px solid #1565C0', background:'#E3F0FB', color:'#1565C0', fontSize:12, fontWeight:700, cursor:'pointer', width:'fit-content' }}>
                           View
                         </button>
@@ -1813,7 +1819,13 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                   })()
                   const clientName = c.client?.businessName ?? c.client?.user?.fullName ?? ''
                   return (
-                    <button key={c.id} onClick={() => setSelectedFbr(c)}
+                    <button key={c.id} onClick={() => {
+                      setSelectedFbr(c)
+                      api.get(`/fbr/cases/${c.id}`).then(r => {
+                        const d = r.data?.data ?? r.data
+                        if (d) setSelectedFbr(d)
+                      }).catch(() => {})
+                    }}
                       style={{ display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', cursor:'pointer', borderBottom:`1px solid ${P.border}`, background: isActive ? '#E8EEF7' : '#F8FAFC', borderLeft: isActive ? `3px solid #1565C0` : '3px solid transparent' }}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
