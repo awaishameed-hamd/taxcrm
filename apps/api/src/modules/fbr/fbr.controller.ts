@@ -34,8 +34,9 @@ export class FbrController {
     @Query('clientId') clientId?: string,
     @Query('stage') stage?: string,
     @Query('taxType') taxType?: string,
+    @Query('view') view?: string,
   ) {
-    return this.svc.listCases(req.user.id, req.user.role, clientId, stage, taxType)
+    return this.svc.listCases(req.user.id, req.user.role, clientId, stage, taxType, view)
   }
 
   @Get('cases/:id')

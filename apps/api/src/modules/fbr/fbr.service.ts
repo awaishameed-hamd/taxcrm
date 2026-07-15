@@ -82,8 +82,50 @@ export class FbrService {
     return `FBR-${year}-${String(counter.value).padStart(4, '0')}`
   }
 
+  // â”€â”€ Which tier is the case currently waiting on (for the "Task Approval" queue) â”€â”€
+  private computeAwaitingRole(c: any): 'TRAINEE' | 'MANAGER' | 'PARTNER' | null {
+    if (c.currentStage === 'CLOSED' || c.currentStage === 'HIGHER_FORUM') return null
+
+    if (c.currentStage === 'STAY') {
+      const stays = c.stayApplications ?? []
+      const stay = [...stays].reverse().find((s: any) => s.outcome === 'PENDING') ?? stays[stays.length - 1]
+      if (!stay) return null
+      if (!stay.reviewedAt) return 'MANAGER'
+      if (!stay.submittedAt) return 'TRAINEE'
+      if (stay.outcome === 'PENDING') return 'MANAGER'
+      return null
+    }
+
+    if (c.currentStage === 'APPEAL') {
+      const a = c.appeal
+      if (!a) return null
+      if (a.isLate && !a.condonationFiled) return 'TRAINEE'
+      if (!a.groundsPreparedAt) return 'TRAINEE'
+      if (!a.internalReviewedAt) return 'MANAGER'
+      if (!a.partnerApprovedAt) return 'PARTNER'
+      if (!a.submittedAt) return 'TRAINEE'
+      if ((a.hearings?.length ?? 0) === 0) return 'MANAGER'
+      if (a.outcome === 'PENDING') return 'MANAGER'
+      return null
+    }
+
+    // NOTICE
+    const rounds = c.noticeRounds ?? []
+    const r = rounds[rounds.length - 1]
+    if (!r) return null
+    if (!r.noticeDate) return 'TRAINEE'
+    if (!r.docListCreatedAt) return 'TRAINEE'
+    if (!r.docListApprovedAt) return 'MANAGER'
+    if (!r.draftPreparedAt) return 'TRAINEE'
+    if (!r.internalReviewedAt) return 'MANAGER'
+    if (!r.partnerApprovedAt) return 'PARTNER'
+    if (!r.submittedAt) return 'TRAINEE'
+    if (r.outcome === 'PENDING') return 'MANAGER'
+    return null
+  }
+
   // â”€â”€ List cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  async listCases(userId: string, role: Role, clientId?: string, stage?: string, taxType?: string) {
+  async listCases(userId: string, role: Role, clientId?: string, stage?: string, taxType?: string, view?: string) {
     const where: any = {}
 
     if (clientId) where.clientId = clientId
@@ -104,15 +146,29 @@ export class FbrService {
       where,
       select: {
         ...CASE_SELECT,
-        noticeRounds: { select: { id: true, roundNumber: true, outcome: true } },
-        appeal: { select: { id: true, outcome: true, appealType: true } },
-        stayApplications: { select: { id: true, outcome: true } },
+        noticeRounds: { select: {
+          id: true, roundNumber: true, outcome: true, noticeDate: true, docListCreatedAt: true,
+          docListApprovedAt: true, draftPreparedAt: true, internalReviewedAt: true, partnerApprovedAt: true, submittedAt: true,
+        } },
+        appeal: { select: {
+          id: true, outcome: true, appealType: true, isLate: true, condonationFiled: true, groundsPreparedAt: true,
+          internalReviewedAt: true, partnerApprovedAt: true, submittedAt: true, hearings: { select: { id: true } },
+        } },
+        stayApplications: { select: { id: true, outcome: true, reviewedAt: true, submittedAt: true } },
         _count: { select: { hearings: true } },
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    return cases
+    const withAwaiting = cases.map(c => ({ ...c, awaitingRole: this.computeAwaitingRole(c) }))
+
+    // "approval" queue: only cases genuinely waiting on a tier this role can act on
+    if (view === 'approval' && role !== Role.TRAINEE) {
+      const canAct = PARTNER_TIER.includes(role) ? ['MANAGER', 'PARTNER'] : ['MANAGER']
+      return withAwaiting.filter(c => c.awaitingRole && canAct.includes(c.awaitingRole))
+    }
+
+    return withAwaiting
   }
 
   // â”€â”€ Get single case (unchecked — for internal use after an authorized action) â”€â”€

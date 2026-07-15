@@ -394,11 +394,11 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     if (!isFbrView) { setFbrCases([]); return }
     if (!silent) setFbrLoading(true)
     try {
-      const { data } = await api.get('/fbr/cases')
+      const { data } = await api.get('/fbr/cases', { params: { view: defaultManagerView } })
       setFbrCases(Array.isArray(data) ? data : data.data ?? [])
     } catch { if (!silent) setFbrCases([]) }
     finally { if (!silent) setFbrLoading(false) }
-  }, [isFbrView])
+  }, [isFbrView, defaultManagerView])
 
   useEffect(() => { fetchPipeTasks() }, [fetchPipeTasks])
   useEffect(() => { fetchGenTasks()  }, [fetchGenTasks])
