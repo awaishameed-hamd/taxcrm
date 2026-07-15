@@ -563,12 +563,39 @@ export class AttendanceService {
     if (dto.isLate !== undefined)      data.isLate      = dto.isLate
     if (dto.lateMinutes !== undefined) data.lateMinutes = dto.lateMinutes
     if (dto.notes !== undefined)       data.notes       = dto.notes
+
     if (dto.loginTime !== undefined) {
-      // Parse HH:MM and rebuild DateTime using attendance date
-      const [h, m] = dto.loginTime.split(':').map(Number)
-      const d      = new Date(att.date)
-      d.setUTCHours(h - 5, m, 0, 0)  // PKT→UTC
-      data.loginTime = d
+      if (dto.loginTime) {
+        // Parse HH:MM and rebuild DateTime using attendance date
+        const [h, m] = dto.loginTime.split(':').map(Number)
+        const d      = new Date(att.date)
+        d.setUTCHours(h - 5, m, 0, 0)  // PKT→UTC
+        data.loginTime = d
+
+        // A login time was just set manually — if the caller didn't also explicitly
+        // override status/lateness, recompute them instead of leaving a stale ABSENT.
+        if (dto.status === undefined && dto.isLate === undefined && dto.lateMinutes === undefined) {
+          const settings   = await this.getSettings()
+          const workingDay = await this.prisma.workingDay.findUnique({ where: { date: att.date } })
+          const dayOfWeek  = att.date.getUTCDay()
+          const officialLoginTime = workingDay?.reportingTimeOverride
+            ?? (dayOfWeek === 6 ? settings.saturday_login_time : dayOfWeek === 0 ? settings.sunday_login_time : undefined)
+            ?? settings.login_time ?? '10:00'
+          const graceMins = parseInt(
+            (dayOfWeek === 6 ? settings.saturday_grace_period_minutes : dayOfWeek === 0 ? settings.sunday_grace_period_minutes : undefined)
+            ?? settings.grace_period_minutes, 10) || 15
+
+          const diffFromLoginTime = this.minutesDiff(dto.loginTime, officialLoginTime)
+          const isLate            = diffFromLoginTime > graceMins
+          data.status      = isLate ? AttendanceStatus.LATE : AttendanceStatus.PRESENT
+          data.isLate      = isLate
+          data.lateMinutes = isLate ? diffFromLoginTime - graceMins : null
+        }
+      } else {
+        // Login time cleared — revert to absent unless the caller says otherwise
+        data.loginTime = null
+        if (dto.status === undefined) data.status = AttendanceStatus.ABSENT
+      }
     }
 
     return this.prisma.attendance.update({ where: { id }, data })
