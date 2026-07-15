@@ -1826,22 +1826,13 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                         if (d) setSelectedFbr(d)
                       }).catch(() => {})
                     }}
-                      style={{ display:'block', width:'100%', textAlign:'left', padding:'10px 12px', border:'none', cursor:'pointer', borderBottom:`1px solid ${P.border}`, background: isActive ? '#E8EEF7' : '#F8FAFC', borderLeft: isActive ? `3px solid #1565C0` : '3px solid transparent' }}
+                      style={{ display:'block', width:'100%', textAlign:'left', padding:'7px 12px', border:`1px solid ${isActive ? '#1565C0' : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:6, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
-                      <div style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
-                        <span style={{ flexShrink:0, width:22, height:22, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:2 }}>{idx + 1}</span>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:5 }}>
-                            <span style={{ fontSize:12, fontWeight:700, color: isActive ? '#1565C0' : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
-                            <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color: stage.color, background: stage.bg, flexShrink:0, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{stage.label}</span>
-                          </div>
-                          <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                            {c.taxType && <span style={{ fontSize:10, fontWeight:700, color:'#1565C0', background:'#E3F0FB', border:'1px solid #1565C022', padding:'2px 8px', borderRadius:6, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{c.taxType.replace(/_/g,' ')}</span>}
-                            {c.taxYear && <span style={{ fontSize:10, fontWeight:600, color:'#0E7490', background:'#ECFEFF', border:'1px solid #A5F3FC', padding:'2px 8px', borderRadius:6, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>FY {c.taxYear}</span>}
-                            {c.noticeSection && <span style={{ fontSize:10, fontWeight:700, color:'#7B2D8E', background:'#F3E8F7', border:'1px solid #7B2D8E22', padding:'2px 8px', borderRadius:6, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>Sec {c.noticeSection}</span>}
-                          </div>
-                        </div>
+                      <div style={{ display:'flex', gap:9, alignItems:'center' }}>
+                        <span style={{ flexShrink:0, width:20, height:20, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
+                        <span style={{ fontSize:12, fontWeight:700, color: isActive ? '#1565C0' : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
+                        <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color: stage.color, background: stage.bg, flexShrink:0, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{stage.label}</span>
                       </div>
                     </button>
                   )
