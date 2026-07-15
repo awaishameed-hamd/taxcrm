@@ -23,6 +23,37 @@ function WaitingFor({ label }: { label: string }) {
   )
 }
 
+// ── Send Back (mirrors the Sales Tax Approve/Send Back pattern) ────────────────
+function SendBackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#FEF2F2', color: DANGER, border: '1px solid #FECACA', fontFamily: F }}>
+      Send Back
+    </button>
+  )
+}
+
+function SendBackModal({ onCancel, onConfirm, loading }: { onCancel: () => void; onConfirm: (comment: string) => void; loading: boolean }) {
+  const [comment, setComment] = useState('')
+  const tooShort = comment.trim().length < 5
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 20, width: 380, maxWidth: '90vw', fontFamily: F }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Send Back to Trainee</div>
+        <div style={{ fontSize: 12, color: '#64748B', marginBottom: 12 }}>A reason is required. The trainee will see this comment.</div>
+        <textarea value={comment} onChange={e => setComment(e.target.value)} rows={3} placeholder="Reason for sending back..."
+          style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 13, outline: 'none', resize: 'none', fontFamily: F }} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+          <button onClick={onCancel} disabled={loading} style={{ padding: '7px 14px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#F1F5F9', color: '#64748B', border: '1px solid #E2E8F0', fontFamily: F }}>Cancel</button>
+          <button onClick={() => onConfirm(comment)} disabled={loading || tooShort}
+            style={{ padding: '7px 16px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: (loading || tooShort) ? 'default' : 'pointer', background: DANGER, color: '#fff', border: 'none', fontFamily: F, opacity: (loading || tooShort) ? 0.5 : 1 }}>
+            Send Back
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function fmt(d?: string | null) {
   if (!d) return ''
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -86,14 +117,16 @@ type StepCardProps = {
   doneDate?: string | null; undoable?: boolean
   onUndo?: () => void; actionLoading?: boolean
   actorName?: string | null
+  isReturned?: boolean
+  returnReason?: string | null
   children?: React.ReactNode
   noteSection?: React.ReactNode
 }
-function StepCard({ idx, label, role, isDone, isActive, doneDate, undoable, onUndo, actionLoading, actorName, children, noteSection }: StepCardProps) {
+function StepCard({ idx, label, role, isDone, isActive, doneDate, undoable, onUndo, actionLoading, actorName, isReturned, returnReason, children, noteSection }: StepCardProps) {
   const isFuture = !isDone && !isActive
-  const dotBg   = isDone ? GREEN : isActive ? TEAL : '#E2E8F0'
-  const cardBg  = isDone ? '#F0FDF4' : isActive ? '#fff' : '#FAFAFA'
-  const cardBdr = isDone ? '#BBF7D0' : isActive ? '#BAE6FD' : '#E2E8F0'
+  const dotBg   = isReturned ? DANGER : isDone ? GREEN : isActive ? TEAL : '#E2E8F0'
+  const cardBg  = isReturned ? '#FEF2F2' : isDone ? '#F0FDF4' : isActive ? '#fff' : '#FAFAFA'
+  const cardBdr = isReturned ? '#FECACA' : isDone ? '#BBF7D0' : isActive ? '#BAE6FD' : '#E2E8F0'
 
   return (
     <div style={{ display: 'flex', gap: 0 }}>
@@ -121,10 +154,16 @@ function StepCard({ idx, label, role, isDone, isActive, doneDate, undoable, onUn
                 )}
               </div>
             )}
+            {isActive && isReturned && <span style={{ fontSize: 11, fontWeight: 600, color: DANGER, background: '#FEE2E2', padding: '2px 8px', borderRadius: 4, fontFamily: F }}>Returned</span>}
             {isActive && children}
-            {isActive && !children && <span style={{ fontSize: 11, fontWeight: 600, color: TEAL, background: '#E0F2FE', padding: '2px 8px', borderRadius: 4, fontFamily: F }}>In Progress</span>}
+            {isActive && !children && !isReturned && <span style={{ fontSize: 11, fontWeight: 600, color: TEAL, background: '#E0F2FE', padding: '2px 8px', borderRadius: 4, fontFamily: F }}>In Progress</span>}
             {isFuture  && <span style={{ fontSize: 10, color: '#CBD5E1', background: '#F8FAFC', padding: '2px 8px', borderRadius: 4, fontFamily: F }}>Pending</span>}
           </div>
+          {isActive && isReturned && returnReason && (
+            <div style={{ marginTop: 10, fontSize: 12, color: '#7F1D1D', fontFamily: F }}>
+              <span style={{ fontWeight: 700 }}>Reason: </span>{returnReason}
+            </div>
+          )}
           {isActive && noteSection && (
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #E2E8F0' }}>
               {noteSection}
@@ -266,6 +305,18 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
   const [attachUrl, setAttachUrl]         = useState('')
   const [attachName, setAttachName]       = useState('')
   const [attachUploading, setAttachUploading] = useState(false)
+  const [sendBackStep, setSendBackStep]   = useState<string | null>(null)
+  const [sendBackLoading, setSendBackLoading] = useState(false)
+
+  async function submitSendBack(step: string, sbComment: string) {
+    setSendBackLoading(true)
+    try {
+      await api.post(`/fbr/notice-rounds/${r.id}/send-back`, { step, comment: sbComment })
+      setSendBackStep(null)
+      onReload()
+    } catch (e: any) { alert(e?.response?.data?.message ?? 'Failed') }
+    finally { setSendBackLoading(false) }
+  }
 
   async function patch(fields: Record<string, any>) {
     setLoading(true)
@@ -359,6 +410,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
             <StepCard idx={idx} label={step.label} role={step.role} isDone={isDone} isActive={isActive}
               doneDate={step.doneDate} undoable={isLastDone} onUndo={() => patch(step.undoField!)} actionLoading={loading}
               actorName={step.actorId ? actors[step.actorId]?.fullName : undefined}
+              isReturned={isActive && !!r.sentBackComment} returnReason={r.sentBackComment}
               noteSection={isActive && step.role === 'Trainee' ? noteArea : undefined}>
               {isActive && step.key==='recv' && (
                 <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'flex-end' }}>
@@ -386,14 +438,14 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
               )}
               {isActive && step.key==='docList'  && <Btn label="Mark Created"              onClick={() => markDone('docListCreatedAt')}    disabled={loading} />}
               {isActive && step.key==='approve'   && (canManagerAct
-                ? <Btn label="Mark Approved"  color={GREEN} onClick={() => markDone('docListApprovedAt')}   disabled={loading} />
+                ? <><Btn label="Mark Approved" color={GREEN} onClick={() => markDone('docListApprovedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('approve')} /></>
                 : <WaitingFor label="Manager" />)}
               {isActive && step.key==='draft'     && <Btn label="Mark Done"                 onClick={() => markDone('draftPreparedAt')}     disabled={loading} />}
               {isActive && step.key==='review'    && (canManagerAct
-                ? <Btn label="Mark Reviewed"  color={GREEN} onClick={() => markDone('internalReviewedAt')}  disabled={loading} />
+                ? <><Btn label="Mark Reviewed" color={GREEN} onClick={() => markDone('internalReviewedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('review')} /></>
                 : <WaitingFor label="Manager" />)}
               {isActive && step.key==='partner'   && (canPartnerAct
-                ? <Btn label="Approved by Sir Asif" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} />
+                ? <><Btn label="Approved by Sir Asif" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('partner')} /></>
                 : <WaitingFor label="Partner" />)}
               {isActive && step.key==='submit'    && (
                 <>
@@ -434,6 +486,10 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
           )}
         </ResultCard>
       )}
+      {sendBackStep && (
+        <SendBackModal onCancel={() => setSendBackStep(null)} loading={sendBackLoading}
+          onConfirm={(c) => submitSendBack(sendBackStep, c)} />
+      )}
     </div>
   )
 }
@@ -452,6 +508,18 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
   const [attachUrl, setAttachUrl]         = useState('')
   const [attachName, setAttachName]       = useState('')
   const [attachUploading, setAttachUploading] = useState(false)
+  const [sendBackStep, setSendBackStep]   = useState<string | null>(null)
+  const [sendBackLoading, setSendBackLoading] = useState(false)
+
+  async function submitSendBack(step: string, sbComment: string) {
+    setSendBackLoading(true)
+    try {
+      await api.post(`/fbr/appeals/${a.id}/send-back`, { step, comment: sbComment })
+      setSendBackStep(null)
+      onReload()
+    } catch (e: any) { alert(e?.response?.data?.message ?? 'Failed') }
+    finally { setSendBackLoading(false) }
+  }
 
   async function patch(fields: Record<string, any>) {
     setLoading(true)
@@ -538,6 +606,7 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
             <StepCard idx={idx} label={step.label} role={step.role} isDone={isDone} isActive={isActive}
               doneDate={step.doneDate} undoable={isLastDone} onUndo={() => patch(step.undoField!)} actionLoading={loading}
               actorName={step.actorId ? actors[step.actorId]?.fullName : undefined}
+              isReturned={isActive && !!a.sentBackComment} returnReason={a.sentBackComment}
               noteSection={isActive && step.role === 'Trainee' ? noteArea : undefined}>
               {isActive && step.key==='cond'    && <Btn label="Condonation Filed" color={DANGER} onClick={() => patch({ condonationFiled:true })} disabled={loading} />}
               {isActive && step.key==='grounds' && (
@@ -547,10 +616,10 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
                 </>
               )}
               {isActive && step.key==='review'  && (canManagerAct
-                ? <Btn label="Mark Reviewed" color={GREEN} onClick={() => markDone('internalReviewedAt')} disabled={loading} />
+                ? <><Btn label="Mark Reviewed" color={GREEN} onClick={() => markDone('internalReviewedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('review')} /></>
                 : <WaitingFor label="Manager" />)}
               {isActive && step.key==='partner' && (canPartnerAct
-                ? <Btn label="Approved by Sir Asif" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} />
+                ? <><Btn label="Approved by Sir Asif" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('partner')} /></>
                 : <WaitingFor label="Partner" />)}
               {isActive && step.key==='submit'  && (
                 <>
@@ -614,6 +683,10 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
           {a.outcome==='AGAINST' && !a.challanPaid && <Btn label="Mark Tax Demand Paid" color={GREEN} onClick={() => patch({ challanPaid:true, challanPaidAt:new Date().toISOString() })} disabled={loading} />}
           {a.outcome==='AGAINST' &&  a.challanPaid && <span style={{ fontSize:12, color:GREEN, fontWeight:600, fontFamily:F }}>Tax Demand Paid</span>}
         </ResultCard>
+      )}
+      {sendBackStep && (
+        <SendBackModal onCancel={() => setSendBackStep(null)} loading={sendBackLoading}
+          onConfirm={(c) => submitSendBack(sendBackStep, c)} />
       )}
     </div>
   )

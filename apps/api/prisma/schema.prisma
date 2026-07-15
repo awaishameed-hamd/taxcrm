@@ -942,6 +942,8 @@ model FbrNoticeRound {
   challanPaidAt DateTime?
   challanRef    String?
 
+  sentBackComment String? @db.Text
+
   notes       String? @db.Text
   attachments FbrAttachment[]
 
@@ -987,6 +989,8 @@ model FbrAppeal {
   challanPaid   Boolean          @default(false)
   challanPaidAt DateTime?
   challanRef    String?
+
+  sentBackComment String? @db.Text
 
   closedAt DateTime?
   notes    String? @db.Text

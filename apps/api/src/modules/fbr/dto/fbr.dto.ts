@@ -1,4 +1,4 @@
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator'
+import { IsBoolean, IsNumber, IsOptional, IsString, MinLength } from 'class-validator'
 
 export class CreateFbrCaseDto {
   @IsString() clientId: string
@@ -119,4 +119,9 @@ export class UpdateHearingDto {
   @IsOptional() @IsString() adjournedTo?: string
   @IsOptional() @IsString() outcome?: string
   @IsOptional() @IsString() notes?: string
+}
+
+export class SendBackDto {
+  @IsString() step: string
+  @IsString() @MinLength(5) comment: string
 }

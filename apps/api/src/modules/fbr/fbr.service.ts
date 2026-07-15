@@ -372,6 +372,8 @@ export class FbrService {
     if (dto.outcome             !== undefined) data.outcomeById        = (dto.outcome && dto.outcome !== 'PENDING') ? actorId : null
     if (dto.adjournmentApplied !== undefined) { data.adjournmentApplied = dto.adjournmentApplied; data.adjournmentAppliedById = dto.adjournmentApplied ? actorId : null }
     if (dto.challanPaid        !== undefined) data.challanPaid        = dto.challanPaid
+    // Re-doing any step that a send-back could have targeted clears the "returned" banner
+    if (dto.docListCreatedAt !== undefined || dto.draftPreparedAt !== undefined || dto.internalReviewedAt !== undefined) data.sentBackComment = null
 
     const round = await this.prisma.fbrNoticeRound.update({
       where: { id }, data, include: { attachments: true },
@@ -386,6 +388,24 @@ export class FbrService {
     }
 
     return round
+  }
+
+  // Manager/Partner rejects a step and returns it to whichever step it came from
+  private readonly NOTICE_SEND_BACK: Record<string, { clear: string[]; tier: Role[] }> = {
+    approve: { clear: ['docListCreatedAt', 'docListCreatedById'],   tier: MANAGER_TIER },
+    review:  { clear: ['draftPreparedAt', 'draftPreparedById'],     tier: MANAGER_TIER },
+    partner: { clear: ['internalReviewedAt', 'internalReviewById'], tier: PARTNER_TIER },
+  }
+
+  async sendBackNoticeRound(id: string, step: string, comment: string, actorRole: Role) {
+    const cfg = this.NOTICE_SEND_BACK[step]
+    if (!cfg) throw new ForbiddenException('This step cannot be sent back')
+    assertRoleTier(actorRole, cfg.tier, 'send this step back')
+
+    const data: any = { sentBackComment: comment.trim() }
+    for (const f of cfg.clear) data[f] = null
+
+    return this.prisma.fbrNoticeRound.update({ where: { id }, data, include: { attachments: true } })
   }
 
   // â”€â”€ Appeal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -439,6 +459,8 @@ export class FbrService {
     if (dto.isLate           !== undefined) data.isLate           = dto.isLate
     if (dto.condonationFiled !== undefined) { data.condonationFiled = dto.condonationFiled; data.condonationFiledById = dto.condonationFiled ? actorId : null }
     if (dto.challanPaid      !== undefined) data.challanPaid      = dto.challanPaid
+    // Re-doing any step that a send-back could have targeted clears the "returned" banner
+    if (dto.groundsPreparedAt !== undefined || dto.internalReviewedAt !== undefined) data.sentBackComment = null
 
     const appeal = await this.prisma.fbrAppeal.update({
       where: { id }, data, include: { hearings: true, attachments: true },
@@ -453,6 +475,22 @@ export class FbrService {
     }
 
     return appeal
+  }
+
+  private readonly APPEAL_SEND_BACK: Record<string, { clear: string[]; tier: Role[] }> = {
+    review:  { clear: ['groundsPreparedAt', 'groundsPreparedById'],   tier: MANAGER_TIER },
+    partner: { clear: ['internalReviewedAt', 'internalReviewById'],   tier: PARTNER_TIER },
+  }
+
+  async sendBackAppeal(id: string, step: string, comment: string, actorRole: Role) {
+    const cfg = this.APPEAL_SEND_BACK[step]
+    if (!cfg) throw new ForbiddenException('This step cannot be sent back')
+    assertRoleTier(actorRole, cfg.tier, 'send this step back')
+
+    const data: any = { sentBackComment: comment.trim() }
+    for (const f of cfg.clear) data[f] = null
+
+    return this.prisma.fbrAppeal.update({ where: { id }, data, include: { hearings: true, attachments: true } })
   }
 
   // â”€â”€ Stay Application â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

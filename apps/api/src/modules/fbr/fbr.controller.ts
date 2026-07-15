@@ -17,6 +17,7 @@ import {
   UpdateHearingDto,
   CreateNoticeSectionDto,
   CreateFbrAttachmentDto,
+  SendBackDto,
 } from './dto/fbr.dto'
 
 const ALL = [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE]
@@ -88,6 +89,12 @@ export class FbrController {
     return this.svc.updateNoticeRound(id, dto, req.user.id, req.user.role)
   }
 
+  @Post('notice-rounds/:id/send-back')
+  @Roles(...ALL)
+  sendBackNoticeRound(@Req() req: any, @Param('id') id: string, @Body() dto: SendBackDto) {
+    return this.svc.sendBackNoticeRound(id, dto.step, dto.comment, req.user.role)
+  }
+
   // ── Appeal ────────────────────────────────────────────────────────────────
   @Post('cases/:id/appeal')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
@@ -99,6 +106,12 @@ export class FbrController {
   @Roles(...ALL)
   updateAppeal(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateAppealDto) {
     return this.svc.updateAppeal(id, dto, req.user.id, req.user.role)
+  }
+
+  @Post('appeals/:id/send-back')
+  @Roles(...ALL)
+  sendBackAppeal(@Req() req: any, @Param('id') id: string, @Body() dto: SendBackDto) {
+    return this.svc.sendBackAppeal(id, dto.step, dto.comment, req.user.role)
   }
 
   // ── Stay Application ──────────────────────────────────────────────────────
