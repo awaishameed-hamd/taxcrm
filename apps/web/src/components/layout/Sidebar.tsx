@@ -237,6 +237,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     attCloseTimer.current = setTimeout(() => setShowAttMenu(false), 150)
   }, [])
 
+  // Used when re-entering the already-open panel — cancels the pending close
+  // WITHOUT recomputing position, so the flip-to-fit correction below doesn't get undone.
+  const cancelCloseAttMenu = useCallback(() => {
+    if (attCloseTimer.current) { clearTimeout(attCloseTimer.current); attCloseTimer.current = null }
+  }, [])
+
   useEffect(() => { setShowAttMenu(false) }, [pathname])
 
   // ── New Task modal state ──────────────────────────────────────────────────
@@ -593,9 +599,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.myAtt} />
                 </svg>
                 <span style={{ flex: 1 }}>Attendance</span>
-                <svg width={13} height={13} fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke={C.iconMuted} style={{ flexShrink: 0 }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
-                </svg>
               </div>
             )
           }
@@ -628,7 +631,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* ── Attendance flyout panel ── */}
       {showAttMenu && attendanceSubItems.length > 0 && (
         <div ref={attPanelRef}
-          onMouseEnter={openAttMenu} onMouseLeave={scheduleCloseAttMenu}
+          onMouseEnter={cancelCloseAttMenu} onMouseLeave={scheduleCloseAttMenu}
           style={{
             position: 'fixed', top: attMenuPos.top, left: attMenuPos.left, zIndex: 400,
             width: 220, background: '#fff', border: `1px solid ${C.border}`,
