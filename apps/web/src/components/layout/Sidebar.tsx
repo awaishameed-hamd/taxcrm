@@ -378,10 +378,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   }, [user?.id])
 
   const submitNewTask = useCallback(async () => {
-    const isFbrNotice = ntForm.taxType === 'notices'
     const effectiveAssignedToId = canAssignOthers ? ntForm.assignedToId : user?.id
     if (!ntForm.clientId) return
-    if (!isFbrNotice && !effectiveAssignedToId) return
+    if (!effectiveAssignedToId) return
 
     // FBR case (Notices & Appeals)
     if (ntForm.taxType === 'notices') {
@@ -395,6 +394,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           noticeSection: ntForm.fbrNoticeSection || undefined,
           noticeNumber:  ntForm.fbrNoticeNumber  || undefined,
           description:  ntForm.description   || undefined,
+          assignedToId: effectiveAssignedToId,
         })
         setShowNewTask(false)
         setNtToast({ msg: 'FBR case created!', ok: true })

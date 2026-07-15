@@ -587,7 +587,7 @@ export function TaskFormModal({
   const isFbrNotices   = form.taxType === 'notices'
   const fbrOtherOk  = !isFbrNotices || (form.fbrTaxType ?? 'INCOME_TAX') !== 'OTHER' || !!form.fbrTaxTypeOther?.trim()
   const fbrYearOk   = !isFbrNotices || !form.fbrTaxYear || (form.fbrTaxYear.length === 4 && Number(form.fbrTaxYear) >= 2000 && Number(form.fbrTaxYear) <= 2099)
-  const canSubmit   = !saving && (isPipelineTax || isFbrNotices || !!form.title.trim()) && !!form.clientId && (!canAssignOthers || isFbrNotices || !!form.assignedToId) && (!!taxType || !!form.taxType) && (isFbrNotices || !!form.dueDate) && fbrOtherOk && fbrYearOk
+  const canSubmit   = !saving && (isPipelineTax || isFbrNotices || !!form.title.trim()) && !!form.clientId && (!canAssignOthers || !!form.assignedToId) && (!!taxType || !!form.taxType) && (isFbrNotices || !!form.dueDate) && fbrOtherOk && fbrYearOk
 
   // Sales Tax / WHT: the assignee is locked to whichever staff member the client is assigned to —
   // never let it be picked manually, so a client's return can't land with the wrong trainee.
@@ -886,8 +886,8 @@ export function TaskFormModal({
             </div>
           )}
 
-          {/* Assign to — hidden for FBR notices; locked to the client's assigned staff for Sales Tax / WHT */}
-          {canAssignOthers && !isFbrNotices && isClientLockedAssignee && (
+          {/* Assign to — locked to the client's assigned staff for Sales Tax / WHT, manual otherwise (incl. FBR notices) */}
+          {canAssignOthers && isClientLockedAssignee && (
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Assign To</label>
               <div style={{
@@ -901,7 +901,7 @@ export function TaskFormModal({
               </div>
             </div>
           )}
-          {canAssignOthers && !isFbrNotices && !isClientLockedAssignee && (
+          {canAssignOthers && !isClientLockedAssignee && (
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Assign To <span style={{ color: '#D62828' }}>*</span></label>
               <SearchableSelect
