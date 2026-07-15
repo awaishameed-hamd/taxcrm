@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Role } from '@ca-firm/shared'
@@ -221,6 +221,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   // ── Attendance flyout menu ────────────────────────────────────────────────
   const attTriggerRef  = useRef<HTMLDivElement>(null)
+  const attPanelRef    = useRef<HTMLDivElement>(null)
   const attCloseTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showAttMenu, setShowAttMenu] = useState(false)
   const [attMenuPos,  setAttMenuPos]  = useState({ top: 0, left: 0 })
@@ -430,6 +431,35 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const isAttActive = attendanceSubItems.some(si => pathname === si.href || pathname.startsWith(si.href + '/'))
 
+  // Keep the panel fully on-screen: flip above the trigger when there isn't room below,
+  // and clamp so it never runs off the top/bottom/right edge of the viewport.
+  useLayoutEffect(() => {
+    if (!showAttMenu) return
+    const trigger = attTriggerRef.current
+    const panel   = attPanelRef.current
+    if (!trigger || !panel) return
+    const margin  = 8
+    const tRect   = trigger.getBoundingClientRect()
+    const pHeight = panel.offsetHeight
+    const pWidth  = panel.offsetWidth
+
+    const spaceBelow = window.innerHeight - tRect.top - margin
+    const spaceAbove = tRect.bottom - margin
+    let top = tRect.top
+    if (pHeight > spaceBelow && spaceAbove > spaceBelow) {
+      top = tRect.bottom - pHeight
+    }
+    top = Math.min(Math.max(top, margin), Math.max(margin, window.innerHeight - pHeight - margin))
+
+    let left = tRect.right + margin
+    if (left + pWidth > window.innerWidth - margin) {
+      left = tRect.left - pWidth - margin
+    }
+    left = Math.max(left, margin)
+
+    setAttMenuPos(prev => (prev.top === top && prev.left === left ? prev : { top, left }))
+  }, [showAttMenu, attendanceSubItems.length])
+
   const roleLabel = ROLE_LABELS[user?.role ?? ''] ?? user?.role ?? ''
   const initial   = user?.fullName?.charAt(0)?.toUpperCase() ?? '?'
 
@@ -546,7 +576,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             return (
               <div key="attendance-group" ref={attTriggerRef}
                 onMouseEnter={openAttMenu} onMouseLeave={scheduleCloseAttMenu}
-                onClick={() => (showAttMenu ? setShowAttMenu(false) : openAttMenu())}
+                onClick={openAttMenu}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                   padding: '0.3rem 0.75rem', borderRadius: 8, marginBottom: 2,
@@ -595,12 +625,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* ── Attendance flyout panel ── */}
       {showAttMenu && attendanceSubItems.length > 0 && (
-        <div
+        <div ref={attPanelRef}
           onMouseEnter={openAttMenu} onMouseLeave={scheduleCloseAttMenu}
           style={{
             position: 'fixed', top: attMenuPos.top, left: attMenuPos.left, zIndex: 400,
             width: 220, background: '#fff', border: `1px solid ${C.border}`,
-            borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', overflow: 'hidden',
+            borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
+            maxHeight: 'calc(100vh - 16px)', overflowY: 'auto', overflowX: 'hidden',
           }}
         >
           <div style={{ padding: '8px 14px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.gray, fontFamily: "'Aptos', 'Inter', sans-serif" }}>
