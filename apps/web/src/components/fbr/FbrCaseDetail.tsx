@@ -359,7 +359,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
             <StepCard idx={idx} label={step.label} role={step.role} isDone={isDone} isActive={isActive}
               doneDate={step.doneDate} undoable={isLastDone} onUndo={() => patch(step.undoField!)} actionLoading={loading}
               actorName={step.actorId ? actors[step.actorId]?.fullName : undefined}
-              noteSection={isActive ? noteArea : undefined}>
+              noteSection={isActive && step.role === 'Trainee' ? noteArea : undefined}>
               {isActive && step.key==='recv' && (
                 <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'flex-end' }}>
                   <div>
@@ -538,7 +538,7 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
             <StepCard idx={idx} label={step.label} role={step.role} isDone={isDone} isActive={isActive}
               doneDate={step.doneDate} undoable={isLastDone} onUndo={() => patch(step.undoField!)} actionLoading={loading}
               actorName={step.actorId ? actors[step.actorId]?.fullName : undefined}
-              noteSection={isActive && step.key !== 'hearing' ? noteArea : undefined}>
+              noteSection={isActive && step.role === 'Trainee' ? noteArea : undefined}>
               {isActive && step.key==='cond'    && <Btn label="Condonation Filed" color={DANGER} onClick={() => patch({ condonationFiled:true })} disabled={loading} />}
               {isActive && step.key==='grounds' && (
                 <>
@@ -711,7 +711,7 @@ function StayFlow({ stay: s, onReload, actors }: { stay: any; onReload: () => vo
             <StepCard idx={idx} label={step.label} role={step.role} isDone={isDone} isActive={isActive}
               doneDate={step.doneDate} undoable={isLastDone} onUndo={() => patch(step.undoField!)} actionLoading={loading}
               actorName={step.actorId ? actors[step.actorId]?.fullName : undefined}
-              noteSection={isActive ? noteArea : undefined}>
+              noteSection={isActive && step.role === 'Trainee' ? noteArea : undefined}>
               {isActive && step.key==='review' && (canManagerAct
                 ? <Btn label="Mark Prepared and Reviewed" color={GREEN} onClick={() => markDone({ reviewedAt: new Date().toISOString() })} disabled={loading} />
                 : <WaitingFor label="Manager" />)}
