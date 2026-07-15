@@ -252,8 +252,8 @@ export class FbrService {
   }
 
   async updateNoticeRound(id: string, dto: UpdateNoticeRoundDto, actorId: string, actorRole: Role) {
-    // Manager+ tier: doc-list approval, internal review, and the FBR outcome decision.
-    // Logging the notice as received is a Trainee-tier action — the Trainee is the one who sees the notice.
+    // Manager+ tier: receiving the notice, doc-list approval, internal review, and the FBR outcome decision
+    if (dto.noticeDate !== undefined || dto.dueDate !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'log a notice as received')
     if (dto.docListApprovedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'approve the document list')
     if (dto.internalReviewedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'mark the internal review done')
     if (dto.outcome !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'record the FBR outcome')

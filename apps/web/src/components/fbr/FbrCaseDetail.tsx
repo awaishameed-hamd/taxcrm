@@ -306,7 +306,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
 
   type S = { key: string; label: string; role: 'Trainee'|'Manager'|'Partner'; done: boolean; doneDate?: string|null; undoField?: Record<string,any> }
   const steps: S[] = [
-    { key:'recv',    label:'Notice Received from Client',                        role:'Trainee', done: !!r.noticeDate,              doneDate: r.noticeDate,         undoField: { noticeDate: null, dueDate: null } },
+    { key:'recv',    label:'Notice Received from Client',                        role:'Manager', done: !!r.noticeDate,              doneDate: r.noticeDate,         undoField: { noticeDate: null, dueDate: null } },
     { key:'action',  label:'Choose Response Action',                             role:'Trainee', done: r.adjournmentApplied || !!r.docListCreatedAt, doneDate: null, undoField: { adjournmentApplied: false } },
     ...(r.adjournmentApplied ? [{ key:'adj', label:'Adjournment Applied',        role:'Trainee' as const, done: true,              doneDate: null,                 undoField: { adjournmentApplied: false } }] : []),
     { key:'docList', label:'Document Requirement List Created',                  role:'Trainee', done: !!r.docListCreatedAt,        doneDate: r.docListCreatedAt,   undoField: { docListCreatedAt: null } },
@@ -351,7 +351,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
             <StepCard idx={idx} label={step.label} role={step.role} isDone={isDone} isActive={isActive}
               doneDate={step.doneDate} undoable={isLastDone} onUndo={() => patch(step.undoField!)} actionLoading={loading}
               noteSection={isActive ? noteArea : undefined}>
-              {isActive && step.key==='recv' && (
+              {isActive && step.key==='recv' && (canManagerAct ? (
                 <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'flex-end' }}>
                   <div>
                     <label style={{ display:'block', fontSize:10, fontWeight:600, color:'#64748B', marginBottom:3, textTransform:'uppercase', letterSpacing:'0.06em', fontFamily:F }}>Date of Notice</label>
@@ -368,7 +368,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
                     }
                   }} disabled={loading || !noticeDateInput || !dueDateInput} />
                 </div>
-              )}
+              ) : <WaitingFor label="a Manager or Team Lead" />)}
               {isActive && step.key==='action' && (
                 <>
                   <Btn label="Apply Adjournment" color={WARN} onClick={() => patch({ adjournmentApplied: true })} disabled={loading} />
