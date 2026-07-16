@@ -484,7 +484,6 @@ export default function InvoicingPage() {
   const [clients,     setClients]     = useState<any[]>([])
   const [selectedId,  setSelectedId]  = useState<string | null>(null)
   const [ledger,      setLedger]      = useState<any>(null)
-  const [summary,     setSummary]     = useState<any>({ draftCount: 0, totalInvoiced: 0, totalPaid: 0, outstanding: 0 })
   const [searchInput,   setSearchInput]   = useState('')
   const [loading,       setLoading]       = useState(true)
   const [tab,           setTab]           = useState<'history' | 'invoices'>('history')
@@ -504,11 +503,10 @@ export default function InvoicingPage() {
   }, [searchInput])
 
   const fetchRight = useCallback((silent = false) => {
+    if (!selectedId) { setLedger(null); setLoading(false); return }
     if (!silent) setLoading(true)
-    const job = selectedId
-      ? api.get(`/invoices/ledger/${selectedId}`).then(({ data }) => setLedger(data?.data ?? data))
-      : Promise.resolve()
-    Promise.all([job, api.get('/invoices/summary').then(({ data }) => setSummary(data?.data ?? data))])
+    api.get(`/invoices/ledger/${selectedId}`)
+      .then(({ data }) => setLedger(data?.data ?? data))
       .catch(() => {})
       .finally(() => { if (!silent) setLoading(false) })
   }, [selectedId])
@@ -647,14 +645,6 @@ export default function InvoicingPage() {
             </h1>
           </div>
 
-          {/* Stat cards */}
-          <div style={{ display: 'flex', gap: 12, flexShrink: 0, padding: '0 20px', marginBottom: 14 }}>
-            <StatCard label="Drafts"         value={summary.draftCount}                   border="#64748B" fill="#D4DAE3" />
-            <StatCard label="Total Invoiced" value={`PKR ${money(summary.totalInvoiced)}`} border="#1565C0" fill="#BDDAF8" />
-            <StatCard label="Total Received" value={`PKR ${money(summary.totalPaid)}`}     border="#16A34A" fill="#BBF0D6" />
-            <StatCard label="Outstanding"    value={`PKR ${money(summary.outstanding)}`}   border="#DC2626" fill="#FECACA" />
-          </div>
-
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px', minWidth: 0 }}>
           {loading ? (
             <div style={{ padding: 48, textAlign: 'center', color: P.textMuted, fontSize: 13, fontFamily: F }}>Loading…</div>
@@ -668,7 +658,15 @@ export default function InvoicingPage() {
           ) : ledger ? (
             /* Client ledger */
             <div>
-              {/* Client account bar — this client's own totals, plus actions */}
+              {/* This client's totals */}
+              <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+                <StatCard label="Opening Balance" value={`PKR ${money(ledger.openingBalance)}`} border="#64748B" fill="#D4DAE3" />
+                <StatCard label="Invoiced"        value={`PKR ${money(ledger.totalInvoiced)}`}  border="#1565C0" fill="#BDDAF8" />
+                <StatCard label="Received"        value={`PKR ${money(ledger.totalPaid)}`}      border="#16A34A" fill="#BBF0D6" />
+                <StatCard label="Outstanding"     value={`PKR ${money(ledger.outstanding)}`}    border="#DC2626" fill="#FECACA" />
+              </div>
+
+              {/* Tabs + actions */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px', marginBottom: 14, flexWrap: 'wrap' }}>
                 {([['history', 'Account History'], ['invoices', `Invoices (${ledger.invoices.length})`]] as const).map(([k, l]) => (
                   <button key={k} onClick={() => setTab(k)} style={{
@@ -700,14 +698,6 @@ export default function InvoicingPage() {
                   style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: '#16a34a', color: '#fff' }}>
                   Receive Payment
                 </button>
-              </div>
-
-              {/* This client's totals */}
-              <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
-                <StatCard label="Opening Balance" value={`PKR ${money(ledger.openingBalance)}`} border="#64748B" fill="#D4DAE3" />
-                <StatCard label="Invoiced"        value={`PKR ${money(ledger.totalInvoiced)}`}  border="#1565C0" fill="#BDDAF8" />
-                <StatCard label="Received"        value={`PKR ${money(ledger.totalPaid)}`}      border="#16A34A" fill="#BBF0D6" />
-                <StatCard label="Outstanding"     value={`PKR ${money(ledger.outstanding)}`}    border="#DC2626" fill="#FECACA" />
               </div>
 
               {tab === 'history' ? (
