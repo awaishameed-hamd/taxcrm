@@ -143,10 +143,14 @@ export class InvoicesService {
     })
   }
 
-  // Opening balance + everything billed and paid since — the client's running account.
-  // Returns every invoice (drafts included, so they can be actioned from here) plus a
-  // dated transaction timeline the UI renders as a statement.
-  async clientLedger(clientId: string) {
+  // The client's running account as a dated statement, optionally narrowed to a period.
+  //
+  // "Opening balance" here means balance brought forward to the start of the period —
+  // the client's one-time opening balance plus everything charged and paid before `from`.
+  // With no `from` it is just the one-time opening balance. Closing balance is always
+  // openingBalance + invoiced − received for the window on screen, so the numbers tie out
+  // whatever range is picked.
+  async clientLedger(clientId: string, from?: string, to?: string) {
     const client = await this.prisma.clientProfile.findUnique({
       where:  { id: clientId },
       select: {
@@ -163,22 +167,13 @@ export class InvoicesService {
       orderBy: { issueDate: 'desc' },
     })
 
-    const billable = invoices.filter(i => BILLABLE.includes(i.status))
-    const opening  = Number(client.openingBalance)
-    const invoiced = billable.reduce((s, i) => s + Number(i.amount), 0)
-    const paid     = billable.reduce((s, i) => s + Number(i.amountPaid), 0)
+    const fromDate = from ? new Date(`${from}T00:00:00.000Z`) : null
+    const toDate   = to   ? new Date(`${to}T23:59:59.999Z`)   : null
 
-    // Dated statement: opening balance, then every issued invoice and received payment
-    type Txn = { date: string; type: 'OPENING' | 'INVOICE' | 'PAYMENT'; ref: string; description: string; charge: number; credit: number }
+    // Every real movement on the account, oldest first
+    type Txn = { date: string; type: 'INVOICE' | 'PAYMENT'; ref: string; description: string; charge: number; credit: number }
     const txns: Txn[] = []
-
-    if (opening !== 0) {
-      txns.push({
-        date: client.createdAt.toISOString(), type: 'OPENING', ref: '—',
-        description: 'Opening balance brought forward', charge: opening, credit: 0,
-      })
-    }
-    for (const i of billable) {
+    for (const i of invoices.filter(x => BILLABLE.includes(x.status))) {
       txns.push({
         date: i.issueDate.toISOString(), type: 'INVOICE', ref: i.invoiceNumber,
         description: i.description ?? 'Professional services', charge: Number(i.amount), credit: 0,
@@ -193,19 +188,32 @@ export class InvoicesService {
     }
     txns.sort((a, b) => a.date.localeCompare(b.date))
 
-    let running = 0
-    const timeline = txns.map(t => {
+    // Anything before the window rolls into the brought-forward balance
+    let openingBalance = Number(client.openingBalance)
+    const inPeriod: Txn[] = []
+    for (const t of txns) {
+      const d = new Date(t.date)
+      if (fromDate && d < fromDate) { openingBalance += t.charge - t.credit; continue }
+      if (toDate   && d > toDate)   continue
+      inPeriod.push(t)
+    }
+
+    const totalInvoiced = inPeriod.reduce((s, t) => s + t.charge, 0)
+    const totalPaid     = inPeriod.reduce((s, t) => s + t.credit, 0)
+
+    let running = openingBalance
+    const timeline = inPeriod.map(t => {
       running += t.charge - t.credit
       return { ...t, balance: running }
     })
 
     return {
       client,
-      openingBalance: opening,
-      totalInvoiced:  invoiced,
-      totalPaid:      paid,
-      outstanding:    opening + invoiced - paid,
-      invoices:       invoices.map(i => this.decorate(i)),
+      openingBalance,
+      totalInvoiced,
+      totalPaid,
+      outstanding: openingBalance + totalInvoiced - totalPaid,
+      invoices:    invoices.map(i => this.decorate(i)),
       timeline,
     }
   }

@@ -31,6 +31,23 @@ const METHOD_LABEL: Record<string, string> = Object.fromEntries(PAYMENT_METHODS.
 const money   = (n: any) => Number(n ?? 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
 
+const iso = (d: Date) => d.toISOString().split('T')[0]
+
+// Date-range presets for the ledger. `null` means unbounded — the account from day one.
+type RangeKey = 'month' | 'year' | 'all' | 'custom'
+const RANGES: { key: RangeKey; label: string }[] = [
+  { key: 'month',  label: 'This Month' },
+  { key: 'year',   label: 'This Year' },
+  { key: 'all',    label: 'All Time' },
+  { key: 'custom', label: 'Custom' },
+]
+function rangeBounds(key: RangeKey): { from?: string; to?: string } {
+  const now = new Date()
+  if (key === 'month') return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)),  to: iso(new Date(now.getFullYear(), now.getMonth() + 1, 0)) }
+  if (key === 'year')  return { from: iso(new Date(now.getFullYear(), 0, 1)),               to: iso(new Date(now.getFullYear(), 11, 31)) }
+  return {}
+}
+
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', padding: '8px 12px', borderRadius: 8,
   border: `1px solid ${P.border}`, fontSize: 13, outline: 'none', fontFamily: F,
@@ -446,8 +463,8 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
 }
 
 // ─── Opening balance ──────────────────────────────────────────────────────────
-function OpeningBalanceModal({ client, onClose, onSaved }: { client: any; onClose: () => void; onSaved: () => void }) {
-  const [value,  setValue]  = useState(String(Number(client.openingBalance ?? 0)))
+function OpeningBalanceModal({ client, mode, onClose, onSaved }: { client: any; mode: 'add' | 'edit'; onClose: () => void; onSaved: () => void }) {
+  const [value,  setValue]  = useState(mode === 'edit' ? String(Number(client.openingBalance ?? 0)) : '')
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
 
@@ -463,7 +480,9 @@ function OpeningBalanceModal({ client, onClose, onSaved }: { client: any; onClos
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 400, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 900, color: NAVY, fontFamily: F }}>Opening Balance</h3>
+        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 900, color: NAVY, fontFamily: F }}>
+          {mode === 'add' ? 'Add Opening Balance' : 'Edit Opening Balance'}
+        </h3>
         <p style={{ margin: '0 0 16px', fontSize: 12, color: P.textMuted, fontFamily: F }}>
           What {client.businessName ?? client.fullName} already owed before their account was set up here.
         </p>
@@ -490,11 +509,23 @@ export default function InvoicingPage() {
   const [busy,          setBusy]          = useState<string | null>(null)
   const [listCollapsed, setListCollapsed] = useState(false)
 
+  const [range,      setRange]      = useState<RangeKey>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo,   setCustomTo]   = useState('')
+
   const [editInv,    setEditInv]    = useState<Invoice | null>(null)
   const [viewInv,    setViewInv]    = useState<Invoice | null>(null)
   const [payClient,  setPayClient]  = useState<any>(null)
-  const [openBal,    setOpenBal]    = useState<any>(null)
+  const [openBal,    setOpenBal]    = useState<{ client: any; mode: 'add' | 'edit' } | null>(null)
   const [confirmDel, setConfirmDel] = useState<Invoice | null>(null)
+  const [ctxMenu,    setCtxMenu]    = useState<{ x: number; y: number; client: any } | null>(null)
+
+  // A custom range only applies once both ends are picked, so the ledger doesn't
+  // blank out while the user is halfway through choosing.
+  const bounds = useMemo(() => {
+    if (range !== 'custom') return rangeBounds(range)
+    return customFrom && customTo ? { from: customFrom, to: customTo } : {}
+  }, [range, customFrom, customTo])
 
   const fetchClients = useCallback(() => {
     api.get('/invoices/clients', { params: searchInput ? { search: searchInput } : undefined })
@@ -505,11 +536,20 @@ export default function InvoicingPage() {
   const fetchRight = useCallback((silent = false) => {
     if (!selectedId) { setLedger(null); setLoading(false); return }
     if (!silent) setLoading(true)
-    api.get(`/invoices/ledger/${selectedId}`)
+    api.get(`/invoices/ledger/${selectedId}`, { params: bounds })
       .then(({ data }) => setLedger(data?.data ?? data))
       .catch(() => {})
       .finally(() => { if (!silent) setLoading(false) })
-  }, [selectedId])
+  }, [selectedId, bounds])
+
+  // Dismiss the right-click menu on any click elsewhere
+  useEffect(() => {
+    if (!ctxMenu) return
+    const close = () => setCtxMenu(null)
+    document.addEventListener('click', close)
+    document.addEventListener('scroll', close, true)
+    return () => { document.removeEventListener('click', close); document.removeEventListener('scroll', close, true) }
+  }, [ctxMenu])
 
   useEffect(() => { fetchClients() }, [fetchClients])
   useEffect(() => { fetchRight() }, [fetchRight])
@@ -609,6 +649,7 @@ export default function InvoicingPage() {
               const active = selectedId === c.id
               return (
                 <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history') }}
+                  onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, client: c }) }}
                   style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${active ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 6, background: active ? '#E8EEF7' : '#F8FAFC', fontFamily: F, opacity: c.isActive ? 1 : 0.55 }}
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}>
@@ -658,15 +699,15 @@ export default function InvoicingPage() {
           ) : ledger ? (
             /* Client ledger */
             <div>
-              {/* This client's totals */}
+              {/* This client's totals for the selected period */}
               <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
-                <StatCard label="Opening Balance" value={`PKR ${money(ledger.openingBalance)}`} border="#64748B" fill="#D4DAE3" />
-                <StatCard label="Invoiced"        value={`PKR ${money(ledger.totalInvoiced)}`}  border="#1565C0" fill="#BDDAF8" />
-                <StatCard label="Received"        value={`PKR ${money(ledger.totalPaid)}`}      border="#16A34A" fill="#BBF0D6" />
-                <StatCard label="Outstanding"     value={`PKR ${money(ledger.outstanding)}`}    border="#DC2626" fill="#FECACA" />
+                <StatCard label="Opening Balance" value={money(ledger.openingBalance)} border="#64748B" fill="#D4DAE3" />
+                <StatCard label="Invoiced"        value={money(ledger.totalInvoiced)}  border="#1565C0" fill="#BDDAF8" />
+                <StatCard label="Received"        value={money(ledger.totalPaid)}      border="#16A34A" fill="#BBF0D6" />
+                <StatCard label="Outstanding"     value={money(ledger.outstanding)}    border="#DC2626" fill="#FECACA" />
               </div>
 
-              {/* Tabs + actions */}
+              {/* Tabs + period filter + actions */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px', marginBottom: 14, flexWrap: 'wrap' }}>
                 {([['history', 'Account History'], ['invoices', `Invoices (${ledger.invoices.length})`]] as const).map(([k, l]) => (
                   <button key={k} onClick={() => setTab(k)} style={{
@@ -679,21 +720,33 @@ export default function InvoicingPage() {
 
                 <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
-                {ledger.client?.ntn && (
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.9)', padding: '0 4px' }}>NTN: {ledger.client.ntn}</span>
-                )}
-                {ledger.client?.hasMonthlyRetainer && (
-                  <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 9px', borderRadius: 20, background: '#EDE9FE', color: '#5B21B6', flexShrink: 0 }}>
-                    Retainer PKR {money(ledger.client.retainerAmount)}/mo
-                  </span>
+                {RANGES.map(r => (
+                  <button key={r.key} onClick={() => setRange(r.key)} style={{
+                    flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 600, fontFamily: F, whiteSpace: 'nowrap',
+                    background: range === r.key ? NAVY : 'transparent',
+                    color: range === r.key ? '#fff' : 'rgba(255,255,255,0.85)',
+                  }}>{r.label}</button>
+                ))}
+
+                {range === 'custom' && (
+                  <>
+                    <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                      style={{ flexShrink: 0, padding: '3px 8px', borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 11, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: F }} />
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>to</span>
+                    <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                      style={{ flexShrink: 0, padding: '3px 8px', borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 11, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: F }} />
+                  </>
                 )}
 
                 <span style={{ flex: 1 }} />
 
-                <button onClick={() => setOpenBal(selectedClient ?? ledger.client)}
-                  style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
-                  Opening Balance
-                </button>
+                {ledger.client?.hasMonthlyRetainer && (
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 9px', borderRadius: 20, background: '#EDE9FE', color: '#5B21B6', flexShrink: 0 }}>
+                    Retainer {money(ledger.client.retainerAmount)}/mo
+                  </span>
+                )}
+
                 <button onClick={() => setPayClient(selectedClient ?? ledger.client)}
                   style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: '#16a34a', color: '#fff' }}>
                   Receive Payment
@@ -790,7 +843,25 @@ export default function InvoicingPage() {
       {editInv   && <EditModal inv={editInv} onClose={() => setEditInv(null)} onSaved={() => { setEditInv(null); refresh() }} />}
       {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} />}
       {payClient && <ReceivePaymentModal client={payClient} onClose={() => setPayClient(null)} onSaved={() => { setPayClient(null); refresh() }} />}
-      {openBal   && <OpeningBalanceModal client={openBal} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
+      {openBal   && <OpeningBalanceModal client={openBal.client} mode={openBal.mode} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
+
+      {/* Right-click menu on a client */}
+      {ctxMenu && (
+        <div style={{ position: 'fixed', top: ctxMenu.y, left: ctxMenu.x, zIndex: 1200, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 10, boxShadow: '0 8px 30px rgba(0,0,0,0.18)', padding: 4, minWidth: 190 }}>
+          {[
+            { label: 'Open',                  run: () => { setSelectedId(ctxMenu.client.id); setTab('history') } },
+            { label: 'Add Opening Balance',   run: () => setOpenBal({ client: ctxMenu.client, mode: 'add' }) },
+            { label: 'Edit Opening Balance',  run: () => setOpenBal({ client: ctxMenu.client, mode: 'edit' }) },
+          ].map(item => (
+            <button key={item.label} onClick={() => { item.run(); setCtxMenu(null) }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: NAVY, fontFamily: F, borderRadius: 6 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#F1F5F9' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {confirmDel && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>

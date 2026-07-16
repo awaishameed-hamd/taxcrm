@@ -35,8 +35,12 @@ export class InvoicesController {
   }
 
   @Get('ledger/:clientId')
-  ledger(@Param('clientId') clientId: string) {
-    return this.svc.clientLedger(clientId)
+  ledger(
+    @Param('clientId') clientId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.svc.clientLedger(clientId, from, to)
   }
 
   @Get('open/:clientId')
