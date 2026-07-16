@@ -46,6 +46,16 @@ const btn = (bg: string, color = '#fff'): React.CSSProperties => ({
 
 type Invoice = any
 
+// ─── Stat card (same design as Attendance Approval) ───────────────────────────
+function StatCard({ label, value, border, fill }: { label: string; value: string | number; border: string; fill: string }) {
+  return (
+    <div style={{ flex: 1, minWidth: 100, background: fill, border: `1px solid ${border}30`, borderRadius: 10, padding: '11px 14px' }}>
+      <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#111827', fontFamily: '"Aptos", sans-serif' }}>{value}</p>
+      <p style={{ margin: '2px 0 0', fontSize: 10, fontWeight: 300, fontFamily: "'Ethnocentric Rg', sans-serif", color: '#64748B' }}>{label}</p>
+    </div>
+  )
+}
+
 // ─── Edit invoice ─────────────────────────────────────────────────────────────
 function EditModal({ inv, onClose, onSaved }: { inv: Invoice; onClose: () => void; onSaved: () => void }) {
   const [amount,      setAmount]      = useState(inv.amount != null ? String(Number(inv.amount)) : '')
@@ -476,10 +486,11 @@ export default function InvoicingPage() {
   const [ledger,      setLedger]      = useState<any>(null)
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([])
   const [summary,     setSummary]     = useState<any>({ draftCount: 0, totalInvoiced: 0, totalPaid: 0, outstanding: 0 })
-  const [searchInput, setSearchInput] = useState('')
-  const [loading,     setLoading]     = useState(true)
-  const [tab,         setTab]         = useState<'history' | 'invoices'>('history')
-  const [busy,        setBusy]        = useState<string | null>(null)
+  const [searchInput,   setSearchInput]   = useState('')
+  const [loading,       setLoading]       = useState(true)
+  const [tab,           setTab]           = useState<'history' | 'invoices'>('history')
+  const [busy,          setBusy]          = useState<string | null>(null)
+  const [listCollapsed, setListCollapsed] = useState(false)
 
   const [editInv,    setEditInv]    = useState<Invoice | null>(null)
   const [viewInv,    setViewInv]    = useState<Invoice | null>(null)
@@ -570,76 +581,66 @@ export default function InvoicingPage() {
     )
   }
 
-  const cards = [
-    { label: 'Drafts',         value: String(summary.draftCount), color: '#5C5C5C' },
-    { label: 'Total Invoiced', value: `PKR ${money(summary.totalInvoiced)}`, color: NAVY },
-    { label: 'Total Received', value: `PKR ${money(summary.totalPaid)}`, color: '#16a34a' },
-    { label: 'Outstanding',    value: `PKR ${money(summary.outstanding)}`, color: '#D62828' },
-  ]
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: P.bgMain }}>
-      {/* Header + summary */}
-      <div style={{ padding: '18px 24px 0', flexShrink: 0 }}>
-        <h2 style={{ margin: '0 0 12px', fontSize: 20, fontWeight: 900, color: NAVY, fontFamily: F }}>Invoicing &amp; Payments</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
-          {cards.map(c => (
-            <div key={c.label} style={{ background: '#fff', border: `1px solid ${P.border}`, borderRadius: 12, padding: '10px 14px' }}>
-              <div style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94A3B8', fontFamily: F }}>{c.label}</div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: c.color, fontFamily: F, marginTop: 3 }}>{c.value}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: P.bgMain, fontFamily: F }}>
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
+
+        {/* ── Left panel: clients ── */}
+        <div style={{ width: listCollapsed ? 0 : 340, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#EDF0F3', borderRight: `1px solid ${P.border}`, overflow: 'hidden', transition: 'width .25s' }}>
+
+          <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: '0 14px' }}>
+              <h2 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, color: NAVY, display: 'inline-block', transform: 'skewX(12deg)' }}>Invoicing</h2>
+              <button onClick={() => setListCollapsed(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: P.iconMuted, padding: 4, borderRadius: 6 }}>
+                <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              </button>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Two panes */}
-      <div style={{ flex: 1, display: 'flex', gap: 12, padding: '0 24px 20px', overflow: 'hidden', minHeight: 0 }}>
-
-        {/* ── Client sidebar ── */}
-        <div style={{ width: 280, flexShrink: 0, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: 10, borderBottom: `1px solid ${P.border}` }}>
-            <div style={{ position: 'relative' }}>
-              <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-              </svg>
-              <input type="text" placeholder="Search client…" value={searchInput} onChange={e => setSearchInput(e.target.value)}
-                style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 28, paddingRight: 8, paddingTop: 6, paddingBottom: 6, borderRadius: 30, border: `1px solid ${P.border}`, fontSize: 12, outline: 'none', fontFamily: F }} />
+            <div style={{ padding: '0 14px 10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: '7px 10px' }}>
+                <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke={P.iconMuted} strokeWidth={2} style={{ flexShrink: 0 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Search…"
+                  style={{ border: 'none', outline: 'none', flex: 1, fontSize: 12, fontFamily: F, background: 'transparent', color: NAVY }} />
+              </div>
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
             {/* All invoices */}
             <button onClick={() => setSelectedId(null)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 8, marginBottom: 6, cursor: 'pointer', fontFamily: F,
-                border: `1px solid ${selectedId === null ? TEAL : P.border}`, background: selectedId === null ? '#E8EEF7' : '#F8FAFC' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 800, color: selectedId === null ? TEAL : NAVY, flex: 1 }}>All Invoices</span>
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${selectedId === null ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 10, background: selectedId === null ? '#E8EEF7' : '#F8FAFC', fontFamily: F }}
+              onMouseEnter={e => { if (selectedId !== null) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
+              onMouseLeave={e => { if (selectedId !== null) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}>
+              <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
+                <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, background: TEAL, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>∑</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: selectedId === null ? TEAL : NAVY, flex: 1 }}>All Invoices</span>
                 {totalDrafts > 0 && (
-                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 20, background: '#F1F5F9', color: '#5C5C5C' }}>{totalDrafts} draft</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: '#5C5C5C', background: '#E2E8F0', flexShrink: 0 }}>{totalDrafts} draft</span>
                 )}
               </div>
             </button>
 
-            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.12em', color: '#94A3B8', fontFamily: F, padding: '6px 12px 4px' }}>CLIENTS</div>
-
             {clients.length === 0 ? (
-              <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: P.textMuted, fontFamily: F }}>No clients found.</div>
-            ) : clients.map(c => {
+              <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>No clients found.</div>
+            ) : clients.map((c, idx) => {
               const active = selectedId === c.id
               return (
                 <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history') }}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', borderRadius: 8, marginBottom: 5, cursor: 'pointer', fontFamily: F,
-                    border: `1px solid ${active ? TEAL : P.border}`, background: active ? '#E8EEF7' : '#F8FAFC', opacity: c.isActive ? 1 : 0.55 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${active ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 6, background: active ? '#E8EEF7' : '#F8FAFC', fontFamily: F, opacity: c.isActive ? 1 : 0.55 }}
+                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
+                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}>
+                  <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
+                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, background: TEAL, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{idx + 1}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: active ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.businessName ?? c.fullName}
                     </span>
                     {c.draftCount > 0 && (
-                      <span style={{ fontSize: 9, fontWeight: 900, padding: '1px 5px', borderRadius: 4, background: '#F1F5F9', color: '#5C5C5C', flexShrink: 0 }}>{c.draftCount}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: '#5C5C5C', background: '#E2E8F0', flexShrink: 0 }}>{c.draftCount}</span>
                     )}
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: c.outstanding > 0 ? '#D62828' : '#16a34a' }}>
-                    PKR {money(c.outstanding)}
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, flexShrink: 0, color: c.outstanding > 0 ? '#B91C1C' : '#166534', background: c.outstanding > 0 ? '#FEE2E2' : '#DCFCE7' }}>
+                      {money(c.outstanding)}
+                    </span>
                   </div>
                 </button>
               )
@@ -647,8 +648,30 @@ export default function InvoicingPage() {
           </div>
         </div>
 
-        {/* ── Right pane ── */}
-        <div style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
+        {/* ── Right panel ── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+
+          {/* Header */}
+          <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, padding: '0 20px' }}>
+            {listCollapsed && (
+              <button onClick={() => setListCollapsed(false)} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg,${TEAL} 0%,#0E5F6E 100%)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              </button>
+            )}
+            <h1 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>
+              {selectedId === null ? 'All Invoices' : (ledger?.client?.businessName ?? ledger?.client?.user?.fullName ?? 'Client Account')}
+            </h1>
+          </div>
+
+          {/* Stat cards */}
+          <div style={{ display: 'flex', gap: 12, flexShrink: 0, padding: '0 20px', marginBottom: 14 }}>
+            <StatCard label="Drafts"         value={summary.draftCount}                   border="#64748B" fill="#D4DAE3" />
+            <StatCard label="Total Invoiced" value={`PKR ${money(summary.totalInvoiced)}`} border="#1565C0" fill="#BDDAF8" />
+            <StatCard label="Total Received" value={`PKR ${money(summary.totalPaid)}`}     border="#16A34A" fill="#BBF0D6" />
+            <StatCard label="Outstanding"    value={`PKR ${money(summary.outstanding)}`}   border="#DC2626" fill="#FECACA" />
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px', minWidth: 0 }}>
           {loading ? (
             <div style={{ padding: 48, textAlign: 'center', color: P.textMuted, fontSize: 13, fontFamily: F }}>Loading…</div>
           ) : selectedId === null ? (
@@ -696,56 +719,46 @@ export default function InvoicingPage() {
           ) : ledger ? (
             /* Client ledger */
             <div>
-              {/* Client header */}
-              <div style={{ background: '#fff', border: `1px solid ${P.border}`, borderRadius: 12, padding: '14px 18px', marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: NAVY, fontFamily: F }}>
-                      {ledger.client?.businessName ?? ledger.client?.user?.fullName}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
-                      {ledger.client?.ntn && <span style={{ fontSize: 11, color: '#64748B', fontFamily: F }}>NTN: {ledger.client.ntn}</span>}
-                      {ledger.client?.hasMonthlyRetainer && (
-                        <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 8px', borderRadius: 20, background: '#EDE9FE', color: '#5B21B6', fontFamily: F }}>
-                          Retainer PKR {money(ledger.client.retainerAmount)}/mo
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => setOpenBal(selectedClient ?? ledger.client)} style={{ ...btn('#fff', NAVY), border: `1px solid ${P.border}` }}>
-                      Opening Balance
-                    </button>
-                    <button onClick={() => setPayClient(selectedClient ?? ledger.client)} style={btn('#16a34a')}>
-                      Receive Payment
-                    </button>
-                  </div>
-                </div>
-
-                {/* Client totals */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${P.border}` }}>
-                  {[
-                    { l: 'Opening Balance', v: ledger.openingBalance, c: '#5C5C5C' },
-                    { l: 'Invoiced',        v: ledger.totalInvoiced,  c: NAVY },
-                    { l: 'Received',        v: ledger.totalPaid,      c: '#16a34a' },
-                    { l: 'Outstanding',     v: ledger.outstanding,    c: ledger.outstanding > 0 ? '#D62828' : '#16a34a' },
-                  ].map(x => (
-                    <div key={x.l}>
-                      <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94A3B8', fontFamily: F }}>{x.l}</div>
-                      <div style={{ fontSize: 15, fontWeight: 900, color: x.c, fontFamily: F, marginTop: 2 }}>PKR {money(x.v)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              {/* Client account bar — this client's own totals, plus actions */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px', marginBottom: 14, flexWrap: 'wrap' }}>
                 {([['history', 'Account History'], ['invoices', `Invoices (${ledger.invoices.length})`]] as const).map(([k, l]) => (
                   <button key={k} onClick={() => setTab(k)} style={{
-                    padding: '6px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F,
-                    background: tab === k ? NAVY : '#fff', color: tab === k ? '#fff' : '#64748B',
+                    flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 600, fontFamily: F, whiteSpace: 'nowrap',
+                    background: tab === k ? NAVY : 'transparent',
+                    color: tab === k ? '#fff' : 'rgba(255,255,255,0.85)',
                   }}>{l}</button>
                 ))}
+
+                <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
+
+                {ledger.client?.ntn && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.9)', padding: '0 4px' }}>NTN: {ledger.client.ntn}</span>
+                )}
+                {ledger.client?.hasMonthlyRetainer && (
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 9px', borderRadius: 20, background: '#EDE9FE', color: '#5B21B6', flexShrink: 0 }}>
+                    Retainer PKR {money(ledger.client.retainerAmount)}/mo
+                  </span>
+                )}
+
+                <span style={{ flex: 1 }} />
+
+                <button onClick={() => setOpenBal(selectedClient ?? ledger.client)}
+                  style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
+                  Opening Balance
+                </button>
+                <button onClick={() => setPayClient(selectedClient ?? ledger.client)}
+                  style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: '#16a34a', color: '#fff' }}>
+                  Receive Payment
+                </button>
+              </div>
+
+              {/* This client's totals */}
+              <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+                <StatCard label="Opening Balance" value={`PKR ${money(ledger.openingBalance)}`} border="#64748B" fill="#D4DAE3" />
+                <StatCard label="Invoiced"        value={`PKR ${money(ledger.totalInvoiced)}`}  border="#1565C0" fill="#BDDAF8" />
+                <StatCard label="Received"        value={`PKR ${money(ledger.totalPaid)}`}      border="#16A34A" fill="#BBF0D6" />
+                <StatCard label="Outstanding"     value={`PKR ${money(ledger.outstanding)}`}    border="#DC2626" fill="#FECACA" />
               </div>
 
               {tab === 'history' ? (
@@ -831,6 +844,7 @@ export default function InvoicingPage() {
               )}
             </div>
           ) : null}
+          </div>
         </div>
       </div>
 
