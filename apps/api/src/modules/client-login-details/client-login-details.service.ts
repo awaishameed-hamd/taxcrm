@@ -13,7 +13,7 @@ const SELECT = {
     select: {
       id: true,
       businessName: true,
-      user: { select: { fullName: true } },
+      user: { select: { fullName: true, isActive: true } },
     },
   },
 }
@@ -62,6 +62,13 @@ export class ClientLoginDetailsService {
       },
       select: SELECT,
     })
+  }
+
+  async delete(id: string) {
+    const row = await this.prisma.clientLoginDetail.findUnique({ where: { id } })
+    if (!row) throw new NotFoundException('Login detail not found')
+    await this.prisma.clientLoginDetail.delete({ where: { id } })
+    return { ok: true }
   }
 
   // Adding a row here for a brand-new client also creates the client itself,

@@ -971,14 +971,14 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
           <thead>
             <tr style={{ background: '#F2AC18' }}>
               {visibleRepCols.map((col) => (
-                <th key={col.key} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: "'Aptos', sans-serif", letterSpacing: '0.07em', whiteSpace: 'nowrap', position: 'relative', userSelect: 'none', overflow: 'hidden' }}>
+                <th key={col.key} style={{ padding: '6px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: "'Aptos', sans-serif", letterSpacing: '0.07em', whiteSpace: 'nowrap', position: 'relative', userSelect: 'none', overflow: 'hidden' }}>
                   {col.label}
                   <span onMouseDown={e => onResizeStart(col.key, e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
                     <span style={{ width: 2, height: '55%', background: 'rgba(0,0,0,0.2)', borderRadius: 2 }} />
                   </span>
                 </th>
               ))}
-              <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: "'Aptos', sans-serif", letterSpacing: '0.07em', whiteSpace: 'nowrap' }} />
+              <th style={{ padding: '6px 14px', textAlign: 'right', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: "'Aptos', sans-serif", letterSpacing: '0.07em', whiteSpace: 'nowrap' }} />
             </tr>
           </thead>
           <tbody>
@@ -986,7 +986,7 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
               ? Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFCFC' }}>
                   {Array.from({ length: visibleRepCols.length + 1 }).map((__, c) => (
-                    <td key={c} style={{ padding: '10px 14px', borderBottom: `1px solid ${P.border}50` }}>
+                    <td key={c} style={{ padding: '6px 14px', borderBottom: `1px solid ${P.border}50` }}>
                       <div style={{ height: 12, borderRadius: 4, background: P.gridLine }} />
                     </td>
                   ))}
@@ -995,7 +995,7 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
               : filtered.length === 0
                 ? <tr><td colSpan={visibleRepCols.length + 1} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted }}>{search ? `No representatives matching "${search}".` : 'No representatives yet. Click New Representative to add one.'}</td></tr>
                 : filtered.map((r, idx) => {
-                  const td: React.CSSProperties = { padding: '10px 14px', borderBottom: `1px solid ${P.border}50`, fontFamily: "'Aptos', sans-serif", fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+                  const td: React.CSSProperties = { padding: '6px 14px', borderBottom: `1px solid ${P.border}50`, fontFamily: "'Aptos', sans-serif", fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
                   const na = <span style={{ color: '#CBD5E1' }}>N/A</span>
                   const cellMap: Record<string, React.ReactNode> = {
                     name:    <td key="name"    style={{ ...td, fontWeight: 600, color: P.textHeading }}>{r.fullName}</td>,
@@ -1040,7 +1040,7 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
                   return (
                     <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC', opacity: r.isActive === false ? 0.55 : 1 }}>
                       {visibleRepCols.map(col => cellMap[col.key])}
-                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${P.border}50`, textAlign: 'right' }}>
+                      <td style={{ padding: '6px 14px', borderBottom: `1px solid ${P.border}50`, textAlign: 'right' }}>
                         {(canCreate || canEdit) && (
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                             {canEdit && (
@@ -1566,7 +1566,7 @@ export default function ClientsListPage() {
             <tr style={{ background: '#F2AC18' }}>
               {ALL_CLIENT_COLS.filter(c => visibleCols.includes(c.key)).map((col, i, arr) => (
                 <th key={col.key} style={{
-                  padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600,
+                  padding: '6px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600,
                   textTransform: 'uppercase', color: '#1a1a1a',
                   fontFamily: "'Aptos', sans-serif", letterSpacing: '0.07em', whiteSpace: 'nowrap',
                   position: 'relative', userSelect: 'none', overflow: 'hidden',
@@ -1581,7 +1581,7 @@ export default function ClientsListPage() {
                 </th>
               ))}
               <th style={{
-                padding: '10px 14px', textAlign: 'right', fontSize: 12, fontWeight: 600,
+                padding: '6px 14px', textAlign: 'right', fontSize: 12, fontWeight: 600,
                 textTransform: 'uppercase', color: '#1a1a1a',
                 fontFamily: "'Aptos', sans-serif", letterSpacing: '0.07em', whiteSpace: 'nowrap',
               }} />
@@ -1592,7 +1592,7 @@ export default function ClientsListPage() {
               ? Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFCFC' }}>
                   {Array.from({ length: visibleCols.length + 1 }).map((__, c) => (
-                    <td key={c} style={{ padding: '10px 14px', borderBottom: `1px solid ${P.border}50` }}>
+                    <td key={c} style={{ padding: '6px 14px', borderBottom: `1px solid ${P.border}50` }}>
                       <div style={{ height: 12, borderRadius: 4, background: P.gridLine }} />
                     </td>
                   ))}
@@ -1612,7 +1612,7 @@ export default function ClientsListPage() {
                     return true
                   }).map((c, idx) => {
                   const td: React.CSSProperties = {
-                    padding: '10px 14px', borderBottom: `1px solid ${P.border}50`,
+                    padding: '6px 14px', borderBottom: `1px solid ${P.border}50`,
                     fontFamily: "'Aptos', sans-serif", fontSize: 13, whiteSpace: 'nowrap',
                   }
                   const na = <span style={{ color: '#CBD5E1' }}>N/A</span>
@@ -1642,7 +1642,7 @@ export default function ClientsListPage() {
                   return (
                   <tr key={c.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC', opacity: c.user?.isActive === false ? 0.55 : 1 }}>
                     {ALL_CLIENT_COLS.filter(col => visibleCols.includes(col.key)).map(col => cellMap[col.key])}
-                    <td style={{ padding: '10px 14px', borderBottom: `1px solid ${P.border}50` }}>
+                    <td style={{ padding: '6px 14px', borderBottom: `1px solid ${P.border}50` }}>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                         {canEditClient && (
                           <>

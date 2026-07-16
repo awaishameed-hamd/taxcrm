@@ -27,7 +27,7 @@ type LoginDetail = {
   loginId: string | null
   password: string | null
   clientId: string
-  client: { id: string; businessName: string | null; user: { fullName: string } }
+  client: { id: string; businessName: string | null; user: { fullName: string; isActive: boolean } }
 }
 
 function EditModal({ row, isNew, staff, onClose, onSaved }: {
@@ -125,6 +125,10 @@ export default function LoginDetailsPage() {
   const [editRow,       setEditRow]       = useState<LoginDetail | null>(null)
   const [showAdd,       setShowAdd]       = useState(false)
 
+  const [toggling,      setToggling]      = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<LoginDetail | null>(null)
+  const [deleting,      setDeleting]      = useState(false)
+
   const fetchRows = useCallback((q?: string, silent = false) => {
     if (!silent) setLoading(true)
     api.get('/client-login-details', { params: q ? { search: q } : undefined })
@@ -143,7 +147,27 @@ export default function LoginDetailsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const td: React.CSSProperties = { padding: '10px 14px', borderBottom: `1px solid ${P.border}50`, fontFamily: F, fontSize: 13 }
+  async function toggleClientActive(r: LoginDetail) {
+    setToggling(r.id)
+    try {
+      await api.patch(`/clients/${r.clientId}/toggle-active`)
+      fetchRows(search || undefined)
+    } catch { /* silent */ }
+    finally { setToggling(null) }
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirm) return
+    setDeleting(true)
+    try {
+      await api.delete(`/client-login-details/${deleteConfirm.id}`)
+      setDeleteConfirm(null)
+      fetchRows(search || undefined)
+    } catch { /* silent */ }
+    finally { setDeleting(false) }
+  }
+
+  const td: React.CSSProperties = { padding: '6px 14px', borderBottom: `1px solid ${P.border}50`, fontFamily: F, fontSize: 13 }
   const na = <span style={{ color: '#CBD5E1' }}>N/A</span>
 
   return (
@@ -179,11 +203,11 @@ export default function LoginDetailsPage() {
           <thead>
             <tr style={{ background: '#F2AC18' }}>
               {['Client', 'Authority', 'Login ID', 'Password'].map(label => (
-                <th key={label} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: F, letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
+                <th key={label} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: F, letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
                   {label}
                 </th>
               ))}
-              <th style={{ padding: '10px 14px' }} />
+              <th style={{ padding: '8px 14px' }} />
             </tr>
           </thead>
           <tbody>
@@ -199,24 +223,46 @@ export default function LoginDetailsPage() {
               <tr><td colSpan={5} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted }}>
                 {search ? `No clients matching "${search}".` : 'No login details yet. Click + Add to create one.'}
               </td></tr>
-            ) : rows.map((r, idx) => (
-              <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
+            ) : rows.map((r, idx) => {
+              const isActive = r.client?.user?.isActive !== false
+              return (
+              <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC', opacity: isActive ? 1 : 0.55 }}>
                 <td style={{ ...td, fontWeight: 700, color: P.teal }}>{r.client?.businessName ?? r.client?.user?.fullName ?? na}</td>
                 <td style={{ ...td, color: P.textMuted }}>{r.authority}</td>
                 <td style={{ ...td, color: P.textMuted }}>{r.loginId ?? na}</td>
                 <td style={{ ...td, color: P.textMuted }}>{r.password ?? na}</td>
                 <td style={td}>
-                  <button onClick={() => setEditRow(r)} title="Edit"
-                    style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#EFF6FF' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
-                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931z" />
-                    </svg>
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <button onClick={() => setEditRow(r)} title="Edit"
+                      style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#EFF6FF' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931z" />
+                      </svg>
+                    </button>
+                    <button onClick={() => toggleClientActive(r)} disabled={toggling === r.id} title={isActive ? 'Deactivate client' : 'Activate client'}
+                      style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: toggling === r.id ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isActive ? '#EF4444' : '#22C55E', opacity: toggling === r.id ? 0.5 : 1 }}
+                      onMouseEnter={e => { e.currentTarget.style.background = isActive ? '#FEF2F2' : '#F0FDF4' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+                      {isActive
+                        ? <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                        : <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                      }
+                    </button>
+                    <button onClick={() => setDeleteConfirm(r)} title="Delete row"
+                      style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -230,6 +276,22 @@ export default function LoginDetailsPage() {
         <EditModal row={null} isNew staff={staff}
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); fetchRows(search || undefined) }} />
+      )}
+      {deleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 380, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 900, color: '#D62828', fontFamily: F }}>Delete this row?</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: P.textMuted, fontFamily: F, lineHeight: 1.5 }}>
+              This removes the {deleteConfirm.authority} login detail for <strong>{deleteConfirm.client?.businessName ?? deleteConfirm.client?.user?.fullName}</strong>. It does not delete the client.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeleteConfirm(null)} disabled={deleting} style={{ padding: '8px 16px', borderRadius: 8, border: `1px solid ${P.border}`, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: F, color: '#475569' }}>Cancel</button>
+              <button onClick={confirmDelete} disabled={deleting} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#D62828', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: F, opacity: deleting ? 0.6 : 1 }}>
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
