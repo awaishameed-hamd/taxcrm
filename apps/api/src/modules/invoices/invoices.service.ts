@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { InvoiceKind, InvoiceStatus, Prisma } from '@prisma/client'
-import { CreateInvoiceDto, UpdateInvoiceDto, RecordPaymentDto } from './dto/invoice.dto'
+import { CreateInvoiceDto, UpdateInvoiceDto, RecordPaymentDto, ReceivePaymentDto } from './dto/invoice.dto'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
@@ -105,23 +105,99 @@ export class InvoicesService {
     }
   }
 
+  // Every client with their running account totals — powers the client sidebar.
+  async clientsWithBalances(search?: string) {
+    const clients = await this.prisma.clientProfile.findMany({
+      where: search
+        ? {
+            OR: [
+              { businessName: { contains: search, mode: 'insensitive' } },
+              { user: { fullName: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : undefined,
+      select: {
+        id: true, businessName: true, openingBalance: true,
+        user: { select: { fullName: true, isActive: true } },
+        invoices: { select: { status: true, amount: true, amountPaid: true } },
+      },
+      orderBy: { businessName: 'asc' },
+    })
+
+    return clients.map(c => {
+      const billable = c.invoices.filter(i => BILLABLE.includes(i.status))
+      const invoiced = billable.reduce((s, i) => s + Number(i.amount), 0)
+      const paid     = billable.reduce((s, i) => s + Number(i.amountPaid), 0)
+      const opening  = Number(c.openingBalance)
+      return {
+        id:             c.id,
+        businessName:   c.businessName,
+        fullName:       c.user?.fullName,
+        isActive:       c.user?.isActive !== false,
+        openingBalance: opening,
+        totalInvoiced:  invoiced,
+        totalPaid:      paid,
+        outstanding:    opening + invoiced - paid,
+        draftCount:     c.invoices.filter(i => i.status === InvoiceStatus.DRAFT).length,
+      }
+    })
+  }
+
   // Opening balance + everything billed and paid since — the client's running account.
+  // Returns every invoice (drafts included, so they can be actioned from here) plus a
+  // dated transaction timeline the UI renders as a statement.
   async clientLedger(clientId: string) {
     const client = await this.prisma.clientProfile.findUnique({
       where:  { id: clientId },
-      select: { id: true, businessName: true, openingBalance: true, user: { select: { fullName: true } } },
+      select: {
+        id: true, businessName: true, ntn: true, openingBalance: true, createdAt: true,
+        hasMonthlyRetainer: true, retainerAmount: true,
+        user: { select: { fullName: true, email: true } },
+      },
     })
     if (!client) throw new NotFoundException('Client not found')
 
     const invoices = await this.prisma.invoice.findMany({
-      where:   { clientId, status: { in: BILLABLE } },
+      where:   { clientId },
       include: INVOICE_INCLUDE,
-      orderBy: { issueDate: 'asc' },
+      orderBy: { issueDate: 'desc' },
     })
 
+    const billable = invoices.filter(i => BILLABLE.includes(i.status))
     const opening  = Number(client.openingBalance)
-    const invoiced = invoices.reduce((s, i) => s + Number(i.amount), 0)
-    const paid     = invoices.reduce((s, i) => s + Number(i.amountPaid), 0)
+    const invoiced = billable.reduce((s, i) => s + Number(i.amount), 0)
+    const paid     = billable.reduce((s, i) => s + Number(i.amountPaid), 0)
+
+    // Dated statement: opening balance, then every issued invoice and received payment
+    type Txn = { date: string; type: 'OPENING' | 'INVOICE' | 'PAYMENT'; ref: string; description: string; charge: number; credit: number }
+    const txns: Txn[] = []
+
+    if (opening !== 0) {
+      txns.push({
+        date: client.createdAt.toISOString(), type: 'OPENING', ref: '—',
+        description: 'Opening balance brought forward', charge: opening, credit: 0,
+      })
+    }
+    for (const i of billable) {
+      txns.push({
+        date: i.issueDate.toISOString(), type: 'INVOICE', ref: i.invoiceNumber,
+        description: i.description ?? 'Professional services', charge: Number(i.amount), credit: 0,
+      })
+      for (const p of i.payments) {
+        txns.push({
+          date: p.paidAt.toISOString(), type: 'PAYMENT', ref: i.invoiceNumber,
+          description: `Payment received — ${p.method.replace(/_/g, ' ').toLowerCase()}${p.reference ? ` (${p.reference})` : ''}`,
+          charge: 0, credit: Number(p.amount),
+        })
+      }
+    }
+    txns.sort((a, b) => a.date.localeCompare(b.date))
+
+    let running = 0
+    const timeline = txns.map(t => {
+      running += t.charge - t.credit
+      return { ...t, balance: running }
+    })
 
     return {
       client,
@@ -130,7 +206,18 @@ export class InvoicesService {
       totalPaid:      paid,
       outstanding:    opening + invoiced - paid,
       invoices:       invoices.map(i => this.decorate(i)),
+      timeline,
     }
+  }
+
+  // Invoices this client still owes money on — the "Receive Payment" picker.
+  async openInvoices(clientId: string) {
+    const invoices = await this.prisma.invoice.findMany({
+      where:   { clientId, status: { in: [InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID] } },
+      orderBy: { issueDate: 'asc' }, // oldest first — that's the order payment auto-applies in
+      select:  { id: true, invoiceNumber: true, description: true, issueDate: true, dueDate: true, amount: true, amountPaid: true },
+    })
+    return invoices.map(i => ({ ...i, balance: Number(i.amount) - Number(i.amountPaid) }))
   }
 
   async setOpeningBalance(clientId: string, openingBalance: number) {
@@ -265,6 +352,66 @@ export class InvoicesService {
       },
     })
     return this.getOne(id)
+  }
+
+  // QuickBooks-style: one payment from the client, applied across their open invoices.
+  // All-or-nothing so a bad allocation can never leave the ledger half-updated.
+  async receivePayment(dto: ReceivePaymentDto, userId: string) {
+    const applied = dto.allocations.filter(a => a.amount > 0)
+    if (applied.length === 0) throw new BadRequestException('Apply the payment to at least one invoice')
+
+    const invoices = await this.prisma.invoice.findMany({
+      where:  { id: { in: applied.map(a => a.invoiceId) }, clientId: dto.clientId },
+      select: { id: true, invoiceNumber: true, amount: true, amountPaid: true, status: true, paidAt: true },
+    })
+    if (invoices.length !== applied.length) throw new BadRequestException('One or more invoices do not belong to this client')
+
+    // Validate everything up front — nothing is written until all of it checks out
+    const writes = applied.map(a => {
+      const inv = invoices.find(i => i.id === a.invoiceId)!
+      if (inv.status !== InvoiceStatus.SENT && inv.status !== InvoiceStatus.PARTIALLY_PAID) {
+        throw new BadRequestException(`${inv.invoiceNumber} is not awaiting payment`)
+      }
+      const balance = Number(inv.amount) - Number(inv.amountPaid)
+      if (a.amount > balance + 0.001) {
+        throw new BadRequestException(`Applied amount exceeds the balance on ${inv.invoiceNumber}`)
+      }
+      const newPaid = Number(inv.amountPaid) + a.amount
+      const status  = this.deriveStatus(Number(inv.amount), newPaid)
+      return { inv, allocation: a, newPaid, status }
+    })
+
+    const paidAt = dto.paidAt ? new Date(dto.paidAt) : new Date()
+
+    await this.prisma.$transaction(
+      writes.map(w =>
+        this.prisma.invoice.update({
+          where: { id: w.inv.id },
+          data: {
+            amountPaid: w.newPaid,
+            status:     w.status,
+            paidAt:     w.status === InvoiceStatus.PAID ? paidAt : null,
+            payments: {
+              create: {
+                amount:       w.allocation.amount,
+                method:       dto.method,
+                reference:    dto.reference,
+                proofUrl:     dto.proofUrl,
+                paidAt,
+                notes:        dto.notes,
+                recordedById: userId,
+              },
+            },
+          },
+        })
+      )
+    )
+
+    return {
+      ok: true,
+      applied: writes.length,
+      total:   writes.reduce((s, w) => s + w.allocation.amount, 0),
+    }
   }
 
   async deletePayment(paymentId: string) {

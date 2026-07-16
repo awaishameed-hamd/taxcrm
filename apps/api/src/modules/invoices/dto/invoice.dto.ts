@@ -1,4 +1,5 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator'
+import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
+import { Type } from 'class-transformer'
 import { InvoiceStatus, PaymentMethod } from '@prisma/client'
 
 export class CreateInvoiceDto {
@@ -28,4 +29,23 @@ export class RecordPaymentDto {
 
 export class UpdateOpeningBalanceDto {
   @IsNumber() openingBalance: number
+}
+
+// One slice of a received payment, applied against a single open invoice
+export class PaymentAllocationDto {
+  @IsString() @IsNotEmpty() invoiceId: string
+  @IsNumber() @Min(0) amount: number
+}
+
+// QuickBooks-style "Receive Payment": one payment from a client, spread across
+// however many of their open invoices it settles.
+export class ReceivePaymentDto {
+  @IsString() @IsNotEmpty() clientId: string
+  @IsEnum(PaymentMethod) method: PaymentMethod
+  @IsOptional() @IsString() reference?: string
+  @IsOptional() @IsString() proofUrl?: string
+  @IsOptional() @IsString() paidAt?: string
+  @IsOptional() @IsString() notes?: string
+  @IsArray() @ValidateNested({ each: true }) @Type(() => PaymentAllocationDto)
+  allocations: PaymentAllocationDto[]
 }

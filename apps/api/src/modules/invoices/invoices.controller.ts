@@ -4,7 +4,7 @@ import { RolesGuard } from '../../common/guards/roles.guard'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '@ca-firm/shared'
 import { InvoicesService } from './invoices.service'
-import { CreateInvoiceDto, UpdateInvoiceDto, RecordPaymentDto, UpdateOpeningBalanceDto } from './dto/invoice.dto'
+import { CreateInvoiceDto, UpdateInvoiceDto, RecordPaymentDto, UpdateOpeningBalanceDto, ReceivePaymentDto } from './dto/invoice.dto'
 
 // Billing is Manager-and-above only — Team Leads and Trainees never see it.
 const BILLING_ROLES = [Role.ADMIN, Role.PARTNER, Role.MANAGER]
@@ -29,9 +29,24 @@ export class InvoicesController {
     return this.svc.summary()
   }
 
+  @Get('clients')
+  clients(@Query('search') search?: string) {
+    return this.svc.clientsWithBalances(search)
+  }
+
   @Get('ledger/:clientId')
   ledger(@Param('clientId') clientId: string) {
     return this.svc.clientLedger(clientId)
+  }
+
+  @Get('open/:clientId')
+  openInvoices(@Param('clientId') clientId: string) {
+    return this.svc.openInvoices(clientId)
+  }
+
+  @Post('receive-payment')
+  receivePayment(@Req() req: any, @Body() dto: ReceivePaymentDto) {
+    return this.svc.receivePayment(dto, req.user.id)
   }
 
   @Patch('opening-balance/:clientId')

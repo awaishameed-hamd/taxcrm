@@ -394,7 +394,6 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
   const [retainerAuthorities, setRetainerAuthorities] = useState<string[]>(initial?.retainerSalesTaxAuthorities ?? [])
   const [retainerIncomeTax,   setRetainerIncomeTax]   = useState<boolean>(initial?.retainerIncomeTax ?? false)
   const [retainerWht,         setRetainerWht]         = useState<boolean>(initial?.retainerWht ?? false)
-  const [openingBalance,      setOpeningBalance]      = useState<string>(initial?.openingBalance != null ? String(initial.openingBalance) : '')
 
   const toggleAuthority = (auth: string) => {
     setSalesTaxAuthorities(prev =>
@@ -517,7 +516,6 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
         payload.retainerSalesTaxAuthorities = hasMonthlyRetainer && retainerSalesTax ? retainerAuthorities : []
         payload.retainerIncomeTax           = hasMonthlyRetainer && retainerIncomeTax
         payload.retainerWht                 = hasMonthlyRetainer && retainerWht
-        payload.openingBalance              = Number(openingBalance) || 0
       }
       // Always send the assignment — it's mandatory and rendered outside the dynamic field loop above,
       // so it must not depend on that field's admin-configurable visibility toggle.
@@ -837,18 +835,6 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
                   </div>
                 </>
               )}
-
-              {/* Opening balance */}
-              <div style={{ padding: '12px 18px' }}>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', marginBottom: 4, fontFamily: "'Aptos', sans-serif" }}>
-                  Opening Balance (PKR)
-                </label>
-                <input type="number" value={openingBalance} onChange={e => setOpeningBalance(e.target.value)}
-                  placeholder="0" className={inputCls} style={inputStyle} />
-                <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: "'Aptos', sans-serif" }}>
-                  Amount this client already owed before their account was set up here
-                </p>
-              </div>
             </div>
           )}
 

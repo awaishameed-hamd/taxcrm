@@ -11,12 +11,12 @@ const TEAL = '#1E8496'
 const F    = "'Aptos', sans-serif"
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT:             { label: 'Draft',         color: '#5C5C5C', bg: '#F1F5F9' },
-  SENT:              { label: 'Sent',          color: '#1E40AF', bg: '#DBEAFE' },
-  PARTIALLY_PAID:    { label: 'Partially Paid',color: '#92400E', bg: '#FEF3C7' },
-  PAID:              { label: 'Paid',          color: '#166534', bg: '#DCFCE7' },
-  RETAINER_INCLUDED: { label: 'In Retainer',   color: '#5B21B6', bg: '#EDE9FE' },
-  CANCELLED:         { label: 'Cancelled',     color: '#991B1B', bg: '#FEE2E2' },
+  DRAFT:             { label: 'Draft',          color: '#5C5C5C', bg: '#F1F5F9' },
+  SENT:              { label: 'Sent',           color: '#1E40AF', bg: '#DBEAFE' },
+  PARTIALLY_PAID:    { label: 'Partially Paid', color: '#92400E', bg: '#FEF3C7' },
+  PAID:              { label: 'Paid',           color: '#166534', bg: '#DCFCE7' },
+  RETAINER_INCLUDED: { label: 'In Retainer',    color: '#5B21B6', bg: '#EDE9FE' },
+  CANCELLED:         { label: 'Cancelled',      color: '#991B1B', bg: '#FEE2E2' },
 }
 
 const PAYMENT_METHODS = [
@@ -28,9 +28,7 @@ const PAYMENT_METHODS = [
 ]
 const METHOD_LABEL: Record<string, string> = Object.fromEntries(PAYMENT_METHODS.map(m => [m.value, m.label]))
 
-const FILTERS = ['ALL', 'DRAFT', 'SENT', 'PARTIALLY_PAID', 'PAID', 'RETAINER_INCLUDED', 'CANCELLED']
-
-const money = (n: any) => Number(n ?? 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+const money   = (n: any) => Number(n ?? 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
 
 const inputStyle: React.CSSProperties = {
@@ -60,9 +58,7 @@ function EditModal({ inv, onClose, onSaved }: { inv: Invoice; onClose: () => voi
   async function save() {
     setSaving(true); setError('')
     try {
-      await api.patch(`/invoices/${inv.id}`, {
-        amount: Number(amount) || 0, description, dueDate: dueDate || undefined, notes,
-      })
+      await api.patch(`/invoices/${inv.id}`, { amount: Number(amount) || 0, description, dueDate: dueDate || undefined, notes })
       onSaved()
     } catch (e: any) { setError(e?.response?.data?.message ?? 'Failed to save') }
     finally { setSaving(false) }
@@ -88,8 +84,7 @@ function EditModal({ inv, onClose, onSaved }: { inv: Invoice; onClose: () => voi
         </div>
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Notes</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-            style={{ ...inputStyle, resize: 'none' }} placeholder="Shown on the invoice" />
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none' }} placeholder="Shown on the invoice" />
         </div>
 
         {error && <p style={{ fontSize: 12, color: '#ef4444', marginBottom: 12 }}>{error}</p>}
@@ -103,12 +98,12 @@ function EditModal({ inv, onClose, onSaved }: { inv: Invoice; onClose: () => voi
   )
 }
 
-// ─── Record payment (single or bulk) ──────────────────────────────────────────
-function PaymentModal({ invoices, onClose, onSaved }: { invoices: Invoice[]; onClose: () => void; onSaved: () => void }) {
-  const isBulk    = invoices.length > 1
-  const totalDue  = invoices.reduce((s, i) => s + (Number(i.amount) - Number(i.amountPaid)), 0)
-
-  const [amount,    setAmount]    = useState(String(totalDue))
+// ─── Receive Payment (QuickBooks-style) ───────────────────────────────────────
+function ReceivePaymentModal({ client, onClose, onSaved }: { client: any; onClose: () => void; onSaved: () => void }) {
+  const [open,      setOpen]      = useState<any[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [received,  setReceived]  = useState('')
+  const [alloc,     setAlloc]     = useState<Record<string, string>>({})
   const [method,    setMethod]    = useState('BANK_TRANSFER')
   const [reference, setReference] = useState('')
   const [paidAt,    setPaidAt]    = useState(new Date().toISOString().split('T')[0])
@@ -119,9 +114,35 @@ function PaymentModal({ invoices, onClose, onSaved }: { invoices: Invoice[]; onC
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState('')
 
-  // Bulk always settles each invoice in full — partial only makes sense one invoice at a time
-  const payAmount = isBulk ? totalDue : Number(amount) || 0
-  const isPartial = !isBulk && payAmount > 0 && payAmount < totalDue
+  useEffect(() => {
+    api.get(`/invoices/open/${client.id}`)
+      .then(({ data }) => setOpen(Array.isArray(data) ? data : data.data ?? []))
+      .catch(() => setOpen([]))
+      .finally(() => setLoading(false))
+  }, [client.id])
+
+  const totalOpen    = open.reduce((s, i) => s + Number(i.balance), 0)
+  const totalApplied = Object.values(alloc).reduce((s, v) => s + (Number(v) || 0), 0)
+  const amountRecv   = Number(received) || 0
+  const unapplied    = amountRecv - totalApplied
+
+  // Spread whatever was received across the oldest invoices first, like QuickBooks does
+  function autoApply(amountStr: string) {
+    setReceived(amountStr)
+    let left = Number(amountStr) || 0
+    const next: Record<string, string> = {}
+    for (const inv of open) {
+      if (left <= 0) break
+      const take = Math.min(left, Number(inv.balance))
+      next[inv.id] = String(take)
+      left -= take
+    }
+    setAlloc(next)
+  }
+
+  function setOne(id: string, value: string) {
+    setAlloc(p => ({ ...p, [id]: value }))
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -137,93 +158,151 @@ function PaymentModal({ invoices, onClose, onSaved }: { invoices: Invoice[]; onC
   }
 
   async function save() {
-    if (payAmount <= 0) { setError('Enter an amount'); return }
+    const allocations = Object.entries(alloc)
+      .map(([invoiceId, v]) => ({ invoiceId, amount: Number(v) || 0 }))
+      .filter(a => a.amount > 0)
+    if (allocations.length === 0) { setError('Apply the payment to at least one invoice'); return }
+
     setSaving(true); setError('')
     try {
-      for (const inv of invoices) {
-        const due = Number(inv.amount) - Number(inv.amountPaid)
-        await api.post(`/invoices/${inv.id}/payments`, {
-          amount: isBulk ? due : payAmount,
-          method, reference: reference || undefined, proofUrl: proofUrl || undefined,
-          paidAt: paidAt || undefined, notes: notes || undefined,
-        })
-      }
+      await api.post('/invoices/receive-payment', {
+        clientId: client.id, method,
+        reference: reference || undefined, proofUrl: proofUrl || undefined,
+        paidAt: paidAt || undefined, notes: notes || undefined,
+        allocations,
+      })
       onSaved()
     } catch (e: any) { setError(e?.response?.data?.message ?? 'Failed to record payment') }
     finally { setSaving(false) }
   }
 
+  const cell: React.CSSProperties = { padding: '8px 10px', fontSize: 12.5, fontFamily: F, borderBottom: `1px solid ${P.border}50` }
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 900, color: NAVY, fontFamily: F }}>Record Payment</h3>
-        <p style={{ margin: '0 0 16px', fontSize: 12, color: P.textMuted, fontFamily: F }}>
-          {isBulk ? `${invoices.length} invoices — settling each in full` : invoices[0].invoiceNumber}
-        </p>
-
-        <div style={{ background: '#F8FAFC', border: `1px solid ${P.border}`, borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontFamily: F }}>
-            <span style={{ color: P.textMuted }}>Total outstanding</span>
-            <span style={{ fontWeight: 900, color: NAVY }}>PKR {money(totalDue)}</span>
-          </div>
-        </div>
-
-        {!isBulk && (
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Amount Received (PKR) <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="number" min={0} max={totalDue} value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} />
-            {isPartial && (
-              <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: '#92400E', fontFamily: F }}>
-                Partial payment — PKR {money(totalDue - payAmount)} will remain outstanding
-              </p>
-            )}
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 720, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ background: NAVY, color: '#fff', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <label style={labelStyle}>Method <span style={{ color: '#ef4444' }}>*</span></label>
-            <StyledSelect value={method} onChange={setMethod} options={PAYMENT_METHODS} />
+            <div style={{ fontSize: 16, fontWeight: 900, fontFamily: F }}>Receive Payment</div>
+            <div style={{ fontSize: 12, opacity: 0.8, fontFamily: F, marginTop: 2 }}>{client.businessName ?? client.fullName}</div>
           </div>
-          <div>
-            <label style={labelStyle}>Date</label>
-            <input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} style={inputStyle} />
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 10, opacity: 0.7, fontFamily: F, letterSpacing: '0.1em' }}>OPEN BALANCE</div>
+            <div style={{ fontSize: 19, fontWeight: 900, fontFamily: F }}>PKR {money(totalOpen)}</div>
           </div>
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Reference</label>
-          <input value={reference} onChange={e => setReference(e.target.value)} placeholder="Cheque no. / transaction ID" style={inputStyle} />
-        </div>
+        <div style={{ padding: 24 }}>
+          {/* Payment details */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
+            <div>
+              <label style={labelStyle}>Amount Received <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="number" min={0} value={received} onChange={e => autoApply(e.target.value)} placeholder="0" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Method <span style={{ color: '#ef4444' }}>*</span></label>
+              <StyledSelect value={method} onChange={setMethod} options={PAYMENT_METHODS} />
+            </div>
+            <div>
+              <label style={labelStyle}>Date</label>
+              <input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Payment Proof</label>
-          {proofUrl ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid #BBF7D0', background: '#F0FDF4' }}>
-              <span style={{ flex: 1, fontSize: 12, color: '#166534', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: F }}>{proofName}</span>
-              <button onClick={() => { setProofUrl(''); setProofName('') }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: 15, lineHeight: 1 }}>×</button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+            <div>
+              <label style={labelStyle}>Reference</label>
+              <input value={reference} onChange={e => setReference(e.target.value)} placeholder="Cheque no. / transaction ID" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Payment Proof</label>
+              {proofUrl ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid #BBF7D0', background: '#F0FDF4' }}>
+                  <span style={{ flex: 1, fontSize: 12, color: '#166534', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: F }}>{proofName}</span>
+                  <button onClick={() => { setProofUrl(''); setProofName('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: 15, lineHeight: 1 }}>×</button>
+                </div>
+              ) : (
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: 8, border: `1px dashed ${P.border}`, cursor: 'pointer', fontSize: 12, color: '#94A3B8', background: '#FAFAFA', fontFamily: F }}>
+                  {uploading ? 'Uploading…' : 'Upload receipt'}
+                  <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={handleUpload} />
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* Outstanding invoices */}
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#94A3B8', fontFamily: F, marginBottom: 8 }}>
+            OUTSTANDING INVOICES
+          </div>
+
+          {loading ? (
+            <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12, fontFamily: F }}>Loading…</div>
+          ) : open.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12, fontFamily: F, border: `1px solid ${P.border}`, borderRadius: 8 }}>
+              Nothing outstanding for this client.
             </div>
           ) : (
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 8, border: `1px dashed ${P.border}`, cursor: 'pointer', fontSize: 12, color: '#94A3B8', background: '#FAFAFA', fontFamily: F }}>
-              {uploading ? 'Uploading…' : 'Upload receipt / screenshot'}
-              <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={handleUpload} />
-            </label>
+            <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead>
+                  <tr style={{ background: '#F8FAFC' }}>
+                    {['Invoice', 'Date', 'Due', 'Open Balance', 'Payment'].map((h, i) => (
+                      <th key={h} style={{ ...cell, fontWeight: 900, fontSize: 10, letterSpacing: '0.08em', color: '#64748B', textTransform: 'uppercase', textAlign: i >= 3 ? 'right' : 'left' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {open.map(inv => (
+                    <tr key={inv.id}>
+                      <td style={{ ...cell, fontWeight: 700, color: TEAL }}>{inv.invoiceNumber}</td>
+                      <td style={{ ...cell, color: '#64748B' }}>{fmtDate(inv.issueDate)}</td>
+                      <td style={{ ...cell, color: '#64748B' }}>{inv.dueDate ? fmtDate(inv.dueDate) : '—'}</td>
+                      <td style={{ ...cell, textAlign: 'right', fontWeight: 700, color: NAVY }}>{money(inv.balance)}</td>
+                      <td style={{ ...cell, textAlign: 'right', width: 120 }}>
+                        <input type="number" min={0} max={inv.balance} value={alloc[inv.id] ?? ''}
+                          onChange={e => setOne(inv.id, e.target.value)} placeholder="0"
+                          style={{ ...inputStyle, padding: '5px 8px', textAlign: 'right', fontSize: 12.5, fontWeight: 700 }} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-        </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Notes</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none' }} />
-        </div>
+          {/* Totals */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+            <div style={{ width: 260 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F }}>
+                <span style={{ color: '#64748B' }}>Amount received</span>
+                <span style={{ fontWeight: 700, color: NAVY }}>{money(amountRecv)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F, borderBottom: `1px solid ${P.border}` }}>
+                <span style={{ color: '#64748B' }}>Applied to invoices</span>
+                <span style={{ fontWeight: 700, color: '#16a34a' }}>{money(totalApplied)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0 0', fontSize: 13, fontFamily: F }}>
+                <span style={{ fontWeight: 900, color: NAVY }}>Unapplied</span>
+                <span style={{ fontWeight: 900, color: Math.abs(unapplied) < 0.01 ? '#16a34a' : '#D97706' }}>{money(unapplied)}</span>
+              </div>
+            </div>
+          </div>
 
-        {error && <p style={{ fontSize: 12, color: '#ef4444', marginBottom: 12 }}>{error}</p>}
+          <div style={{ marginTop: 14 }}>
+            <label style={labelStyle}>Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none' }} />
+          </div>
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
-          <button onClick={save} disabled={saving || uploading} style={{ ...btn('#16a34a'), opacity: (saving || uploading) ? 0.6 : 1 }}>
-            {saving ? 'Saving…' : `Record PKR ${money(payAmount)}`}
-          </button>
+          {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '12px 0 0' }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+            <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
+            <button onClick={save} disabled={saving || uploading || totalApplied <= 0}
+              style={{ ...btn('#16a34a'), opacity: (saving || uploading || totalApplied <= 0) ? 0.6 : 1 }}>
+              {saving ? 'Saving…' : `Record PKR ${money(totalApplied)}`}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -253,7 +332,6 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         </div>
 
         <div id="invoice-print" style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
-          {/* Letterhead */}
           <div style={{ background: NAVY, color: '#fff', padding: '28px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '0.06em', fontFamily: F }}>ASIF ASSOCIATES</div>
@@ -265,7 +343,6 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
             </div>
           </div>
 
-          {/* Meta */}
           <div style={{ padding: '24px 36px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, borderBottom: `1px solid ${P.border}` }}>
             <div>
               <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: '#94A3B8', fontFamily: F, marginBottom: 6 }}>BILL TO</div>
@@ -294,7 +371,6 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
             </div>
           </div>
 
-          {/* Line items */}
           <div style={{ padding: '24px 36px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
               <thead>
@@ -314,7 +390,6 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
               </tbody>
             </table>
 
-            {/* Totals */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
               <div style={{ width: 260 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, fontFamily: F }}>
@@ -332,7 +407,6 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
               </div>
             </div>
 
-            {/* Payment history */}
             {(inv.payments ?? []).length > 0 && (
               <div style={{ marginTop: 28 }}>
                 <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: '#94A3B8', fontFamily: F, marginBottom: 8 }}>PAYMENTS RECEIVED</div>
@@ -361,42 +435,83 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   )
 }
 
+// ─── Opening balance ──────────────────────────────────────────────────────────
+function OpeningBalanceModal({ client, onClose, onSaved }: { client: any; onClose: () => void; onSaved: () => void }) {
+  const [value,  setValue]  = useState(String(Number(client.openingBalance ?? 0)))
+  const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState('')
+
+  async function save() {
+    setSaving(true); setError('')
+    try {
+      await api.patch(`/invoices/opening-balance/${client.id}`, { openingBalance: Number(value) || 0 })
+      onSaved()
+    } catch (e: any) { setError(e?.response?.data?.message ?? 'Failed to save') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 400, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 900, color: NAVY, fontFamily: F }}>Opening Balance</h3>
+        <p style={{ margin: '0 0 16px', fontSize: 12, color: P.textMuted, fontFamily: F }}>
+          What {client.businessName ?? client.fullName} already owed before their account was set up here.
+        </p>
+        <label style={labelStyle}>Amount (PKR)</label>
+        <input type="number" value={value} onChange={e => setValue(e.target.value)} placeholder="0" style={inputStyle} autoFocus />
+        {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '12px 0 0' }}>{error}</p>}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+          <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
+          <button onClick={save} disabled={saving} style={{ ...btn(TEAL), opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function InvoicingPage() {
-  const [rows,     setRows]     = useState<Invoice[]>([])
-  const [summary,  setSummary]  = useState<any>({ draftCount: 0, totalInvoiced: 0, totalPaid: 0, outstanding: 0 })
-  const [loading,  setLoading]  = useState(true)
-  const [status,   setStatus]   = useState('ALL')
+  const [clients,     setClients]     = useState<any[]>([])
+  const [selectedId,  setSelectedId]  = useState<string | null>(null) // null = All Invoices
+  const [ledger,      setLedger]      = useState<any>(null)
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>([])
+  const [summary,     setSummary]     = useState<any>({ draftCount: 0, totalInvoiced: 0, totalPaid: 0, outstanding: 0 })
   const [searchInput, setSearchInput] = useState('')
-  const [search,   setSearch]   = useState('')
-  const [selected, setSelected] = useState<string[]>([])
-  const [busy,     setBusy]     = useState<string | null>(null)
+  const [loading,     setLoading]     = useState(true)
+  const [tab,         setTab]         = useState<'history' | 'invoices'>('history')
+  const [busy,        setBusy]        = useState<string | null>(null)
 
   const [editInv,    setEditInv]    = useState<Invoice | null>(null)
   const [viewInv,    setViewInv]    = useState<Invoice | null>(null)
-  const [payInvs,    setPayInvs]    = useState<Invoice[] | null>(null)
+  const [payClient,  setPayClient]  = useState<any>(null)
+  const [openBal,    setOpenBal]    = useState<any>(null)
   const [confirmDel, setConfirmDel] = useState<Invoice | null>(null)
 
-  const fetchAll = useCallback((silent = false) => {
+  const fetchClients = useCallback(() => {
+    api.get('/invoices/clients', { params: searchInput ? { search: searchInput } : undefined })
+      .then(({ data }) => setClients(Array.isArray(data) ? data : data.data ?? []))
+      .catch(() => setClients([]))
+  }, [searchInput])
+
+  const fetchRight = useCallback((silent = false) => {
     if (!silent) setLoading(true)
-    Promise.all([
-      api.get('/invoices', { params: { ...(status !== 'ALL' ? { status } : {}), ...(search ? { search } : {}) } })
-        .then(({ data }) => setRows(Array.isArray(data) ? data : data.data ?? [])),
-      api.get('/invoices/summary').then(({ data }) => setSummary(data?.data ?? data)),
-    ]).catch(() => { if (!silent) setRows([]) })
+    const job = selectedId
+      ? api.get(`/invoices/ledger/${selectedId}`).then(({ data }) => setLedger(data?.data ?? data))
+      : api.get('/invoices').then(({ data }) => setAllInvoices(Array.isArray(data) ? data : data.data ?? []))
+    Promise.all([job, api.get('/invoices/summary').then(({ data }) => setSummary(data?.data ?? data))])
+      .catch(() => {})
       .finally(() => { if (!silent) setLoading(false) })
-  }, [status, search])
+  }, [selectedId])
 
-  useEffect(() => { fetchAll() }, [fetchAll])
-  useAutoRefresh(() => fetchAll(true))
+  useEffect(() => { fetchClients() }, [fetchClients])
+  useEffect(() => { fetchRight() }, [fetchRight])
+  useAutoRefresh(() => { fetchClients(); fetchRight(true) })
 
-  // Only issued, not-yet-settled invoices can take a payment
-  const payable = useMemo(() => rows.filter(r => r.status === 'SENT' || r.status === 'PARTIALLY_PAID'), [rows])
-  const selectedInvoices = useMemo(() => payable.filter(r => selected.includes(r.id)), [payable, selected])
+  function refresh() { fetchClients(); fetchRight() }
 
   async function act(id: string, path: string) {
     setBusy(id)
-    try { await api.post(`/invoices/${id}/${path}`); fetchAll() }
+    try { await api.post(`/invoices/${id}/${path}`); refresh() }
     catch (e: any) { alert(e?.response?.data?.message ?? 'Action failed') }
     finally { setBusy(null) }
   }
@@ -404,10 +519,13 @@ export default function InvoicingPage() {
   async function doDelete() {
     if (!confirmDel) return
     setBusy(confirmDel.id)
-    try { await api.delete(`/invoices/${confirmDel.id}`); setConfirmDel(null); fetchAll() }
+    try { await api.delete(`/invoices/${confirmDel.id}`); setConfirmDel(null); refresh() }
     catch (e: any) { alert(e?.response?.data?.message ?? 'Delete failed') }
     finally { setBusy(null) }
   }
+
+  const selectedClient = useMemo(() => clients.find(c => c.id === selectedId), [clients, selectedId])
+  const totalDrafts    = useMemo(() => clients.reduce((s, c) => s + c.draftCount, 0), [clients])
 
   const td: React.CSSProperties = {
     padding: '6px 12px', borderBottom: `1px solid ${P.border}50`, fontFamily: F,
@@ -418,6 +536,40 @@ export default function InvoicingPage() {
     color: '#1a1a1a', fontFamily: F, letterSpacing: '0.07em', whiteSpace: 'nowrap',
   }
 
+  // Row action buttons, shared by the ledger and the all-invoices list
+  function actions(r: Invoice) {
+    const isDraft  = r.status === 'DRAFT'
+    const disabled = busy === r.id
+    return (
+      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+        <button onClick={() => setViewInv(r)} title="View / Print"
+          style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+        </button>
+        {isDraft && (
+          <>
+            <button onClick={() => setEditInv(r)} title="Edit"
+              style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931z" /></svg>
+            </button>
+            <button onClick={() => act(r.id, 'send')} disabled={disabled} title="Send to client"
+              style={{ padding: '0 8px', height: 26, borderRadius: 6, border: 'none', background: TEAL, color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F, opacity: disabled ? 0.5 : 1 }}>
+              Send
+            </button>
+            <button onClick={() => act(r.id, 'mark-retainer')} disabled={disabled} title="Covered by monthly retainer"
+              style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B2D8E', opacity: disabled ? 0.5 : 1 }}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+            </button>
+            <button onClick={() => setConfirmDel(r)} title="Delete"
+              style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+            </button>
+          </>
+        )}
+      </div>
+    )
+  }
+
   const cards = [
     { label: 'Drafts',         value: String(summary.draftCount), color: '#5C5C5C' },
     { label: 'Total Invoiced', value: `PKR ${money(summary.totalInvoiced)}`, color: NAVY },
@@ -426,169 +578,266 @@ export default function InvoicingPage() {
   ]
 
   return (
-    <div style={{ padding: '20px 24px' }}>
-      <h2 style={{ margin: '0 0 14px', fontSize: 20, fontWeight: 900, color: NAVY, fontFamily: F }}>Invoicing &amp; Payments</h2>
-
-      {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
-        {cards.map(c => (
-          <div key={c.label} style={{ background: '#fff', border: `1px solid ${P.border}`, borderRadius: 12, padding: '12px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94A3B8', fontFamily: F }}>{c.label}</div>
-            <div style={{ fontSize: 19, fontWeight: 900, color: c.color, fontFamily: F, marginTop: 4 }}>{c.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filter bar */}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: TEAL, borderRadius: 40, padding: '5px 8px', flexWrap: 'wrap' }}>
-          {FILTERS.map(f => (
-            <button key={f} onClick={() => { setStatus(f); setSelected([]) }} style={{
-              flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer',
-              fontSize: 12, fontWeight: 600, fontFamily: F, whiteSpace: 'nowrap',
-              background: status === f ? NAVY : 'transparent',
-              color: status === f ? '#fff' : 'rgba(255,255,255,0.85)',
-            }}>
-              {f === 'ALL' ? 'All' : STATUS_META[f].label}
-            </button>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: P.bgMain }}>
+      {/* Header + summary */}
+      <div style={{ padding: '18px 24px 0', flexShrink: 0 }}>
+        <h2 style={{ margin: '0 0 12px', fontSize: 20, fontWeight: 900, color: NAVY, fontFamily: F }}>Invoicing &amp; Payments</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
+          {cards.map(c => (
+            <div key={c.label} style={{ background: '#fff', border: `1px solid ${P.border}`, borderRadius: 12, padding: '10px 14px' }}>
+              <div style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94A3B8', fontFamily: F }}>{c.label}</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: c.color, fontFamily: F, marginTop: 3 }}>{c.value}</div>
+            </div>
           ))}
-
-          <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
-
-          <div style={{ position: 'relative', flex: 1, minWidth: 150, maxWidth: 240 }}>
-            <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-            <input type="text" placeholder="Search client / invoice…" value={searchInput}
-              onChange={e => { setSearchInput(e.target.value); setSearch(e.target.value) }}
-              style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 28, paddingRight: 8, paddingTop: 4, paddingBottom: 4, borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 12, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: F }} />
-          </div>
-
-          <span style={{ flex: 1 }} />
-
-          {selectedInvoices.length > 0 && (
-            <button onClick={() => setPayInvs(selectedInvoices)}
-              style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: '#16a34a', color: '#fff' }}>
-              Record Payment ({selectedInvoices.length})
-            </button>
-          )}
-
-          <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#fff', padding: '0 4px' }}>{rows.length} invoices</span>
         </div>
       </div>
 
-      {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13, tableLayout: 'fixed' }}>
-          <colgroup>
-            <col style={{ width: 38 }} />
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '19%' }} />
-            <col style={{ width: '24%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: 116 }} />
-          </colgroup>
-          <thead>
-            <tr style={{ background: '#F2AC18' }}>
-              <th style={{ ...th, padding: '8px 0 8px 12px' }}>
-                <input type="checkbox" style={{ accentColor: NAVY, width: 14, height: 14, cursor: 'pointer' }}
-                  checked={payable.length > 0 && selected.length === payable.length}
-                  onChange={e => setSelected(e.target.checked ? payable.map(r => r.id) : [])} />
-              </th>
-              {['Invoice #', 'Client', 'Description', 'Amount', 'Balance', 'Status'].map(l => <th key={l} style={th}>{l}</th>)}
-              <th style={th} />
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFCFC' }}>
-                  {Array.from({ length: 8 }).map((__, c) => (
-                    <td key={c} style={td}><div style={{ height: 12, borderRadius: 4, background: P.gridLine }} /></td>
-                  ))}
-                </tr>
-              ))
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={8} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>
-                {search ? `No invoices matching "${search}".` : 'No invoices yet. They appear here automatically when a task is completed.'}
-              </td></tr>
-            ) : rows.map((r, idx) => {
-              const st       = STATUS_META[r.status] ?? STATUS_META.DRAFT
-              const balance  = Number(r.amount) - Number(r.amountPaid)
-              const isDraft  = r.status === 'DRAFT'
-              const canPay   = r.status === 'SENT' || r.status === 'PARTIALLY_PAID'
-              const disabled = busy === r.id
+      {/* Two panes */}
+      <div style={{ flex: 1, display: 'flex', gap: 12, padding: '0 24px 20px', overflow: 'hidden', minHeight: 0 }}>
 
+        {/* ── Client sidebar ── */}
+        <div style={{ width: 280, flexShrink: 0, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: 10, borderBottom: `1px solid ${P.border}` }}>
+            <div style={{ position: 'relative' }}>
+              <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              <input type="text" placeholder="Search client…" value={searchInput} onChange={e => setSearchInput(e.target.value)}
+                style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 28, paddingRight: 8, paddingTop: 6, paddingBottom: 6, borderRadius: 30, border: `1px solid ${P.border}`, fontSize: 12, outline: 'none', fontFamily: F }} />
+            </div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+            {/* All invoices */}
+            <button onClick={() => setSelectedId(null)}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 8, marginBottom: 6, cursor: 'pointer', fontFamily: F,
+                border: `1px solid ${selectedId === null ? TEAL : P.border}`, background: selectedId === null ? '#E8EEF7' : '#F8FAFC' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: selectedId === null ? TEAL : NAVY, flex: 1 }}>All Invoices</span>
+                {totalDrafts > 0 && (
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 20, background: '#F1F5F9', color: '#5C5C5C' }}>{totalDrafts} draft</span>
+                )}
+              </div>
+            </button>
+
+            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.12em', color: '#94A3B8', fontFamily: F, padding: '6px 12px 4px' }}>CLIENTS</div>
+
+            {clients.length === 0 ? (
+              <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: P.textMuted, fontFamily: F }}>No clients found.</div>
+            ) : clients.map(c => {
+              const active = selectedId === c.id
               return (
-                <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
-                  <td style={{ ...td, padding: '6px 0 6px 12px' }}>
-                    {canPay && (
-                      <input type="checkbox" style={{ accentColor: NAVY, width: 14, height: 14, cursor: 'pointer' }}
-                        checked={selected.includes(r.id)}
-                        onChange={e => setSelected(p => e.target.checked ? [...p, r.id] : p.filter(x => x !== r.id))} />
+                <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history') }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', borderRadius: 8, marginBottom: 5, cursor: 'pointer', fontFamily: F,
+                    border: `1px solid ${active ? TEAL : P.border}`, background: active ? '#E8EEF7' : '#F8FAFC', opacity: c.isActive ? 1 : 0.55 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: active ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.businessName ?? c.fullName}
+                    </span>
+                    {c.draftCount > 0 && (
+                      <span style={{ fontSize: 9, fontWeight: 900, padding: '1px 5px', borderRadius: 4, background: '#F1F5F9', color: '#5C5C5C', flexShrink: 0 }}>{c.draftCount}</span>
                     )}
-                  </td>
-                  <td style={{ ...td, color: TEAL }}>{r.invoiceNumber}</td>
-                  <td style={td}>{r.client?.businessName ?? r.client?.user?.fullName ?? '—'}</td>
-                  <td style={{ ...td, fontWeight: 400 }}>
-                    {r.description ?? '—'}
-                    {r.retainerCovered && isDraft && (
-                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6', letterSpacing: '0.05em' }}>IN RETAINER?</span>
-                    )}
-                  </td>
-                  <td style={td}>{money(r.amount)}</td>
-                  <td style={{ ...td, color: balance > 0 ? '#D62828' : '#16a34a' }}>{money(balance)}</td>
-                  <td style={td}>
-                    <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: st.color, background: st.bg }}>{st.label}</span>
-                  </td>
-                  <td style={{ ...td, overflow: 'visible' }}>
-                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                      <button onClick={() => setViewInv(r)} title="View / Print"
-                        style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-                      </button>
-
-                      {isDraft && (
-                        <>
-                          <button onClick={() => setEditInv(r)} title="Edit"
-                            style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
-                            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931z" /></svg>
-                          </button>
-                          <button onClick={() => act(r.id, 'send')} disabled={disabled} title="Send to client"
-                            style={{ padding: '0 8px', height: 26, borderRadius: 6, border: 'none', background: TEAL, color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F, opacity: disabled ? 0.5 : 1 }}>
-                            Send
-                          </button>
-                          <button onClick={() => act(r.id, 'mark-retainer')} disabled={disabled} title="Covered by monthly retainer"
-                            style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B2D8E', opacity: disabled ? 0.5 : 1 }}>
-                            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                          </button>
-                          <button onClick={() => setConfirmDel(r)} title="Delete"
-                            style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
-                            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-                          </button>
-                        </>
-                      )}
-
-                      {canPay && (
-                        <button onClick={() => setPayInvs([r])} title="Record payment"
-                          style={{ padding: '0 8px', height: 26, borderRadius: 6, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
-                          Pay
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: c.outstanding > 0 ? '#D62828' : '#16a34a' }}>
+                    PKR {money(c.outstanding)}
+                  </div>
+                </button>
               )
             })}
-          </tbody>
-        </table>
+          </div>
+        </div>
+
+        {/* ── Right pane ── */}
+        <div style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
+          {loading ? (
+            <div style={{ padding: 48, textAlign: 'center', color: P.textMuted, fontSize: 13, fontFamily: F }}>Loading…</div>
+          ) : selectedId === null ? (
+            /* All invoices — cross-client draft triage */
+            <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '13%' }} /><col style={{ width: '20%' }} /><col style={{ width: '25%' }} />
+                  <col style={{ width: '11%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /><col style={{ width: 120 }} />
+                </colgroup>
+                <thead>
+                  <tr style={{ background: '#F2AC18' }}>
+                    {['Invoice #', 'Client', 'Description', 'Amount', 'Balance', 'Status'].map(l => <th key={l} style={th}>{l}</th>)}
+                    <th style={th} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {allInvoices.length === 0 ? (
+                    <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>
+                      No invoices yet. They appear here automatically when a task is completed.
+                    </td></tr>
+                  ) : allInvoices.map((r, idx) => {
+                    const st = STATUS_META[r.status] ?? STATUS_META.DRAFT
+                    const balance = Number(r.amount) - Number(r.amountPaid)
+                    return (
+                      <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
+                        <td style={{ ...td, color: TEAL }}>{r.invoiceNumber}</td>
+                        <td style={td}>{r.client?.businessName ?? r.client?.user?.fullName ?? '—'}</td>
+                        <td style={{ ...td, fontWeight: 400 }}>
+                          {r.description ?? '—'}
+                          {r.retainerCovered && r.status === 'DRAFT' && (
+                            <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>IN RETAINER?</span>
+                          )}
+                        </td>
+                        <td style={td}>{money(r.amount)}</td>
+                        <td style={{ ...td, color: balance > 0 ? '#D62828' : '#16a34a' }}>{money(balance)}</td>
+                        <td style={td}><span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: st.color, background: st.bg }}>{st.label}</span></td>
+                        <td style={{ ...td, overflow: 'visible' }}>{actions(r)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : ledger ? (
+            /* Client ledger */
+            <div>
+              {/* Client header */}
+              <div style={{ background: '#fff', border: `1px solid ${P.border}`, borderRadius: 12, padding: '14px 18px', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: NAVY, fontFamily: F }}>
+                      {ledger.client?.businessName ?? ledger.client?.user?.fullName}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
+                      {ledger.client?.ntn && <span style={{ fontSize: 11, color: '#64748B', fontFamily: F }}>NTN: {ledger.client.ntn}</span>}
+                      {ledger.client?.hasMonthlyRetainer && (
+                        <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 8px', borderRadius: 20, background: '#EDE9FE', color: '#5B21B6', fontFamily: F }}>
+                          Retainer PKR {money(ledger.client.retainerAmount)}/mo
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setOpenBal(selectedClient ?? ledger.client)} style={{ ...btn('#fff', NAVY), border: `1px solid ${P.border}` }}>
+                      Opening Balance
+                    </button>
+                    <button onClick={() => setPayClient(selectedClient ?? ledger.client)} style={btn('#16a34a')}>
+                      Receive Payment
+                    </button>
+                  </div>
+                </div>
+
+                {/* Client totals */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${P.border}` }}>
+                  {[
+                    { l: 'Opening Balance', v: ledger.openingBalance, c: '#5C5C5C' },
+                    { l: 'Invoiced',        v: ledger.totalInvoiced,  c: NAVY },
+                    { l: 'Received',        v: ledger.totalPaid,      c: '#16a34a' },
+                    { l: 'Outstanding',     v: ledger.outstanding,    c: ledger.outstanding > 0 ? '#D62828' : '#16a34a' },
+                  ].map(x => (
+                    <div key={x.l}>
+                      <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94A3B8', fontFamily: F }}>{x.l}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: x.c, fontFamily: F, marginTop: 2 }}>PKR {money(x.v)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {([['history', 'Account History'], ['invoices', `Invoices (${ledger.invoices.length})`]] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setTab(k)} style={{
+                    padding: '6px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F,
+                    background: tab === k ? NAVY : '#fff', color: tab === k ? '#fff' : '#64748B',
+                  }}>{l}</button>
+                ))}
+              </div>
+
+              {tab === 'history' ? (
+                <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '14%' }} /><col style={{ width: '12%' }} /><col style={{ width: '13%' }} />
+                      <col style={{ width: '27%' }} /><col style={{ width: '12%' }} /><col style={{ width: '11%' }} /><col style={{ width: '11%' }} />
+                    </colgroup>
+                    <thead>
+                      <tr style={{ background: '#F2AC18' }}>
+                        {['Date', 'Type', 'Reference', 'Description'].map(l => <th key={l} style={th}>{l}</th>)}
+                        {['Charge', 'Payment', 'Balance'].map(l => <th key={l} style={{ ...th, textAlign: 'right' }}>{l}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledger.timeline.length === 0 ? (
+                        <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>
+                          Nothing billed to this client yet. Drafts appear under the Invoices tab.
+                        </td></tr>
+                      ) : ledger.timeline.map((t: any, idx: number) => {
+                        const meta = t.type === 'PAYMENT'
+                          ? { label: 'Payment', color: '#166534', bg: '#DCFCE7' }
+                          : t.type === 'OPENING'
+                            ? { label: 'Opening', color: '#5C5C5C', bg: '#F1F5F9' }
+                            : { label: 'Invoice', color: '#1E40AF', bg: '#DBEAFE' }
+                        return (
+                          <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
+                            <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(t.date)}</td>
+                            <td style={td}>
+                              <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 9999, fontSize: 10.5, fontWeight: 800, color: meta.color, background: meta.bg }}>{meta.label}</span>
+                            </td>
+                            <td style={{ ...td, color: TEAL }}>{t.ref}</td>
+                            <td style={{ ...td, fontWeight: 400 }}>{t.description}</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{t.charge ? money(t.charge) : ''}</td>
+                            <td style={{ ...td, textAlign: 'right', color: '#16a34a' }}>{t.credit ? money(t.credit) : ''}</td>
+                            <td style={{ ...td, textAlign: 'right', color: t.balance > 0 ? '#D62828' : '#16a34a' }}>{money(t.balance)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '14%' }} /><col style={{ width: '13%' }} /><col style={{ width: '27%' }} />
+                      <col style={{ width: '11%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /><col style={{ width: 120 }} />
+                    </colgroup>
+                    <thead>
+                      <tr style={{ background: '#F2AC18' }}>
+                        {['Invoice #', 'Date', 'Description', 'Amount', 'Balance', 'Status'].map(l => <th key={l} style={th}>{l}</th>)}
+                        <th style={th} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledger.invoices.length === 0 ? (
+                        <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>No invoices for this client yet.</td></tr>
+                      ) : ledger.invoices.map((r: Invoice, idx: number) => {
+                        const st = STATUS_META[r.status] ?? STATUS_META.DRAFT
+                        const balance = Number(r.amount) - Number(r.amountPaid)
+                        return (
+                          <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
+                            <td style={{ ...td, color: TEAL }}>{r.invoiceNumber}</td>
+                            <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(r.issueDate)}</td>
+                            <td style={{ ...td, fontWeight: 400 }}>
+                              {r.description ?? '—'}
+                              {r.retainerCovered && r.status === 'DRAFT' && (
+                                <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>IN RETAINER?</span>
+                              )}
+                            </td>
+                            <td style={td}>{money(r.amount)}</td>
+                            <td style={{ ...td, color: balance > 0 ? '#D62828' : '#16a34a' }}>{money(balance)}</td>
+                            <td style={td}><span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: st.color, background: st.bg }}>{st.label}</span></td>
+                            <td style={{ ...td, overflow: 'visible' }}>{actions(r)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      {editInv && <EditModal inv={editInv} onClose={() => setEditInv(null)} onSaved={() => { setEditInv(null); fetchAll() }} />}
-      {viewInv && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} />}
-      {payInvs && <PaymentModal invoices={payInvs} onClose={() => setPayInvs(null)} onSaved={() => { setPayInvs(null); setSelected([]); fetchAll() }} />}
+      {editInv   && <EditModal inv={editInv} onClose={() => setEditInv(null)} onSaved={() => { setEditInv(null); refresh() }} />}
+      {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} />}
+      {payClient && <ReceivePaymentModal client={payClient} onClose={() => setPayClient(null)} onSaved={() => { setPayClient(null); refresh() }} />}
+      {openBal   && <OpeningBalanceModal client={openBal} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
 
       {confirmDel && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
