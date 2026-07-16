@@ -622,7 +622,7 @@ export default function InvoicingPage() {
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
 
         {/* ── Left panel: clients ── */}
-        <div style={{ width: listCollapsed ? 0 : 340, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#EDF0F3', borderRight: `1px solid ${P.border}`, overflow: 'hidden', transition: 'width .25s' }}>
+        <div style={{ width: listCollapsed ? 0 : 280, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#EDF0F3', borderRight: `1px solid ${P.border}`, overflow: 'hidden', transition: 'width .25s' }}>
 
           <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: '0 14px' }}>
@@ -645,7 +645,7 @@ export default function InvoicingPage() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
             {clients.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>No clients found.</div>
-            ) : clients.map((c, idx) => {
+            ) : clients.map(c => {
               const active = selectedId === c.id
               return (
                 <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history') }}
@@ -653,15 +653,15 @@ export default function InvoicingPage() {
                   style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${active ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 6, background: active ? '#E8EEF7' : '#F8FAFC', fontFamily: F, opacity: c.isActive ? 1 : 0.55 }}
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}>
-                  <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, background: TEAL, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{idx + 1}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ flexShrink: 0, width: 7, height: 7, borderRadius: '50%', background: active ? TEAL : NAVY }} />
                     <span style={{ fontSize: 12, fontWeight: 700, color: active ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.businessName ?? c.fullName}
                     </span>
                     {c.draftCount > 0 && (
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: '#5C5C5C', background: '#E2E8F0', flexShrink: 0 }}>{c.draftCount}</span>
+                      <span style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, color: '#5C5C5C', background: '#E2E8F0', flexShrink: 0 }}>{c.draftCount}</span>
                     )}
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, flexShrink: 0, color: c.outstanding > 0 ? '#B91C1C' : '#166534', background: c.outstanding > 0 ? '#FEE2E2' : '#DCFCE7' }}>
+                    <span style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, flexShrink: 0, color: c.outstanding > 0 ? '#B91C1C' : '#166534', background: c.outstanding > 0 ? '#FEE2E2' : '#DCFCE7' }}>
                       {money(c.outstanding)}
                     </span>
                   </div>

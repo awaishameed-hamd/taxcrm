@@ -388,15 +388,15 @@ export default function FilesPage() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
             {cLoading && <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>Loading…</div>}
             {!cLoading && filtered.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>{search ? `No clients matching "${search}".` : 'No clients found.'}</div>}
-            {!cLoading && filtered.map((c, idx) => {
+            {!cLoading && filtered.map(c => {
               const isActive = selected?.id === c.id
               return (
                 <button key={c.id} onClick={() => { setSelected(c); setOpenMonth(null); setOpenFolder(null) }}
                   style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${isActive ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 6, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily: "'Aptos',sans-serif" }}
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#EEF2F7' }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = '#F8FAFC' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, background: TEAL, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{idx + 1}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ flexShrink: 0, width: 7, height: 7, borderRadius: '50%', background: isActive ? TEAL : NAVY }} />
                     <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(c)}</span>
                   </div>
                 </button>
