@@ -482,9 +482,8 @@ function OpeningBalanceModal({ client, onClose, onSaved }: { client: any; onClos
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function InvoicingPage() {
   const [clients,     setClients]     = useState<any[]>([])
-  const [selectedId,  setSelectedId]  = useState<string | null>(null) // null = All Invoices
+  const [selectedId,  setSelectedId]  = useState<string | null>(null)
   const [ledger,      setLedger]      = useState<any>(null)
-  const [allInvoices, setAllInvoices] = useState<Invoice[]>([])
   const [summary,     setSummary]     = useState<any>({ draftCount: 0, totalInvoiced: 0, totalPaid: 0, outstanding: 0 })
   const [searchInput,   setSearchInput]   = useState('')
   const [loading,       setLoading]       = useState(true)
@@ -508,7 +507,7 @@ export default function InvoicingPage() {
     if (!silent) setLoading(true)
     const job = selectedId
       ? api.get(`/invoices/ledger/${selectedId}`).then(({ data }) => setLedger(data?.data ?? data))
-      : api.get('/invoices').then(({ data }) => setAllInvoices(Array.isArray(data) ? data : data.data ?? []))
+      : Promise.resolve()
     Promise.all([job, api.get('/invoices/summary').then(({ data }) => setSummary(data?.data ?? data))])
       .catch(() => {})
       .finally(() => { if (!silent) setLoading(false) })
@@ -536,7 +535,6 @@ export default function InvoicingPage() {
   }
 
   const selectedClient = useMemo(() => clients.find(c => c.id === selectedId), [clients, selectedId])
-  const totalDrafts    = useMemo(() => clients.reduce((s, c) => s + c.draftCount, 0), [clients])
 
   const td: React.CSSProperties = {
     padding: '6px 12px', borderBottom: `1px solid ${P.border}50`, fontFamily: F,
@@ -607,20 +605,6 @@ export default function InvoicingPage() {
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
-            {/* All invoices */}
-            <button onClick={() => setSelectedId(null)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${selectedId === null ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 10, background: selectedId === null ? '#E8EEF7' : '#F8FAFC', fontFamily: F }}
-              onMouseEnter={e => { if (selectedId !== null) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
-              onMouseLeave={e => { if (selectedId !== null) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}>
-              <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-                <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, background: TEAL, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>∑</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: selectedId === null ? TEAL : NAVY, flex: 1 }}>All Invoices</span>
-                {totalDrafts > 0 && (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: '#5C5C5C', background: '#E2E8F0', flexShrink: 0 }}>{totalDrafts} draft</span>
-                )}
-              </div>
-            </button>
-
             {clients.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>No clients found.</div>
             ) : clients.map((c, idx) => {
@@ -675,46 +659,11 @@ export default function InvoicingPage() {
           {loading ? (
             <div style={{ padding: 48, textAlign: 'center', color: P.textMuted, fontSize: 13, fontFamily: F }}>Loading…</div>
           ) : selectedId === null ? (
-            /* All invoices — cross-client draft triage */
-            <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
-                <colgroup>
-                  <col style={{ width: '13%' }} /><col style={{ width: '20%' }} /><col style={{ width: '25%' }} />
-                  <col style={{ width: '11%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /><col style={{ width: 120 }} />
-                </colgroup>
-                <thead>
-                  <tr style={{ background: '#F2AC18' }}>
-                    {['Invoice #', 'Client', 'Description', 'Amount', 'Balance', 'Status'].map(l => <th key={l} style={th}>{l}</th>)}
-                    <th style={th} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {allInvoices.length === 0 ? (
-                    <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>
-                      No invoices yet. They appear here automatically when a task is completed.
-                    </td></tr>
-                  ) : allInvoices.map((r, idx) => {
-                    const st = STATUS_META[r.status] ?? STATUS_META.DRAFT
-                    const balance = Number(r.amount) - Number(r.amountPaid)
-                    return (
-                      <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
-                        <td style={{ ...td, color: TEAL }}>{r.invoiceNumber}</td>
-                        <td style={td}>{r.client?.businessName ?? r.client?.user?.fullName ?? '—'}</td>
-                        <td style={{ ...td, fontWeight: 400 }}>
-                          {r.description ?? '—'}
-                          {r.retainerCovered && r.status === 'DRAFT' && (
-                            <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>IN RETAINER?</span>
-                          )}
-                        </td>
-                        <td style={td}>{money(r.amount)}</td>
-                        <td style={{ ...td, color: balance > 0 ? '#D62828' : '#16a34a' }}>{money(balance)}</td>
-                        <td style={td}><span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: st.color, background: st.bg }}>{st.label}</span></td>
-                        <td style={{ ...td, overflow: 'visible' }}>{actions(r)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 40, color: P.border, margin: 0 }}>←</p>
+                <p style={{ fontSize: 13, color: P.textMuted, fontFamily: F }}>Select a client to view their account</p>
+              </div>
             </div>
           ) : ledger ? (
             /* Client ledger */
