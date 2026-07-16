@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { useAuth } from '@/contexts/AuthContext'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -30,19 +31,19 @@ type LoginDetail = {
   client: { id: string; businessName: string | null; user: { fullName: string; isActive: boolean } }
 }
 
-function EditModal({ row, isNew, staff, onClose, onSaved }: {
-  row: LoginDetail | null; isNew: boolean; staff: any[]
+function EditModal({ row, isNew, onClose, onSaved }: {
+  row: LoginDetail | null; isNew: boolean
   onClose: () => void; onSaved: () => void
 }) {
+  const { user } = useAuth()
   const [businessName, setBusinessName] = useState('')
-  const [traineeId,    setTraineeId]    = useState('')
   const [authority,    setAuthority]    = useState(row?.authority ?? 'FBR')
   const [loginId,      setLoginId]      = useState(row?.loginId ?? '')
   const [password,     setPassword]     = useState(row?.password ?? '')
   const [saving,        setSaving]      = useState(false)
   const [error,         setError]       = useState('')
 
-  const canSubmit = isNew ? (!!businessName.trim() && !!traineeId) : true
+  const canSubmit = isNew ? (!!businessName.trim() && !!user?.id) : true
 
   async function submit() {
     if (!canSubmit || saving) return
@@ -51,7 +52,7 @@ function EditModal({ row, isNew, staff, onClose, onSaved }: {
     try {
       if (isNew) {
         await api.post('/client-login-details', {
-          businessName: businessName.trim(), traineeId, authority, loginId: loginId || undefined, password: password || undefined,
+          businessName: businessName.trim(), traineeId: user!.id, authority, loginId: loginId || undefined, password: password || undefined,
         })
       } else {
         await api.patch(`/client-login-details/${row!.id}`, { authority, loginId, password })
@@ -72,17 +73,10 @@ function EditModal({ row, isNew, staff, onClose, onSaved }: {
         </h3>
 
         {isNew && (
-          <>
-            <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>Client Name <span style={{ color: '#ef4444' }}>*</span></label>
-              <input value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Business name" style={inputStyle} />
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>Assign To <span style={{ color: '#ef4444' }}>*</span></label>
-              <StyledSelect value={traineeId} onChange={setTraineeId} placeholder="Select staff…"
-                options={staff.map((s: any) => ({ value: s.id, label: s.fullName }))} />
-            </div>
-          </>
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Client Name <span style={{ color: '#ef4444' }}>*</span></label>
+            <input value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Business name" style={inputStyle} />
+          </div>
         )}
 
         <div style={{ marginBottom: 14 }}>
@@ -121,7 +115,6 @@ export default function LoginDetailsPage() {
   const [loading,       setLoading]       = useState(true)
   const [searchInput,   setSearchInput]   = useState('')
   const [search,        setSearch]        = useState('')
-  const [staff,         setStaff]         = useState<any[]>([])
   const [editRow,       setEditRow]       = useState<LoginDetail | null>(null)
   const [showAdd,       setShowAdd]       = useState(false)
 
@@ -139,13 +132,7 @@ export default function LoginDetailsPage() {
 
   useAutoRefresh(() => fetchRows(search || undefined, true))
 
-  useEffect(() => {
-    fetchRows()
-    const fetchRole = (role: string) => api.get('/users', { params: { role } }).then(({ data }) => data.data ?? []).catch(() => [])
-    Promise.all([fetchRole('MANAGER'), fetchRole('TEAM_LEAD'), fetchRole('TRAINEE')])
-      .then(([managers, teamLeads, trainees]) => setStaff([...managers, ...teamLeads, ...trainees]))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useEffect(() => { fetchRows() }, [fetchRows])
 
   async function toggleClientActive(r: LoginDetail) {
     setToggling(r.id)
@@ -167,7 +154,7 @@ export default function LoginDetailsPage() {
     finally { setDeleting(false) }
   }
 
-  const td: React.CSSProperties = { padding: '6px 14px', borderBottom: `1px solid ${P.border}50`, fontFamily: F, fontSize: 13 }
+  const td: React.CSSProperties = { padding: '6px 14px', borderBottom: `1px solid ${P.border}50`, fontFamily: F, fontSize: 13, fontWeight: 700, color: '#000' }
   const na = <span style={{ color: '#CBD5E1' }}>N/A</span>
 
   return (
@@ -227,10 +214,10 @@ export default function LoginDetailsPage() {
               const isActive = r.client?.user?.isActive !== false
               return (
               <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC', opacity: isActive ? 1 : 0.55 }}>
-                <td style={{ ...td, fontWeight: 700, color: P.teal }}>{r.client?.businessName ?? r.client?.user?.fullName ?? na}</td>
-                <td style={{ ...td, color: P.textMuted }}>{r.authority}</td>
-                <td style={{ ...td, color: P.textMuted }}>{r.loginId ?? na}</td>
-                <td style={{ ...td, color: P.textMuted }}>{r.password ?? na}</td>
+                <td style={td}>{r.client?.businessName ?? r.client?.user?.fullName ?? na}</td>
+                <td style={td}>{r.authority}</td>
+                <td style={td}>{r.loginId ?? na}</td>
+                <td style={td}>{r.password ?? na}</td>
                 <td style={td}>
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                     <button onClick={() => setEditRow(r)} title="Edit"
@@ -268,12 +255,12 @@ export default function LoginDetailsPage() {
       </div>
 
       {editRow && (
-        <EditModal row={editRow} isNew={false} staff={staff}
+        <EditModal row={editRow} isNew={false}
           onClose={() => setEditRow(null)}
           onSaved={() => { setEditRow(null); fetchRows(search || undefined) }} />
       )}
       {showAdd && (
-        <EditModal row={null} isNew staff={staff}
+        <EditModal row={null} isNew
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); fetchRows(search || undefined) }} />
       )}

@@ -12,7 +12,6 @@ const TEAL  = '#1E8496'
 
 // ── Column definitions ────────────────────────────────────────────────────────
 const ALL_CLIENT_COLS = [
-  { key: 'clientId',       label: 'Client ID',      defaultWidth: 110 },
   { key: 'business',       label: 'Business',        defaultWidth: 150 },
   { key: 'ntn',            label: 'NTN',             defaultWidth: 110 },
   { key: 'strn',           label: 'STRN',            defaultWidth: 110 },
@@ -1618,8 +1617,7 @@ export default function ClientsListPage() {
                   const na = <span style={{ color: '#CBD5E1' }}>N/A</span>
 
                   const cellMap: Record<string, React.ReactNode> = {
-                    clientId:       <td key="clientId"       style={{ ...td, fontWeight: 700, color: P.teal }}>{c.user?.userCode ?? 'N/A'}</td>,
-                    business:       <td key="business"       style={{ ...td, color: P.textMuted }}>{c.businessName ?? na}</td>,
+                    business:       <td key="business"       style={{ ...td, fontWeight: 700, color: P.teal }}>{c.businessName ?? na}</td>,
                     ntn:            <td key="ntn"            style={{ ...td, color: P.textMuted }}>{c.ntn ?? na}</td>,
                     strn:           <td key="strn"           style={{ ...td, color: P.textMuted }}>{c.strn ?? na}</td>,
                     yearEnd:        <td key="yearEnd"        style={{ ...td, color: P.textMuted }}>{c.yearEnd ? c.yearEnd.charAt(0) + c.yearEnd.slice(1).toLowerCase() : na}</td>,
