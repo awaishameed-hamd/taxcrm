@@ -450,6 +450,13 @@ export class SalesTaxTasksService {
 
   // ── Auto-create monthly Sales Tax tasks (1 per authority per client) ──────────
 
+  // The API runs as several PM2 cluster workers, so every @Cron fires once per worker.
+  // They all race past the "does it exist yet?" check below and collide on the unique index,
+  // which is the real guard. Losing that race just means another worker got there first.
+  private isDuplicateRow(e: any): boolean {
+    return e?.code === 'P2002'
+  }
+
   async createMonthlySalesTaxTasks(month: number, year: number) {
     const clients = await this.prisma.clientProfile.findMany({
       where: {
@@ -472,27 +479,32 @@ export class SalesTaxTasksService {
         })
         if (exists) { results.skipped++; continue }
 
-        await this.prisma.salesTaxTask.create({
-          data: {
-            clientId:    client.id,
-            traineeId:   client.traineeId!,
-            periodMonth: month,
-            periodYear:  year,
-            taskType:    'SALES_TAX',
-            authority,
-            returnType:  'ORIGINAL',
-            status:      SalesTaxTaskStatus.DATA_COLLECTION,
-            history: {
-              create: {
-                fromStatus: null,
-                toStatus:   SalesTaxTaskStatus.DATA_COLLECTION,
-                actedById:  client.traineeId!,
-                comment:    `Auto-created monthly Sales Tax task (${authority})`,
+        try {
+          await this.prisma.salesTaxTask.create({
+            data: {
+              clientId:    client.id,
+              traineeId:   client.traineeId!,
+              periodMonth: month,
+              periodYear:  year,
+              taskType:    'SALES_TAX',
+              authority,
+              returnType:  'ORIGINAL',
+              status:      SalesTaxTaskStatus.DATA_COLLECTION,
+              history: {
+                create: {
+                  fromStatus: null,
+                  toStatus:   SalesTaxTaskStatus.DATA_COLLECTION,
+                  actedById:  client.traineeId!,
+                  comment:    `Auto-created monthly Sales Tax task (${authority})`,
+                },
               },
             },
-          },
-        })
-        results.created++
+          })
+          results.created++
+        } catch (e) {
+          if (this.isDuplicateRow(e)) { results.skipped++; continue }
+          throw e
+        }
       }
     }
     return results
@@ -522,27 +534,32 @@ export class SalesTaxTasksService {
       })
       if (exists) { results.skipped++; continue }
 
-      await this.prisma.salesTaxTask.create({
-        data: {
-          clientId:    client.id,
-          traineeId:   client.traineeId!,
-          periodMonth,
-          periodYear:  year,
-          taskType:    'WHT',
-          authority:   'FBR',
-          returnType:  'ORIGINAL',
-          status:      SalesTaxTaskStatus.DATA_COLLECTION,
-          history: {
-            create: {
-              fromStatus: null,
-              toStatus:   SalesTaxTaskStatus.DATA_COLLECTION,
-              actedById:  client.traineeId!,
-              comment:    `Auto-created quarterly WHT task (Q${quarter} ${year})`,
+      try {
+        await this.prisma.salesTaxTask.create({
+          data: {
+            clientId:    client.id,
+            traineeId:   client.traineeId!,
+            periodMonth,
+            periodYear:  year,
+            taskType:    'WHT',
+            authority:   'FBR',
+            returnType:  'ORIGINAL',
+            status:      SalesTaxTaskStatus.DATA_COLLECTION,
+            history: {
+              create: {
+                fromStatus: null,
+                toStatus:   SalesTaxTaskStatus.DATA_COLLECTION,
+                actedById:  client.traineeId!,
+                comment:    `Auto-created quarterly WHT task (Q${quarter} ${year})`,
+              },
             },
           },
-        },
-      })
-      results.created++
+        })
+        results.created++
+      } catch (e) {
+        if (this.isDuplicateRow(e)) { results.skipped++; continue }
+        throw e
+      }
     }
     return results
   }
@@ -575,27 +592,32 @@ export class SalesTaxTasksService {
       })
       if (exists) { results.skipped++; continue }
 
-      await this.prisma.salesTaxTask.create({
-        data: {
-          clientId:    client.id,
-          traineeId:   client.traineeId!,
-          periodMonth,
-          periodYear:  year,
-          taskType:    'INCOME_TAX',
-          authority:   'FBR',
-          returnType:  'ORIGINAL',
-          status:      SalesTaxTaskStatus.DATA_COLLECTION,
-          history: {
-            create: {
-              fromStatus: null,
-              toStatus:   SalesTaxTaskStatus.DATA_COLLECTION,
-              actedById:  client.traineeId!,
-              comment:    `Auto-created quarterly Advance Tax task (Q${quarter} ${year})`,
+      try {
+        await this.prisma.salesTaxTask.create({
+          data: {
+            clientId:    client.id,
+            traineeId:   client.traineeId!,
+            periodMonth,
+            periodYear:  year,
+            taskType:    'INCOME_TAX',
+            authority:   'FBR',
+            returnType:  'ORIGINAL',
+            status:      SalesTaxTaskStatus.DATA_COLLECTION,
+            history: {
+              create: {
+                fromStatus: null,
+                toStatus:   SalesTaxTaskStatus.DATA_COLLECTION,
+                actedById:  client.traineeId!,
+                comment:    `Auto-created quarterly Advance Tax task (Q${quarter} ${year})`,
+              },
             },
           },
-        },
-      })
-      results.created++
+        })
+        results.created++
+      } catch (e) {
+        if (this.isDuplicateRow(e)) { results.skipped++; continue }
+        throw e
+      }
     }
     return results
   }

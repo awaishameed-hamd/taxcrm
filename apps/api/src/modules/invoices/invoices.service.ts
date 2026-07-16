@@ -336,19 +336,27 @@ export class InvoicesService {
       })
       if (exists) { skipped++; continue }
 
-      await this.prisma.invoice.create({
-        data: {
-          invoiceNumber: await this.nextInvoiceNumber(),
-          clientId:      c.id,
-          kind:          InvoiceKind.RETAINER,
-          status:        InvoiceStatus.DRAFT,
-          amount:        c.retainerAmount,
-          periodMonth:   month,
-          periodYear:    year,
-          description:   `Monthly Retainership — ${MONTHS[month - 1]} ${year}`,
-        },
-      })
-      created++
+      try {
+        await this.prisma.invoice.create({
+          data: {
+            invoiceNumber: await this.nextInvoiceNumber(),
+            clientId:      c.id,
+            kind:          InvoiceKind.RETAINER,
+            status:        InvoiceStatus.DRAFT,
+            amount:        c.retainerAmount,
+            periodMonth:   month,
+            periodYear:    year,
+            description:   `Monthly Retainership — ${MONTHS[month - 1]} ${year}`,
+          },
+        })
+        created++
+      } catch (e: any) {
+        // The API runs as multiple cluster workers, so this cron fires once per worker and they
+        // race past the check above. The unique index on (clientId, kind, period) is the real
+        // guard — losing that race just means someone else already drafted it.
+        if (e?.code === 'P2002') { skipped++; continue }
+        throw e
+      }
     }
     return { created, skipped }
   }

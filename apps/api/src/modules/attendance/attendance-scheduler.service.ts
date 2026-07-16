@@ -138,25 +138,24 @@ export class AttendanceSchedulerService implements OnModuleInit {
         return
       }
 
-      // Mark each as PRESENT with loginTime = reporting_time (not their actual early login)
-      await this.prisma.$transaction(
-        toMark.map(userId =>
-          this.prisma.attendance.create({
-            data: {
-              userId,
-              workingDayId:   workingDay?.id ?? undefined,
-              date:           today,
-              loginTime:      reportingTimeUtc,
-              status:         AttendanceStatus.PRESENT,
-              isLate:         false,
-              lateMinutes:    null,
-              approvalStatus: 'pending',
-            },
-          })
-        )
-      )
+      // Mark each as PRESENT with loginTime = reporting_time (not their actual early login).
+      // skipDuplicates makes this idempotent: the API runs as multiple cluster workers, so this
+      // cron fires once per worker and they race on the same (userId, date) unique index.
+      const { count } = await this.prisma.attendance.createMany({
+        data: toMark.map(userId => ({
+          userId,
+          workingDayId:   workingDay?.id ?? undefined,
+          date:           today,
+          loginTime:      reportingTimeUtc,
+          status:         AttendanceStatus.PRESENT,
+          isLate:         false,
+          lateMinutes:    null,
+          approvalStatus: 'pending',
+        })),
+        skipDuplicates: true,
+      })
 
-      this.logger.log(`[AutoAttendance] Marked ${toMark.length} early-login users as PRESENT`)
+      this.logger.log(`[AutoAttendance] Marked ${count} early-login users as PRESENT`)
     } catch (err) {
       this.logger.error('[AutoAttendance] Batch mark failed', err)
     }
@@ -210,24 +209,23 @@ export class AttendanceSchedulerService implements OnModuleInit {
         return
       }
 
-      await this.prisma.$transaction(
-        toAbsent.map(userId =>
-          this.prisma.attendance.create({
-            data: {
-              userId,
-              workingDayId:   workingDay?.id ?? undefined,
-              date:           today,
-              loginTime:      null,
-              status:         AttendanceStatus.ABSENT,
-              isLate:         false,
-              lateMinutes:    null,
-              approvalStatus: 'pending',
-            },
-          })
-        )
-      )
+      // skipDuplicates makes this idempotent: the API runs as multiple cluster workers, so this
+      // cron fires once per worker and they race on the same (userId, date) unique index.
+      const { count } = await this.prisma.attendance.createMany({
+        data: toAbsent.map(userId => ({
+          userId,
+          workingDayId:   workingDay?.id ?? undefined,
+          date:           today,
+          loginTime:      null,
+          status:         AttendanceStatus.ABSENT,
+          isLate:         false,
+          lateMinutes:    null,
+          approvalStatus: 'pending',
+        })),
+        skipDuplicates: true,
+      })
 
-      this.logger.log(`[AutoAbsent] Marked ${toAbsent.length} users as ABSENT`)
+      this.logger.log(`[AutoAbsent] Marked ${count} users as ABSENT`)
     } catch (err) {
       this.logger.error('[AutoAbsent] Sweep failed', err)
     }
