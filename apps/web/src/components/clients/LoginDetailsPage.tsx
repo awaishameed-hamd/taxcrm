@@ -154,7 +154,7 @@ export default function LoginDetailsPage() {
     finally { setDeleting(false) }
   }
 
-  const td: React.CSSProperties = { padding: '6px 14px', borderBottom: `1px solid ${P.border}50`, fontFamily: F, fontSize: 13, fontWeight: 700, color: '#000' }
+  const td: React.CSSProperties = { padding: '6px 14px', borderBottom: `1px solid ${P.border}50`, fontFamily: F, fontSize: 13, fontWeight: 700, color: '#000', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
   const na = <span style={{ color: '#CBD5E1' }}>N/A</span>
 
   return (
@@ -186,7 +186,14 @@ export default function LoginDetailsPage() {
 
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13 }}>
+        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13, tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '26%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '32%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '10%' }} />
+          </colgroup>
           <thead>
             <tr style={{ background: '#F2AC18' }}>
               {['Client', 'Authority', 'Login ID', 'Password'].map(label => (

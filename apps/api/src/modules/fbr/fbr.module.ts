@@ -7,5 +7,6 @@ import { PrismaModule } from '../prisma/prisma.module'
   imports: [PrismaModule],
   controllers: [FbrController],
   providers: [FbrService],
+  exports: [FbrService],
 })
 export class FbrModule {}

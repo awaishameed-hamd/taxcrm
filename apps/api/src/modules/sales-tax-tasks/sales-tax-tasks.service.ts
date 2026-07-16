@@ -6,6 +6,8 @@ import { ManagerApproveDto, ManagerSendBackDto } from './dto/manager-action.dto'
 import { PipelineStepsService } from '../pipeline-steps/pipeline-steps.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { ChatGateway } from '../chat/chat.gateway'
+import { FbrService } from '../fbr/fbr.service'
+import { Role as StaffRole } from '@ca-firm/shared'
 
 // Steps that only the assigned trainee can advance
 const TRAINEE_STEPS: SalesTaxTaskStatus[] = [
@@ -58,6 +60,7 @@ export class SalesTaxTasksService {
     private pipelineSteps:  PipelineStepsService,
     private notifications:  NotificationsService,
     private chatGateway:    ChatGateway,
+    private fbrService:     FbrService,
   ) {}
 
   // ── List tasks — role-filtered ──────────────────────────────────────────────
@@ -386,29 +389,30 @@ export class SalesTaxTasksService {
     ]
 
     let taxWhere: Record<string, any>
-    let fbrWhere: Record<string, any>
+    // Notices & Appeals count is delegated to FbrService.listCases() below so the badge always
+    // matches exactly what the Task Approval queue actually shows (same awaiting-role filtering).
+    let noticesCount: Promise<number>
 
     if (role === 'TRAINEE') {
       // Trainee: only their own assigned tasks
       taxWhere = { traineeId: userId, status: { not: SalesTaxTaskStatus.COMPLETED } }
-      fbrWhere = { assignedToId: userId, currentStage: { not: 'CLOSED' } }
+      noticesCount = this.prisma.fbrCase.count({ where: { assignedToId: userId, currentStage: { not: 'CLOSED' } } })
     } else if (view === 'approval') {
       // Task Approval tab: tasks pending review — the whole team for Team Lead, firm-wide otherwise
-      const teamFilter    = role === 'TEAM_LEAD' ? { trainee: { teamLeadId: userId } } : {}
-      const teamFilterFbr = role === 'TEAM_LEAD' ? { assignedTo: { teamLeadId: userId } } : {}
+      const teamFilter = role === 'TEAM_LEAD' ? { trainee: { teamLeadId: userId } } : {}
       taxWhere = { status: { in: approvalStatuses }, ...teamFilter }
-      fbrWhere = { currentStage: { not: 'CLOSED' }, ...teamFilterFbr }
+      noticesCount = this.fbrService.listCases(userId, role as StaffRole, undefined, undefined, undefined, 'approval').then(c => c.length)
     } else {
       // Tasks tab ("my tasks"): whatever's assigned directly to this user, regardless of role
       taxWhere = { traineeId: userId, status: { not: SalesTaxTaskStatus.COMPLETED } }
-      fbrWhere = { assignedToId: userId, currentStage: { not: 'CLOSED' } }
+      noticesCount = this.prisma.fbrCase.count({ where: { assignedToId: userId, currentStage: { not: 'CLOSED' } } })
     }
 
     const [st, it, wht, notices, general] = await Promise.all([
       this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'SALES_TAX'  } }),
       this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'INCOME_TAX' } }),
       this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'WHT'        } }),
-      this.prisma.fbrCase.count({ where: fbrWhere }),
+      noticesCount,
       // General Tasks have no approval workflow — this count only means anything for the "my tasks" view
       this.prisma.task.count({ where: { assignedToId: userId, status: { not: 'DONE' } } }),
     ])
