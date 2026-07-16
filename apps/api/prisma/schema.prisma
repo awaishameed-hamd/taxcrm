@@ -176,6 +176,8 @@ model User {
   fbrCasesCreated  FbrCase[]       @relation("FbrCaseCreator")
   fbrCasesAssigned FbrCase[]       @relation("FbrCaseAssignee")
   fbrAttachments   FbrAttachment[] @relation("FbrAttachmentUploader")
+  invoicesCreated  Invoice[]       @relation("InvoiceCreator")
+  paymentsRecorded Payment[]       @relation("PaymentRecorder")
 
   // Leave Applications
   leaveApplications LeaveApplication[] @relation("LeaveApplicant")
@@ -268,6 +270,20 @@ model ClientProfile {
   hasWhtService        Boolean  @default(false)
   hasAdvanceTaxService Boolean  @default(false)
 
+  // ── Monthly retainership contract ──────────────────────────────────────────
+  // When on, the selected services are billed as one fixed monthly fee instead of
+  // per-task. Work covered here still creates a draft invoice so the manager can
+  // see it, but they mark it RETAINER_INCLUDED rather than billing the client again.
+  hasMonthlyRetainer          Boolean  @default(false)
+  retainerAmount              Decimal  @default(0) @db.Decimal(12, 2)
+  retainerSalesTax            Boolean  @default(false)
+  retainerSalesTaxAuthorities String[] @default([])
+  retainerIncomeTax           Boolean  @default(false)
+  retainerWht                 Boolean  @default(false)
+
+  // Balance carried in from before the firm started using this system
+  openingBalance Decimal @default(0) @db.Decimal(12, 2)
+
   // Assigned representative
   representativeId String?
   representative   ClientRepresentative? @relation(fields: [representativeId], references: [id])
@@ -281,6 +297,7 @@ model ClientProfile {
   generalTasks     Task[]          @relation("TaskClient")
   fbrCases         FbrCase[]
   loginDetails     ClientLoginDetail[]
+  invoices         Invoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -288,6 +305,99 @@ model ClientProfile {
   @@index([traineeId])
   @@index([representativeId])
   @@map("client_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Invoicing & Payments
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum InvoiceKind {
+  TASK      // auto-drafted when a task completes
+  RETAINER  // monthly retainership fee
+  MANUAL    // created by hand
+}
+
+enum InvoiceStatus {
+  DRAFT             // waiting on the manager to price it and send it
+  SENT              // issued to the client, awaiting payment
+  PARTIALLY_PAID
+  PAID
+  RETAINER_INCLUDED // work covered by the monthly retainer — never billed separately
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  ONLINE
+  OTHER
+}
+
+model Invoice {
+  id            String @id @default(cuid())
+  invoiceNumber String @unique
+
+  clientId String
+  client   ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  kind   InvoiceKind   @default(TASK)
+  status InvoiceStatus @default(DRAFT)
+
+  // Source task — set for TASK invoices only, at most one invoice per task
+  taskId String?       @unique
+  task   SalesTaxTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  // Billing period — set for RETAINER invoices only
+  periodMonth Int?
+  periodYear  Int?
+
+  description String?  @db.Text
+  amount      Decimal  @default(0) @db.Decimal(12, 2)
+  amountPaid  Decimal  @default(0) @db.Decimal(12, 2)
+
+  issueDate DateTime  @default(now())
+  dueDate   DateTime?
+  sentAt    DateTime?
+  paidAt    DateTime?
+
+  notes String? @db.Text
+
+  createdById String?
+  createdBy   User?   @relation("InvoiceCreator", fields: [createdById], references: [id])
+
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Stops the monthly cron from double-billing a client for the same period
+  @@unique([clientId, kind, periodMonth, periodYear])
+  @@index([clientId])
+  @@index([status])
+  @@index([issueDate])
+  @@map("invoices")
+}
+
+model Payment {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  amount    Decimal       @db.Decimal(12, 2)
+  method    PaymentMethod @default(BANK_TRANSFER)
+  reference String?       // cheque no, transaction id, etc.
+  proofUrl  String?
+  paidAt    DateTime      @default(now())
+  notes     String?       @db.Text
+
+  recordedById String?
+  recordedBy   User?   @relation("PaymentRecorder", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+  @@map("payments")
 }
 
 // IRIS (or other authority portal) login credentials — one row per (client, authority).
@@ -608,6 +718,7 @@ model SalesTaxTask {
   customSteps      SalesTaxCustomStep[]
   salesTaxReturn   SalesTaxReturn?
   incomeTaxReturn  IncomeTaxReturn?
+  invoice          Invoice?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

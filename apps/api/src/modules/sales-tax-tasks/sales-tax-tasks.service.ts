@@ -7,6 +7,7 @@ import { PipelineStepsService } from '../pipeline-steps/pipeline-steps.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { ChatGateway } from '../chat/chat.gateway'
 import { FbrService } from '../fbr/fbr.service'
+import { InvoicesService } from '../invoices/invoices.service'
 import { Role as StaffRole } from '@ca-firm/shared'
 
 // Steps that only the assigned trainee can advance
@@ -61,6 +62,7 @@ export class SalesTaxTasksService {
     private notifications:  NotificationsService,
     private chatGateway:    ChatGateway,
     private fbrService:     FbrService,
+    private invoices:       InvoicesService,
   ) {}
 
   // ── List tasks — role-filtered ──────────────────────────────────────────────
@@ -618,7 +620,7 @@ export class SalesTaxTasksService {
       })
     }
 
-    return this.prisma.salesTaxTask.update({
+    const updated = await this.prisma.salesTaxTask.update({
       where: { id: task.id },
       data: {
         status: toStatus,
@@ -636,5 +638,12 @@ export class SalesTaxTasksService {
       },
       include: TASK_INCLUDE,
     })
+
+    // A completed task becomes a draft invoice for the manager to price and send
+    if (toStatus === SalesTaxTaskStatus.COMPLETED) {
+      await this.invoices.createDraftForTask(task.id)
+    }
+
+    return updated
   }
 }

@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsDateString, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator'
+import { IsArray, IsBoolean, IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator'
 
 export class UpdateClientProfileDto {
   @IsOptional() @IsString()               fullName?:     string
@@ -20,4 +20,13 @@ export class UpdateClientProfileDto {
   @IsOptional() @IsBoolean()    hasAdvanceTaxService?: boolean
   @IsOptional() @IsString()     yearEnd?:      string
   @IsOptional()                 extraFields?:  Record<string, any>
+
+  // Monthly retainership contract — only ever sent by Manager+ (the UI hides it below that)
+  @IsOptional() @IsBoolean()    hasMonthlyRetainer?: boolean
+  @IsOptional() @IsNumber() @Min(0) retainerAmount?: number
+  @IsOptional() @IsBoolean()    retainerSalesTax?: boolean
+  @IsOptional() @IsArray() @IsString({ each: true }) retainerSalesTaxAuthorities?: string[]
+  @IsOptional() @IsBoolean()    retainerIncomeTax?: boolean
+  @IsOptional() @IsBoolean()    retainerWht?: boolean
+  @IsOptional() @IsNumber()     openingBalance?: number
 }

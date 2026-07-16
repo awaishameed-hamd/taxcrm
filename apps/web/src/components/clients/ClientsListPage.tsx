@@ -343,6 +343,9 @@ interface ClientFormModalProps {
 
 function ClientFormModal({ mode, initial, fieldConfigs, trainees, representatives, onClose, onSuccess }: ClientFormModalProps) {
   const isEdit = mode === 'edit'
+  const { user } = useAuth()
+  // Billing contract is a Manager-and-above concern — hidden from Team Leads and Trainees
+  const canManageBilling = ['ADMIN', 'PARTNER', 'MANAGER'].includes(user?.role ?? '')
 
   // Build initial form state from field configs
   const buildInitial = () => {
@@ -384,8 +387,23 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
   const [hasAdvanceTaxService, setHasAdvanceTaxService] = useState<boolean>(initial?.hasAdvanceTaxService ?? false)
   const [yearEnd,             setYearEnd]             = useState<string>(initial?.yearEnd ?? 'JUNE')
 
+  // Monthly retainership contract — Manager and above only
+  const [hasMonthlyRetainer,  setHasMonthlyRetainer]  = useState<boolean>(initial?.hasMonthlyRetainer ?? false)
+  const [retainerAmount,      setRetainerAmount]      = useState<string>(initial?.retainerAmount != null ? String(initial.retainerAmount) : '')
+  const [retainerSalesTax,    setRetainerSalesTax]    = useState<boolean>(initial?.retainerSalesTax ?? false)
+  const [retainerAuthorities, setRetainerAuthorities] = useState<string[]>(initial?.retainerSalesTaxAuthorities ?? [])
+  const [retainerIncomeTax,   setRetainerIncomeTax]   = useState<boolean>(initial?.retainerIncomeTax ?? false)
+  const [retainerWht,         setRetainerWht]         = useState<boolean>(initial?.retainerWht ?? false)
+  const [openingBalance,      setOpeningBalance]      = useState<string>(initial?.openingBalance != null ? String(initial.openingBalance) : '')
+
   const toggleAuthority = (auth: string) => {
     setSalesTaxAuthorities(prev =>
+      prev.includes(auth) ? prev.filter(a => a !== auth) : [...prev, auth]
+    )
+  }
+
+  const toggleRetainerAuthority = (auth: string) => {
+    setRetainerAuthorities(prev =>
       prev.includes(auth) ? prev.filter(a => a !== auth) : [...prev, auth]
     )
   }
@@ -490,6 +508,17 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
       payload.hasAdvanceTaxService = hasAdvanceTaxService
       payload.yearEnd             = yearEnd
       payload.representativeId    = representativeId || null
+
+      // Billing contract — only Manager+ can see or change this, so never send it otherwise
+      if (canManageBilling) {
+        payload.hasMonthlyRetainer          = hasMonthlyRetainer
+        payload.retainerAmount              = Number(retainerAmount) || 0
+        payload.retainerSalesTax            = hasMonthlyRetainer && retainerSalesTax
+        payload.retainerSalesTaxAuthorities = hasMonthlyRetainer && retainerSalesTax ? retainerAuthorities : []
+        payload.retainerIncomeTax           = hasMonthlyRetainer && retainerIncomeTax
+        payload.retainerWht                 = hasMonthlyRetainer && retainerWht
+        payload.openingBalance              = Number(openingBalance) || 0
+      }
       // Always send the assignment — it's mandatory and rendered outside the dynamic field loop above,
       // so it must not depend on that field's admin-configurable visibility toggle.
       payload.traineeId           = form.traineeId
@@ -726,6 +755,102 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
               </span>
             </div>
           </div>
+
+          {/* Billing — Manager and above only */}
+          {canManageBilling && (
+            <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
+              <div style={{ padding: '10px 18px', borderBottom: `1px solid ${P.border}`, background: '#F1F5F9' }}>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif" }}>
+                  Billing
+                </span>
+              </div>
+
+              {/* Monthly retainer toggle */}
+              <div style={{ padding: '12px 18px', borderBottom: `1px solid ${P.border}`, display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, fontFamily: "'Aptos', sans-serif" }}>
+                    Monthly Retainership
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: "'Aptos', sans-serif", marginTop: 2 }}>
+                    Bill the selected services as one fixed monthly fee instead of per task
+                  </div>
+                </div>
+                <button type="button" onClick={() => setHasMonthlyRetainer(v => !v)}
+                  style={{ width: 44, height: 24, borderRadius: 12, border: 'none', padding: 0, background: hasMonthlyRetainer ? TEAL : '#CBD5E1', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <span style={{ position: 'absolute', top: 2, left: hasMonthlyRetainer ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.25)', transition: 'left 0.2s', display: 'block' }} />
+                </button>
+                <span style={{ fontSize: 12, fontWeight: 700, color: hasMonthlyRetainer ? TEAL : '#94A3B8', fontFamily: "'Aptos', sans-serif", minWidth: 28 }}>
+                  {hasMonthlyRetainer ? 'ON' : 'OFF'}
+                </span>
+              </div>
+
+              {hasMonthlyRetainer && (
+                <>
+                  {/* Monthly fee */}
+                  <div style={{ padding: '12px 18px', borderBottom: `1px solid ${P.border}` }}>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', marginBottom: 4, fontFamily: "'Aptos', sans-serif" }}>
+                      Monthly Fee (PKR)
+                    </label>
+                    <input type="number" min={0} value={retainerAmount} onChange={e => setRetainerAmount(e.target.value)}
+                      placeholder="e.g. 25000" className={inputCls} style={inputStyle} />
+                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: "'Aptos', sans-serif" }}>
+                      A draft invoice for this amount is created automatically on the 1st of each month
+                    </p>
+                  </div>
+
+                  {/* Sales Tax in retainer */}
+                  <div style={{ padding: '12px 18px', borderBottom: `1px solid ${P.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: retainerSalesTax ? 8 : 0 }}>
+                      <input type="checkbox" checked={retainerSalesTax} onChange={() => setRetainerSalesTax(v => !v)}
+                        style={{ accentColor: TEAL, width: 14, height: 14, cursor: 'pointer' }} id="ret-st" />
+                      <label htmlFor="ret-st" style={{ fontSize: 12, fontWeight: 700, color: retainerSalesTax ? TEAL : NAVY, fontFamily: "'Aptos', sans-serif", cursor: 'pointer' }}>
+                        Sales Tax included
+                      </label>
+                    </div>
+                    {retainerSalesTax && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', paddingLeft: 22 }}>
+                        {SALES_TAX_AUTHORITIES.map(auth => (
+                          <label key={auth} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={retainerAuthorities.includes(auth)} onChange={() => toggleRetainerAuthority(auth)}
+                              style={{ accentColor: TEAL, width: 14, height: 14, cursor: 'pointer' }} />
+                            <span style={{ fontSize: 13, fontWeight: 600, color: retainerAuthorities.includes(auth) ? TEAL : '#64748B', fontFamily: "'Aptos', sans-serif" }}>
+                              {auth}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Income Tax + WHT in retainer */}
+                  <div style={{ padding: '12px 18px', borderBottom: `1px solid ${P.border}`, display: 'flex', flexWrap: 'wrap', gap: '6px 22px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={retainerIncomeTax} onChange={() => setRetainerIncomeTax(v => !v)}
+                        style={{ accentColor: TEAL, width: 14, height: 14, cursor: 'pointer' }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: retainerIncomeTax ? TEAL : NAVY, fontFamily: "'Aptos', sans-serif" }}>Income Tax included</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={retainerWht} onChange={() => setRetainerWht(v => !v)}
+                        style={{ accentColor: TEAL, width: 14, height: 14, cursor: 'pointer' }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: retainerWht ? TEAL : NAVY, fontFamily: "'Aptos', sans-serif" }}>WHT included</span>
+                    </label>
+                  </div>
+                </>
+              )}
+
+              {/* Opening balance */}
+              <div style={{ padding: '12px 18px' }}>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', marginBottom: 4, fontFamily: "'Aptos', sans-serif" }}>
+                  Opening Balance (PKR)
+                </label>
+                <input type="number" value={openingBalance} onChange={e => setOpeningBalance(e.target.value)}
+                  placeholder="0" className={inputCls} style={inputStyle} />
+                <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: "'Aptos', sans-serif" }}>
+                  Amount this client already owed before their account was set up here
+                </p>
+              </div>
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24, paddingTop: 16, borderTop: `1px solid ${P.border}` }}>
             <button type="button" onClick={onClose}

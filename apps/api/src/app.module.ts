@@ -23,6 +23,7 @@ import { IncomeTaxReturnsModule } from './modules/income-tax-returns/income-tax-
 import { FilesModule }            from './modules/files/files.module'
 import { FbrModule }             from './modules/fbr/fbr.module'
 import { LeavesModule }          from './modules/leaves/leaves.module'
+import { InvoicesModule }        from './modules/invoices/invoices.module'
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { LeavesModule }          from './modules/leaves/leaves.module'
     FilesModule,
     FbrModule,
     LeavesModule,
+    InvoicesModule,
   ],
 })
 export class AppModule {}
