@@ -190,8 +190,8 @@ export default function LoginDetailsPage() {
           <colgroup>
             <col style={{ width: '26%' }} />
             <col style={{ width: '12%' }} />
-            <col style={{ width: '32%' }} />
-            <col style={{ width: '20%' }} />
+            <col style={{ width: '27%' }} />
+            <col style={{ width: '25%' }} />
             <col style={{ width: '10%' }} />
           </colgroup>
           <thead>
