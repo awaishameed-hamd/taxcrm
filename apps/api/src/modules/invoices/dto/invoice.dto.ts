@@ -18,9 +18,9 @@ export class UpdateInvoiceDto {
   @IsOptional() @IsEnum(InvoiceStatus) status?: InvoiceStatus
 }
 
-export class RecordPaymentDto {
-  @IsNumber() @Min(0.01) amount: number
-  @IsEnum(PaymentMethod) method: PaymentMethod
+export class UpdatePaymentDto {
+  @IsOptional() @IsNumber() @Min(0.01) amount?: number
+  @IsOptional() @IsEnum(PaymentMethod) method?: PaymentMethod
   @IsOptional() @IsString() reference?: string
   @IsOptional() @IsString() proofUrl?: string
   @IsOptional() @IsString() paidAt?: string
@@ -38,14 +38,23 @@ export class PaymentAllocationDto {
 }
 
 // QuickBooks-style "Receive Payment": one payment from a client, spread across
-// however many of their open invoices it settles.
+// however many of their open invoices it settles. `amount` is what actually came in —
+// leaving it above the allocations (or sending none at all) records an advance, and
+// the leftover stays as unapplied credit.
 export class ReceivePaymentDto {
   @IsString() @IsNotEmpty() clientId: string
+  @IsNumber() @Min(0.01) amount: number
   @IsEnum(PaymentMethod) method: PaymentMethod
   @IsOptional() @IsString() reference?: string
   @IsOptional() @IsString() proofUrl?: string
   @IsOptional() @IsString() paidAt?: string
   @IsOptional() @IsString() notes?: string
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => PaymentAllocationDto)
+  allocations?: PaymentAllocationDto[]
+}
+
+// Put an existing payment's unapplied credit against invoices raised since.
+export class ApplyPaymentDto {
   @IsArray() @ValidateNested({ each: true }) @Type(() => PaymentAllocationDto)
   allocations: PaymentAllocationDto[]
 }

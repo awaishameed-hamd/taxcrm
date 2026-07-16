@@ -186,15 +186,19 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
   }
 
   async function save() {
+    if (amountRecv <= 0) { setError('Enter the amount received'); return }
+    if (unapplied < -0.001) { setError('Applied amount is more than the payment received'); return }
+
+    // Allocations are optional — a payment with none is an advance, and the whole
+    // amount sits as credit until there's an invoice to put it against.
     const allocations = Object.entries(alloc)
       .map(([invoiceId, v]) => ({ invoiceId, amount: Number(v) || 0 }))
       .filter(a => a.amount > 0)
-    if (allocations.length === 0) { setError('Apply the payment to at least one invoice'); return }
 
     setSaving(true); setError('')
     try {
       await api.post('/invoices/receive-payment', {
-        clientId: client.id, method,
+        clientId: client.id, amount: amountRecv, method,
         reference: reference || undefined, proofUrl: proofUrl || undefined,
         paidAt: paidAt || undefined, notes: notes || undefined,
         allocations,
@@ -279,8 +283,11 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
           {loading ? (
             <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12, fontFamily: F }}>Loading…</div>
           ) : open.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12, fontFamily: F, border: `1px solid ${P.border}`, borderRadius: 8 }}>
-              Nothing outstanding for this client.
+            <div style={{ padding: '18px 24px', textAlign: 'center', border: `1px solid ${P.border}`, borderRadius: 8, background: '#F8FAFC' }}>
+              <div style={{ fontSize: 12, color: P.textMuted, fontFamily: F }}>Nothing outstanding for this client.</div>
+              <div style={{ fontSize: 11.5, color: '#5B21B6', fontFamily: F, fontWeight: 700, marginTop: 4 }}>
+                Recording a payment now keeps it as advance credit until an invoice is raised.
+              </div>
             </div>
           ) : (
             <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'hidden' }}>
@@ -324,8 +331,18 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0 0', fontSize: 13, fontFamily: F }}>
                 <span style={{ fontWeight: 900, color: NAVY }}>Unapplied</span>
-                <span style={{ fontWeight: 900, color: Math.abs(unapplied) < 0.01 ? '#16a34a' : '#D97706' }}>{money(unapplied)}</span>
+                <span style={{ fontWeight: 900, color: unapplied < -0.001 ? '#D62828' : unapplied > 0.001 ? '#5B21B6' : '#16a34a' }}>{money(unapplied)}</span>
               </div>
+              {unapplied > 0.001 && (
+                <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: '#5B21B6', fontFamily: F, textAlign: 'right' }}>
+                  Held as advance credit — apply it once an invoice is raised
+                </p>
+              )}
+              {unapplied < -0.001 && (
+                <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: '#D62828', fontFamily: F, textAlign: 'right' }}>
+                  Applied more than was received
+                </p>
+              )}
             </div>
           </div>
 
@@ -338,12 +355,149 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
             <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
-            <button onClick={save} disabled={saving || uploading || totalApplied <= 0}
-              style={{ ...btn('#16a34a'), opacity: (saving || uploading || totalApplied <= 0) ? 0.6 : 1 }}>
-              {saving ? 'Saving…' : `Record ${money(totalApplied)}`}
+            <button onClick={save} disabled={saving || uploading || amountRecv <= 0 || unapplied < -0.001}
+              style={{ ...btn('#16a34a'), opacity: (saving || uploading || amountRecv <= 0 || unapplied < -0.001) ? 0.6 : 1 }}>
+              {saving ? 'Saving…' : `Record ${money(amountRecv)}`}
             </button>
           </div>
         </div>
+    </div>
+  )
+}
+
+// ─── Apply an advance payment's leftover credit to invoices ───────────────────
+function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose: () => void; onSaved: () => void }) {
+  const [open,    setOpen]    = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [alloc,   setAlloc]   = useState<Record<string, string>>({})
+  const [saving,  setSaving]  = useState(false)
+  const [error,   setError]   = useState('')
+
+  useEffect(() => {
+    api.get(`/invoices/open/${payment.clientId}`)
+      .then(({ data }) => {
+        const list = Array.isArray(data) ? data : data.data ?? []
+        setOpen(list)
+        // Pre-fill oldest-first with whatever credit is left, same as Receive Payment
+        let left = Number(payment.unapplied)
+        const next: Record<string, string> = {}
+        for (const inv of list) {
+          if (left <= 0) break
+          const take = Math.min(left, Number(inv.balance))
+          next[inv.id] = String(take)
+          left -= take
+        }
+        setAlloc(next)
+      })
+      .catch(() => setOpen([]))
+      .finally(() => setLoading(false))
+  }, [payment.clientId, payment.unapplied])
+
+  const totalApplied = Object.values(alloc).reduce((s, v) => s + (Number(v) || 0), 0)
+  const remaining    = Number(payment.unapplied) - totalApplied
+
+  async function save() {
+    const allocations = Object.entries(alloc)
+      .map(([invoiceId, v]) => ({ invoiceId, amount: Number(v) || 0 }))
+      .filter(a => a.amount > 0)
+    if (allocations.length === 0) { setError('Apply the credit to at least one invoice'); return }
+
+    setSaving(true); setError('')
+    try {
+      await api.post(`/invoices/payments/${payment.id}/apply`, { allocations })
+      onSaved()
+    } catch (e: any) { setError(e?.response?.data?.message ?? 'Failed to apply credit') }
+    finally { setSaving(false) }
+  }
+
+  const cell: React.CSSProperties = { padding: '8px 10px', fontSize: 12.5, fontFamily: F, borderBottom: `1px solid ${P.border}50` }
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F }}>
+      <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h2 style={{ fontFamily: "'Angelos', sans-serif", fontSize: 20, display: 'inline-block', transform: 'skewX(12deg)', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
+            Apply Advance
+          </h2>
+          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
+            {fmtDate(payment.paidAt)} · {METHOD_LABEL[payment.method] ?? payment.method}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ fontWeight: 900, color: '#F1F5F9', fontSize: 14, fontFamily: F }}>{money(payment.unapplied)}</span>
+            <span style={{ color: '#CBD5E1', fontWeight: 600, fontSize: 12, fontFamily: F }}>Available Credit</span>
+          </span>
+          <button onClick={onClose} style={{ cursor: 'pointer', color: '#E2E8F0', fontWeight: 700, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, padding: '4px 12px', fontSize: 12, fontFamily: F }}>
+            ← Back
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding: 20 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#94A3B8', fontFamily: F, marginBottom: 8 }}>OUTSTANDING INVOICES</div>
+
+        {loading ? (
+          <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>Loading…</div>
+        ) : open.length === 0 ? (
+          <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12, border: `1px solid ${P.border}`, borderRadius: 8 }}>
+            No outstanding invoices yet — this credit stays on the account until one is raised.
+          </div>
+        ) : (
+          <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead>
+                <tr style={{ background: '#F8FAFC' }}>
+                  {['Invoice', 'Date', 'Open Balance', 'Apply'].map((h, i) => (
+                    <th key={h} style={{ ...cell, fontWeight: 900, fontSize: 10, letterSpacing: '0.08em', color: '#64748B', textTransform: 'uppercase', textAlign: i >= 2 ? 'right' : 'left' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {open.map(inv => (
+                  <tr key={inv.id}>
+                    <td style={{ ...cell, fontWeight: 700, color: TEAL }}>{inv.invoiceNumber}</td>
+                    <td style={{ ...cell, color: '#64748B' }}>{fmtDate(inv.issueDate)}</td>
+                    <td style={{ ...cell, textAlign: 'right', fontWeight: 700, color: NAVY }}>{money(inv.balance)}</td>
+                    <td style={{ ...cell, textAlign: 'right', width: 120 }}>
+                      <input type="number" min={0} max={inv.balance} value={alloc[inv.id] ?? ''}
+                        onChange={e => setAlloc(p => ({ ...p, [inv.id]: e.target.value }))} placeholder="0"
+                        style={{ ...inputStyle, padding: '5px 8px', textAlign: 'right', fontSize: 12.5, fontWeight: 700 }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+          <div style={{ width: 260 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13 }}>
+              <span style={{ color: '#64748B' }}>Available credit</span>
+              <span style={{ fontWeight: 700, color: NAVY }}>{money(payment.unapplied)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderBottom: `1px solid ${P.border}` }}>
+              <span style={{ color: '#64748B' }}>Applying now</span>
+              <span style={{ fontWeight: 700, color: '#16a34a' }}>{money(totalApplied)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0 0', fontSize: 13 }}>
+              <span style={{ fontWeight: 900, color: NAVY }}>Credit left</span>
+              <span style={{ fontWeight: 900, color: remaining < -0.001 ? '#D62828' : '#5B21B6' }}>{money(remaining)}</span>
+            </div>
+          </div>
+        </div>
+
+        {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '12px 0 0' }}>{error}</p>}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+          <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
+          <button onClick={save} disabled={saving || totalApplied <= 0 || remaining < -0.001}
+            style={{ ...btn('#16a34a'), opacity: (saving || totalApplied <= 0 || remaining < -0.001) ? 0.6 : 1 }}>
+            {saving ? 'Applying…' : `Apply ${money(totalApplied)}`}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -446,17 +600,18 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
               </div>
             </div>
 
-            {(inv.payments ?? []).length > 0 && (
+            {/* What was put against this invoice — the allocated slice, not the whole payment */}
+            {(inv.allocations ?? []).length > 0 && (
               <div style={{ marginTop: 28 }}>
                 <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: '#94A3B8', fontFamily: F, marginBottom: 8 }}>PAYMENTS RECEIVED</div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
                   <tbody>
-                    {inv.payments.map((p: any) => (
-                      <tr key={p.id} style={{ borderBottom: `1px solid ${P.gridLine}` }}>
-                        <td style={{ padding: '7px 0', fontSize: 12, color: '#64748B' }}>{fmtDate(p.paidAt)}</td>
-                        <td style={{ padding: '7px 0', fontSize: 12, color: '#64748B' }}>{METHOD_LABEL[p.method] ?? p.method}</td>
-                        <td style={{ padding: '7px 0', fontSize: 12, color: '#94A3B8' }}>{p.reference ?? ''}</td>
-                        <td style={{ padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#16a34a', textAlign: 'right' }}>{money(p.amount)}</td>
+                    {inv.allocations.map((a: any) => (
+                      <tr key={a.id} style={{ borderBottom: `1px solid ${P.gridLine}` }}>
+                        <td style={{ padding: '7px 0', fontSize: 12, color: '#64748B' }}>{fmtDate(a.payment?.paidAt)}</td>
+                        <td style={{ padding: '7px 0', fontSize: 12, color: '#64748B' }}>{METHOD_LABEL[a.payment?.method] ?? a.payment?.method}</td>
+                        <td style={{ padding: '7px 0', fontSize: 12, color: '#94A3B8' }}>{a.payment?.reference ?? ''}</td>
+                        <td style={{ padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#16a34a', textAlign: 'right' }}>{money(a.amount)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -517,7 +672,7 @@ export default function InvoicingPage() {
   const [ledger,      setLedger]      = useState<any>(null)
   const [searchInput,   setSearchInput]   = useState('')
   const [loading,       setLoading]       = useState(true)
-  const [tab,           setTab]           = useState<'history' | 'invoices'>('history')
+  const [tab,           setTab]           = useState<'history' | 'invoices' | 'payments'>('history')
   const [busy,          setBusy]          = useState<string | null>(null)
   const [listCollapsed, setListCollapsed] = useState(false)
 
@@ -528,6 +683,7 @@ export default function InvoicingPage() {
   const [editInv,    setEditInv]    = useState<Invoice | null>(null)
   const [viewInv,    setViewInv]    = useState<Invoice | null>(null)
   const [payClient,  setPayClient]  = useState<any>(null)
+  const [applyPay,   setApplyPay]   = useState<any>(null)
   const [openBal,    setOpenBal]    = useState<{ client: any; mode: 'add' | 'edit' } | null>(null)
   const [confirmDel, setConfirmDel] = useState<Invoice | null>(null)
   const [ctxMenu,    setCtxMenu]    = useState<{ x: number; y: number; client: any } | null>(null)
@@ -673,8 +829,12 @@ export default function InvoicingPage() {
                     {c.draftCount > 0 && (
                       <span style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, color: '#5C5C5C', background: '#E2E8F0', flexShrink: 0 }}>{c.draftCount}</span>
                     )}
-                    <span style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, flexShrink: 0, color: c.outstanding > 0 ? '#B91C1C' : '#166534', background: c.outstanding > 0 ? '#FEE2E2' : '#DCFCE7' }}>
-                      {money(c.outstanding)}
+                    {/* Negative means they've paid ahead — show it as credit, not as a minus */}
+                    <span title={c.outstanding < 0 ? 'In credit' : 'Outstanding'}
+                      style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap',
+                        color:      c.outstanding > 0 ? '#B91C1C' : c.outstanding < 0 ? '#5B21B6' : '#166534',
+                        background: c.outstanding > 0 ? '#FEE2E2' : c.outstanding < 0 ? '#EDE9FE' : '#DCFCE7' }}>
+                      {c.outstanding < 0 ? `${money(Math.abs(c.outstanding))} cr` : money(c.outstanding)}
                     </span>
                   </div>
                 </button>
@@ -703,6 +863,8 @@ export default function InvoicingPage() {
             <div style={{ padding: 48, textAlign: 'center', color: P.textMuted, fontSize: 13, fontFamily: F }}>Loading…</div>
           ) : payClient ? (
             <ReceivePaymentPanel client={payClient} onClose={() => setPayClient(null)} onSaved={() => { setPayClient(null); refresh() }} />
+          ) : applyPay ? (
+            <ApplyCreditPanel payment={applyPay} onClose={() => setApplyPay(null)} onSaved={() => { setApplyPay(null); refresh() }} />
           ) : selectedId === null ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
               <div style={{ textAlign: 'center' }}>
@@ -718,12 +880,18 @@ export default function InvoicingPage() {
                 <StatCard label="Opening Balance" value={money(ledger.openingBalance)} border="#64748B" fill="#D4DAE3" />
                 <StatCard label="Invoiced"        value={money(ledger.totalInvoiced)}  border="#1565C0" fill="#BDDAF8" />
                 <StatCard label="Received"        value={money(ledger.totalPaid)}      border="#16A34A" fill="#BBF0D6" />
-                <StatCard label="Outstanding"     value={money(ledger.outstanding)}    border="#DC2626" fill="#FECACA" />
+                {ledger.unappliedCredit > 0 && (
+                  <StatCard label="Advance Credit" value={money(ledger.unappliedCredit)} border="#7B2D8E" fill="#E4D4EC" />
+                )}
+                <StatCard label={ledger.outstanding < 0 ? 'In Credit' : 'Outstanding'}
+                  value={money(Math.abs(ledger.outstanding))}
+                  border={ledger.outstanding < 0 ? '#7B2D8E' : '#DC2626'}
+                  fill={ledger.outstanding < 0 ? '#E4D4EC' : '#FECACA'} />
               </div>
 
               {/* Tabs + period filter + actions */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px', marginBottom: 14, flexWrap: 'wrap' }}>
-                {([['history', 'Account History'], ['invoices', `Invoices (${ledger.invoices.length})`]] as const).map(([k, l]) => (
+                {([['history', 'Account History'], ['invoices', `Invoices (${ledger.invoices.length})`], ['payments', `Payments (${ledger.payments.length})`]] as const).map(([k, l]) => (
                   <button key={k} onClick={() => setTab(k)} style={{
                     flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer',
                     fontSize: 12, fontWeight: 600, fontFamily: F, whiteSpace: 'nowrap',
@@ -767,7 +935,7 @@ export default function InvoicingPage() {
                 </button>
               </div>
 
-              {tab === 'history' ? (
+              {tab === 'history' && (
                 <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
                   <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
                     <colgroup>
@@ -808,7 +976,9 @@ export default function InvoicingPage() {
                     </tbody>
                   </table>
                 </div>
-              ) : (
+              )}
+
+              {tab === 'invoices' && (
                 <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
                   <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
                     <colgroup>
@@ -844,6 +1014,54 @@ export default function InvoicingPage() {
                           </tr>
                         )
                       })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {tab === 'payments' && (
+                <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '13%' }} /><col style={{ width: '13%' }} /><col style={{ width: '15%' }} />
+                      <col style={{ width: '21%' }} /><col style={{ width: '11%' }} /><col style={{ width: '11%' }} /><col style={{ width: 100 }} />
+                    </colgroup>
+                    <thead>
+                      <tr style={{ background: '#F2AC18' }}>
+                        {['Date', 'Method', 'Reference', 'Applied To'].map(l => <th key={l} style={th}>{l}</th>)}
+                        {['Received', 'Unapplied'].map(l => <th key={l} style={{ ...th, textAlign: 'right' }}>{l}</th>)}
+                        <th style={th} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledger.payments.length === 0 ? (
+                        <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>
+                          No payments from this client yet.
+                        </td></tr>
+                      ) : ledger.payments.map((p: any, idx: number) => (
+                        <tr key={p.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
+                          <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(p.paidAt)}</td>
+                          <td style={td}>{METHOD_LABEL[p.method] ?? p.method}</td>
+                          <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{p.reference || '—'}</td>
+                          <td style={{ ...td, fontWeight: 400 }}>
+                            {p.allocations.length === 0 ? (
+                              <span style={{ fontSize: 10, fontWeight: 900, padding: '1px 7px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>ADVANCE</span>
+                            ) : (
+                              <span style={{ color: TEAL, fontWeight: 700 }}>{p.allocations.map((a: any) => a.invoice.invoiceNumber).join(', ')}</span>
+                            )}
+                          </td>
+                          <td style={{ ...td, textAlign: 'right' }}>{money(p.amount)}</td>
+                          <td style={{ ...td, textAlign: 'right', color: p.unapplied > 0 ? '#5B21B6' : '#94A3B8' }}>{money(p.unapplied)}</td>
+                          <td style={{ ...td, overflow: 'visible' }}>
+                            {p.unapplied > 0 && (
+                              <button onClick={() => setApplyPay(p)} title="Apply this credit to an invoice"
+                                style={{ padding: '0 9px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F, float: 'right' }}>
+                                Apply
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

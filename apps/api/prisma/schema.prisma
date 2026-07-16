@@ -298,6 +298,7 @@ model ClientProfile {
   fbrCases         FbrCase[]
   loginDetails     ClientLoginDetail[]
   invoices         Invoice[]
+  payments         Payment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -366,7 +367,7 @@ model Invoice {
   createdById String?
   createdBy   User?   @relation("InvoiceCreator", fields: [createdById], references: [id])
 
-  payments Payment[]
+  allocations PaymentAllocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -379,12 +380,15 @@ model Invoice {
   @@map("invoices")
 }
 
+// Money received from a client. It belongs to the client, not to an invoice —
+// clients often pay in advance before anything has been billed. Whatever isn't
+// allocated to an invoice sits as unapplied credit and shows as a negative balance.
 model Payment {
-  id        String  @id @default(cuid())
-  invoiceId String
-  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  id       String        @id @default(cuid())
+  clientId String
+  client   ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  amount    Decimal       @db.Decimal(12, 2)
+  amount    Decimal       @db.Decimal(12, 2) // total received
   method    PaymentMethod @default(BANK_TRANSFER)
   reference String?       // cheque no, transaction id, etc.
   proofUrl  String?
@@ -394,10 +398,33 @@ model Payment {
   recordedById String?
   recordedBy   User?   @relation("PaymentRecorder", fields: [recordedById], references: [id])
 
+  allocations PaymentAllocation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+// How much of a payment was put against a given invoice. An advance payment starts
+// with none of these and gets them once there's an invoice to apply it to.
+model PaymentAllocation {
+  id        String  @id @default(cuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  amount Decimal @db.Decimal(12, 2)
+
   createdAt DateTime @default(now())
 
+  @@unique([paymentId, invoiceId])
+  @@index([paymentId])
   @@index([invoiceId])
-  @@map("payments")
+  @@map("payment_allocations")
 }
 
 // IRIS (or other authority portal) login credentials — one row per (client, authority).

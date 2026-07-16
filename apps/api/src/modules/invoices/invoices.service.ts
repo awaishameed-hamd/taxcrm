@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { InvoiceKind, InvoiceStatus, Prisma } from '@prisma/client'
-import { CreateInvoiceDto, UpdateInvoiceDto, RecordPaymentDto, ReceivePaymentDto } from './dto/invoice.dto'
+import { CreateInvoiceDto, UpdateInvoiceDto, ReceivePaymentDto, ApplyPaymentDto, UpdatePaymentDto } from './dto/invoice.dto'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
@@ -19,11 +19,16 @@ const INVOICE_INCLUDE = {
     },
   },
   task: { select: { id: true, taskType: true, authority: true, periodMonth: true, periodYear: true, returnType: true } },
-  payments: {
-    orderBy: { paidAt: 'desc' as const },
-    include: { recordedBy: { select: { id: true, fullName: true } } },
+  allocations: {
+    orderBy: { createdAt: 'asc' as const },
+    include: { payment: { include: { recordedBy: { select: { id: true, fullName: true } } } } },
   },
   createdBy: { select: { id: true, fullName: true } },
+}
+
+const PAYMENT_INCLUDE = {
+  allocations: { include: { invoice: { select: { id: true, invoiceNumber: true, description: true } } } },
+  recordedBy:  { select: { id: true, fullName: true } },
 }
 
 @Injectable()
@@ -86,16 +91,17 @@ export class InvoicesService {
 
   // Totals for the page header — outstanding excludes drafts and retainer-covered work.
   async summary() {
-    const [agg, drafts, clients] = await Promise.all([
+    const [agg, drafts, clients, received] = await Promise.all([
       this.prisma.invoice.aggregate({
         where: { status: { in: BILLABLE } },
-        _sum: { amount: true, amountPaid: true },
+        _sum: { amount: true },
       }),
       this.prisma.invoice.count({ where: { status: InvoiceStatus.DRAFT } }),
       this.prisma.clientProfile.aggregate({ _sum: { openingBalance: true } }),
+      this.prisma.payment.aggregate({ _sum: { amount: true } }),
     ])
     const invoiced = Number(agg._sum.amount ?? 0)
-    const paid     = Number(agg._sum.amountPaid ?? 0)
+    const paid     = Number(received._sum.amount ?? 0)
     const opening  = Number(clients._sum.openingBalance ?? 0)
     return {
       draftCount:  drafts,
@@ -119,7 +125,8 @@ export class InvoicesService {
       select: {
         id: true, businessName: true, openingBalance: true,
         user: { select: { fullName: true, isActive: true } },
-        invoices: { select: { status: true, amount: true, amountPaid: true } },
+        invoices: { select: { status: true, amount: true } },
+        payments: { select: { amount: true, allocations: { select: { amount: true } } } },
       },
       orderBy: { businessName: 'asc' },
     })
@@ -127,7 +134,10 @@ export class InvoicesService {
     return clients.map(c => {
       const billable = c.invoices.filter(i => BILLABLE.includes(i.status))
       const invoiced = billable.reduce((s, i) => s + Number(i.amount), 0)
-      const paid     = billable.reduce((s, i) => s + Number(i.amountPaid), 0)
+      // Count everything received, not just what's been applied — an advance still
+      // offsets the balance and should show the client as being in credit.
+      const paid     = c.payments.reduce((s, p) => s + Number(p.amount), 0)
+      const applied  = c.payments.reduce((s, p) => s + p.allocations.reduce((t, a) => t + Number(a.amount), 0), 0)
       const opening  = Number(c.openingBalance)
       return {
         id:             c.id,
@@ -137,6 +147,7 @@ export class InvoicesService {
         openingBalance: opening,
         totalInvoiced:  invoiced,
         totalPaid:      paid,
+        unappliedCredit: paid - applied,
         outstanding:    opening + invoiced - paid,
         draftCount:     c.invoices.filter(i => i.status === InvoiceStatus.DRAFT).length,
       }
@@ -167,10 +178,13 @@ export class InvoicesService {
       orderBy: { issueDate: 'desc' },
     })
 
+    const payments = await this.clientPayments(clientId)
+
     const fromDate = from ? new Date(`${from}T00:00:00.000Z`) : null
     const toDate   = to   ? new Date(`${to}T23:59:59.999Z`)   : null
 
-    // Every real movement on the account, oldest first
+    // Every real movement on the account, oldest first. Payments are credited in full
+    // whether or not they're applied — an unapplied advance still reduces what's owed.
     type Txn = { date: string; type: 'INVOICE' | 'PAYMENT'; ref: string; description: string; charge: number; credit: number }
     const txns: Txn[] = []
     for (const i of invoices.filter(x => BILLABLE.includes(x.status))) {
@@ -178,13 +192,17 @@ export class InvoicesService {
         date: i.issueDate.toISOString(), type: 'INVOICE', ref: i.invoiceNumber,
         description: i.description ?? 'Professional services', charge: Number(i.amount), credit: 0,
       })
-      for (const p of i.payments) {
-        txns.push({
-          date: p.paidAt.toISOString(), type: 'PAYMENT', ref: i.invoiceNumber,
-          description: `Payment received — ${p.method.replace(/_/g, ' ').toLowerCase()}${p.reference ? ` (${p.reference})` : ''}`,
-          charge: 0, credit: Number(p.amount),
-        })
-      }
+    }
+    for (const p of payments) {
+      const against = p.allocations.length > 0
+        ? p.allocations.map(a => a.invoice.invoiceNumber).join(', ')
+        : 'Advance'
+      txns.push({
+        date: p.paidAt.toISOString(), type: 'PAYMENT', ref: against,
+        description: `Payment received — ${p.method.replace(/_/g, ' ').toLowerCase()}${p.reference ? ` (${p.reference})` : ''}`
+          + (p.unapplied > 0 ? ` · ${p.unapplied} unapplied` : ''),
+        charge: 0, credit: Number(p.amount),
+      })
     }
     txns.sort((a, b) => a.date.localeCompare(b.date))
 
@@ -207,13 +225,19 @@ export class InvoicesService {
       return { ...t, balance: running }
     })
 
+    // Credit sitting on the account with no invoice against it yet. A client who has
+    // paid ahead ends up with a negative outstanding, which is the signal we want.
+    const unappliedCredit = payments.reduce((s, p) => s + p.unapplied, 0)
+
     return {
       client,
       openingBalance,
       totalInvoiced,
       totalPaid,
+      unappliedCredit,
       outstanding: openingBalance + totalInvoiced - totalPaid,
       invoices:    invoices.map(i => this.decorate(i)),
+      payments,
       timeline,
     }
   }
@@ -290,9 +314,9 @@ export class InvoicesService {
   }
 
   async markRetainerIncluded(id: string) {
-    const inv = await this.prisma.invoice.findUnique({ where: { id }, include: { payments: { select: { id: true } } } })
+    const inv = await this.prisma.invoice.findUnique({ where: { id }, include: { allocations: { select: { id: true } } } })
     if (!inv) throw new NotFoundException('Invoice not found')
-    if (inv.payments.length > 0) throw new BadRequestException('This invoice already has payments recorded against it')
+    if (inv.allocations.length > 0) throw new BadRequestException('This invoice already has payments applied to it')
 
     await this.prisma.invoice.update({
       where: { id },
@@ -302,18 +326,18 @@ export class InvoicesService {
   }
 
   async cancel(id: string) {
-    const inv = await this.prisma.invoice.findUnique({ where: { id }, include: { payments: { select: { id: true } } } })
+    const inv = await this.prisma.invoice.findUnique({ where: { id }, include: { allocations: { select: { id: true } } } })
     if (!inv) throw new NotFoundException('Invoice not found')
-    if (inv.payments.length > 0) throw new BadRequestException('Cannot cancel an invoice that has payments recorded')
+    if (inv.allocations.length > 0) throw new BadRequestException('Cannot cancel an invoice that has payments applied to it')
 
     await this.prisma.invoice.update({ where: { id }, data: { status: InvoiceStatus.CANCELLED } })
     return this.getOne(id)
   }
 
   async remove(id: string) {
-    const inv = await this.prisma.invoice.findUnique({ where: { id }, include: { payments: { select: { id: true } } } })
+    const inv = await this.prisma.invoice.findUnique({ where: { id }, include: { allocations: { select: { id: true } } } })
     if (!inv) throw new NotFoundException('Invoice not found')
-    if (inv.payments.length > 0) throw new BadRequestException('Cannot delete an invoice that has payments recorded — cancel it instead')
+    if (inv.allocations.length > 0) throw new BadRequestException('Cannot delete an invoice that has payments applied to it — cancel it instead')
 
     await this.prisma.invoice.delete({ where: { id } })
     return { ok: true }
@@ -326,56 +350,38 @@ export class InvoicesService {
     return InvoiceStatus.SENT
   }
 
-  async recordPayment(id: string, dto: RecordPaymentDto, userId: string) {
-    const inv = await this.prisma.invoice.findUnique({ where: { id } })
-    if (!inv) throw new NotFoundException('Invoice not found')
-    if (inv.status === InvoiceStatus.RETAINER_INCLUDED || inv.status === InvoiceStatus.CANCELLED) {
-      throw new BadRequestException('This invoice is not billable')
-    }
-    if (Number(inv.amount) <= 0) throw new BadRequestException('Set an amount on this invoice before recording a payment')
+  // amountPaid/status on an invoice are a rollup of its allocations — always rebuild
+  // them from the allocations rather than nudging the running total, so they can't drift.
+  private async recomputeInvoices(invoiceIds: string[]) {
+    for (const id of [...new Set(invoiceIds)]) {
+      const inv = await this.prisma.invoice.findUnique({
+        where:  { id },
+        select: { id: true, amount: true, status: true, paidAt: true, allocations: { select: { amount: true } } },
+      })
+      if (!inv) continue
+      // Retainer-covered and cancelled invoices aren't billable, so leave their status alone
+      if (inv.status === InvoiceStatus.RETAINER_INCLUDED || inv.status === InvoiceStatus.CANCELLED) continue
 
-    const newPaid = Number(inv.amountPaid) + dto.amount
-    if (newPaid > Number(inv.amount) + 0.001) {
-      throw new BadRequestException('Payment exceeds the outstanding amount on this invoice')
+      const paid   = inv.allocations.reduce((s, a) => s + Number(a.amount), 0)
+      const status = this.deriveStatus(Number(inv.amount), paid)
+      await this.prisma.invoice.update({
+        where: { id },
+        data:  { amountPaid: paid, status, paidAt: status === InvoiceStatus.PAID ? (inv.paidAt ?? new Date()) : null },
+      })
     }
-    const status = this.deriveStatus(Number(inv.amount), newPaid)
-
-    await this.prisma.invoice.update({
-      where: { id },
-      data: {
-        amountPaid: newPaid,
-        status,
-        paidAt: status === InvoiceStatus.PAID ? new Date() : null,
-        payments: {
-          create: {
-            amount:       dto.amount,
-            method:       dto.method,
-            reference:    dto.reference,
-            proofUrl:     dto.proofUrl,
-            paidAt:       dto.paidAt ? new Date(dto.paidAt) : new Date(),
-            notes:        dto.notes,
-            recordedById: userId,
-          },
-        },
-      },
-    })
-    return this.getOne(id)
   }
 
-  // QuickBooks-style: one payment from the client, applied across their open invoices.
-  // All-or-nothing so a bad allocation can never leave the ledger half-updated.
-  async receivePayment(dto: ReceivePaymentDto, userId: string) {
-    const applied = dto.allocations.filter(a => a.amount > 0)
-    if (applied.length === 0) throw new BadRequestException('Apply the payment to at least one invoice')
-
+  // Checks a set of allocations against the invoices they target. Throws on the first
+  // problem so nothing is written unless the whole lot is valid.
+  private async validateAllocations(clientId: string, allocations: { invoiceId: string; amount: number }[]) {
+    if (allocations.length === 0) return
     const invoices = await this.prisma.invoice.findMany({
-      where:  { id: { in: applied.map(a => a.invoiceId) }, clientId: dto.clientId },
-      select: { id: true, invoiceNumber: true, amount: true, amountPaid: true, status: true, paidAt: true },
+      where:  { id: { in: allocations.map(a => a.invoiceId) }, clientId },
+      select: { id: true, invoiceNumber: true, amount: true, amountPaid: true, status: true },
     })
-    if (invoices.length !== applied.length) throw new BadRequestException('One or more invoices do not belong to this client')
+    if (invoices.length !== allocations.length) throw new BadRequestException('One or more invoices do not belong to this client')
 
-    // Validate everything up front — nothing is written until all of it checks out
-    const writes = applied.map(a => {
+    for (const a of allocations) {
       const inv = invoices.find(i => i.id === a.invoiceId)!
       if (inv.status !== InvoiceStatus.SENT && inv.status !== InvoiceStatus.PARTIALLY_PAID) {
         throw new BadRequestException(`${inv.invoiceNumber} is not awaiting payment`)
@@ -384,60 +390,135 @@ export class InvoicesService {
       if (a.amount > balance + 0.001) {
         throw new BadRequestException(`Applied amount exceeds the balance on ${inv.invoiceNumber}`)
       }
-      const newPaid = Number(inv.amountPaid) + a.amount
-      const status  = this.deriveStatus(Number(inv.amount), newPaid)
-      return { inv, allocation: a, newPaid, status }
-    })
-
-    const paidAt = dto.paidAt ? new Date(dto.paidAt) : new Date()
-
-    await this.prisma.$transaction(
-      writes.map(w =>
-        this.prisma.invoice.update({
-          where: { id: w.inv.id },
-          data: {
-            amountPaid: w.newPaid,
-            status:     w.status,
-            paidAt:     w.status === InvoiceStatus.PAID ? paidAt : null,
-            payments: {
-              create: {
-                amount:       w.allocation.amount,
-                method:       dto.method,
-                reference:    dto.reference,
-                proofUrl:     dto.proofUrl,
-                paidAt,
-                notes:        dto.notes,
-                recordedById: userId,
-              },
-            },
-          },
-        })
-      )
-    )
-
-    return {
-      ok: true,
-      applied: writes.length,
-      total:   writes.reduce((s, w) => s + w.allocation.amount, 0),
     }
   }
 
-  async deletePayment(paymentId: string) {
-    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId }, include: { invoice: true } })
+  // QuickBooks-style Receive Payment. `amount` is what the client actually paid;
+  // allocations say which invoices it settles. Anything left over — including a payment
+  // with no allocations at all — stays as unapplied credit against the client.
+  async receivePayment(dto: ReceivePaymentDto, userId: string) {
+    const applied = (dto.allocations ?? []).filter(a => a.amount > 0)
+    const total   = applied.reduce((s, a) => s + a.amount, 0)
+    if (total > dto.amount + 0.001) {
+      throw new BadRequestException('Applied amount is more than the payment received')
+    }
+    await this.validateAllocations(dto.clientId, applied)
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        clientId:     dto.clientId,
+        amount:       dto.amount,
+        method:       dto.method,
+        reference:    dto.reference,
+        proofUrl:     dto.proofUrl,
+        paidAt:       dto.paidAt ? new Date(dto.paidAt) : new Date(),
+        notes:        dto.notes,
+        recordedById: userId,
+        allocations:  { create: applied.map(a => ({ invoiceId: a.invoiceId, amount: a.amount })) },
+      },
+    })
+    await this.recomputeInvoices(applied.map(a => a.invoiceId))
+
+    return { ok: true, paymentId: payment.id, applied: applied.length, unapplied: dto.amount - total }
+  }
+
+  // Put an advance payment's leftover credit against invoices raised since.
+  async applyPayment(paymentId: string, dto: ApplyPaymentDto) {
+    const payment = await this.prisma.payment.findUnique({
+      where:   { id: paymentId },
+      include: { allocations: true },
+    })
     if (!payment) throw new NotFoundException('Payment not found')
 
-    const inv     = payment.invoice
-    const newPaid = Number(inv.amountPaid) - Number(payment.amount)
-    const status  = this.deriveStatus(Number(inv.amount), newPaid)
+    const alreadyApplied = payment.allocations.reduce((s, a) => s + Number(a.amount), 0)
+    const unapplied      = Number(payment.amount) - alreadyApplied
 
-    await this.prisma.$transaction([
-      this.prisma.payment.delete({ where: { id: paymentId } }),
-      this.prisma.invoice.update({
-        where: { id: inv.id },
-        data:  { amountPaid: newPaid < 0 ? 0 : newPaid, status, paidAt: status === InvoiceStatus.PAID ? inv.paidAt : null },
-      }),
-    ])
-    return this.getOne(inv.id)
+    const toApply = dto.allocations.filter(a => a.amount > 0)
+    const total   = toApply.reduce((s, a) => s + a.amount, 0)
+    if (toApply.length === 0) throw new BadRequestException('Nothing to apply')
+    if (total > unapplied + 0.001) throw new BadRequestException('Applied amount is more than this payment has left')
+
+    await this.validateAllocations(payment.clientId, toApply)
+
+    // An invoice can already have a slice of this payment — top it up rather than
+    // adding a second row for the same pair.
+    for (const a of toApply) {
+      const existing = payment.allocations.find(x => x.invoiceId === a.invoiceId)
+      if (existing) {
+        await this.prisma.paymentAllocation.update({
+          where: { id: existing.id },
+          data:  { amount: Number(existing.amount) + a.amount },
+        })
+      } else {
+        await this.prisma.paymentAllocation.create({
+          data: { paymentId, invoiceId: a.invoiceId, amount: a.amount },
+        })
+      }
+    }
+    await this.recomputeInvoices(toApply.map(a => a.invoiceId))
+
+    return { ok: true, applied: toApply.length, remaining: unapplied - total }
+  }
+
+  // Every payment from this client, with how much of each is still unapplied.
+  async clientPayments(clientId: string) {
+    const payments = await this.prisma.payment.findMany({
+      where:   { clientId },
+      include: PAYMENT_INCLUDE,
+      orderBy: { paidAt: 'desc' },
+    })
+    return payments.map(p => {
+      const applied = p.allocations.reduce((s, a) => s + Number(a.amount), 0)
+      return { ...p, applied, unapplied: Number(p.amount) - applied }
+    })
+  }
+
+  async updatePayment(paymentId: string, dto: UpdatePaymentDto) {
+    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId }, include: { allocations: true } })
+    if (!payment) throw new NotFoundException('Payment not found')
+
+    if (dto.amount !== undefined) {
+      const applied = payment.allocations.reduce((s, a) => s + Number(a.amount), 0)
+      if (dto.amount < applied - 0.001) {
+        throw new BadRequestException(`This payment already has ${applied} applied to invoices — unapply some first`)
+      }
+    }
+
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: {
+        ...(dto.amount    !== undefined ? { amount: dto.amount }              : {}),
+        ...(dto.method    !== undefined ? { method: dto.method }              : {}),
+        ...(dto.reference !== undefined ? { reference: dto.reference }        : {}),
+        ...(dto.proofUrl  !== undefined ? { proofUrl: dto.proofUrl }          : {}),
+        ...(dto.paidAt    !== undefined ? { paidAt: new Date(dto.paidAt) }    : {}),
+        ...(dto.notes     !== undefined ? { notes: dto.notes }                : {}),
+      },
+    })
+    return { ok: true }
+  }
+
+  // Pull a payment's slice back off an invoice — the money returns to unapplied credit.
+  async unapplyAllocation(allocationId: string) {
+    const alloc = await this.prisma.paymentAllocation.findUnique({ where: { id: allocationId } })
+    if (!alloc) throw new NotFoundException('Allocation not found')
+
+    await this.prisma.paymentAllocation.delete({ where: { id: allocationId } })
+    await this.recomputeInvoices([alloc.invoiceId])
+    return { ok: true }
+  }
+
+  async deletePayment(paymentId: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where:   { id: paymentId },
+      include: { allocations: { select: { invoiceId: true } } },
+    })
+    if (!payment) throw new NotFoundException('Payment not found')
+
+    const touched = payment.allocations.map(a => a.invoiceId)
+    await this.prisma.payment.delete({ where: { id: paymentId } }) // allocations cascade
+    await this.recomputeInvoices(touched)
+    return { ok: true }
   }
 
   // ── Auto-drafting ──────────────────────────────────────────────────────────

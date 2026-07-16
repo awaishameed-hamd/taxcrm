@@ -4,7 +4,7 @@ import { RolesGuard } from '../../common/guards/roles.guard'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { Role } from '@ca-firm/shared'
 import { InvoicesService } from './invoices.service'
-import { CreateInvoiceDto, UpdateInvoiceDto, RecordPaymentDto, UpdateOpeningBalanceDto, ReceivePaymentDto } from './dto/invoice.dto'
+import { CreateInvoiceDto, UpdateInvoiceDto, UpdateOpeningBalanceDto, ReceivePaymentDto, ApplyPaymentDto, UpdatePaymentDto } from './dto/invoice.dto'
 
 // Billing is Manager-and-above only — Team Leads and Trainees never see it.
 const BILLING_ROLES = [Role.ADMIN, Role.PARTNER, Role.MANAGER]
@@ -53,6 +53,26 @@ export class InvoicesController {
     return this.svc.receivePayment(dto, req.user.id)
   }
 
+  @Get('payments/:clientId')
+  clientPayments(@Param('clientId') clientId: string) {
+    return this.svc.clientPayments(clientId)
+  }
+
+  @Post('payments/:paymentId/apply')
+  applyPayment(@Param('paymentId') paymentId: string, @Body() dto: ApplyPaymentDto) {
+    return this.svc.applyPayment(paymentId, dto)
+  }
+
+  @Patch('payments/:paymentId')
+  updatePayment(@Param('paymentId') paymentId: string, @Body() dto: UpdatePaymentDto) {
+    return this.svc.updatePayment(paymentId, dto)
+  }
+
+  @Delete('allocations/:allocationId')
+  unapplyAllocation(@Param('allocationId') allocationId: string) {
+    return this.svc.unapplyAllocation(allocationId)
+  }
+
   @Patch('opening-balance/:clientId')
   openingBalance(@Param('clientId') clientId: string, @Body() dto: UpdateOpeningBalanceDto) {
     return this.svc.setOpeningBalance(clientId, dto.openingBalance)
@@ -97,11 +117,6 @@ export class InvoicesController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.svc.remove(id)
-  }
-
-  @Post(':id/payments')
-  recordPayment(@Req() req: any, @Param('id') id: string, @Body() dto: RecordPaymentDto) {
-    return this.svc.recordPayment(id, dto, req.user.id)
   }
 
   @Delete('payments/:paymentId')
