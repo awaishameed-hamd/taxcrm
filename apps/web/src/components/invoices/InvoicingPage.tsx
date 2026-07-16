@@ -126,7 +126,8 @@ function EditModal({ inv, onClose, onSaved }: { inv: Invoice; onClose: () => voi
 }
 
 // ─── Receive Payment (QuickBooks-style) ───────────────────────────────────────
-function ReceivePaymentModal({ client, onClose, onSaved }: { client: any; onClose: () => void; onSaved: () => void }) {
+// Renders inline in the right pane, like the Attendance Report calendar — not as an overlay.
+function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClose: () => void; onSaved: () => void }) {
   const [open,      setOpen]      = useState<any[]>([])
   const [loading,   setLoading]   = useState(true)
   const [received,  setReceived]  = useState('')
@@ -206,21 +207,33 @@ function ReceivePaymentModal({ client, onClose, onSaved }: { client: any; onClos
   const cell: React.CSSProperties = { padding: '8px 10px', fontSize: 12.5, fontFamily: F, borderBottom: `1px solid ${P.border}50` }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 720, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+    <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F }}>
         {/* Header */}
-        <div style={{ background: NAVY, color: '#fff', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 900, fontFamily: F }}>Receive Payment</div>
-            <div style={{ fontSize: 12, opacity: 0.8, fontFamily: F, marginTop: 2 }}>{client.businessName ?? client.fullName}</div>
+        <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h2 style={{ fontFamily: "'Angelos', sans-serif", fontSize: 20, display: 'inline-block', transform: 'skewX(12deg)', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
+              Receive Payment
+            </h2>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
+              {client.businessName ?? client.fullName}
+            </span>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, opacity: 0.7, fontFamily: F, letterSpacing: '0.1em' }}>OPEN BALANCE</div>
-            <div style={{ fontSize: 19, fontWeight: 900, fontFamily: F }}>PKR {money(totalOpen)}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ fontWeight: 900, color: '#F1F5F9', fontSize: 14, fontFamily: F }}>{money(totalOpen)}</span>
+              <span style={{ color: '#CBD5E1', fontWeight: 600, fontSize: 12, fontFamily: F }}>Open Balance</span>
+            </span>
+            <button onClick={onClose} style={{
+              cursor: 'pointer', color: '#E2E8F0', fontWeight: 700,
+              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 8, padding: '4px 12px', fontSize: 12, fontFamily: F,
+            }}>
+              ← Back
+            </button>
           </div>
         </div>
 
-        <div style={{ padding: 24 }}>
+        <div style={{ padding: 20 }}>
           {/* Payment details */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
             <div>
@@ -327,11 +340,10 @@ function ReceivePaymentModal({ client, onClose, onSaved }: { client: any; onClos
             <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
             <button onClick={save} disabled={saving || uploading || totalApplied <= 0}
               style={{ ...btn('#16a34a'), opacity: (saving || uploading || totalApplied <= 0) ? 0.6 : 1 }}>
-              {saving ? 'Saving…' : `Record PKR ${money(totalApplied)}`}
+              {saving ? 'Saving…' : `Record ${money(totalApplied)}`}
             </button>
           </div>
         </div>
-      </div>
     </div>
   )
 }
@@ -648,7 +660,7 @@ export default function InvoicingPage() {
             ) : clients.map(c => {
               const active = selectedId === c.id
               return (
-                <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history') }}
+                <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history'); setPayClient(null) }}
                   onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, client: c }) }}
                   style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${active ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 6, background: active ? '#E8EEF7' : '#F8FAFC', fontFamily: F, opacity: c.isActive ? 1 : 0.55 }}
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
@@ -689,6 +701,8 @@ export default function InvoicingPage() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px', minWidth: 0 }}>
           {loading ? (
             <div style={{ padding: 48, textAlign: 'center', color: P.textMuted, fontSize: 13, fontFamily: F }}>Loading…</div>
+          ) : payClient ? (
+            <ReceivePaymentPanel client={payClient} onClose={() => setPayClient(null)} onSaved={() => { setPayClient(null); refresh() }} />
           ) : selectedId === null ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
               <div style={{ textAlign: 'center' }}>
@@ -842,14 +856,13 @@ export default function InvoicingPage() {
 
       {editInv   && <EditModal inv={editInv} onClose={() => setEditInv(null)} onSaved={() => { setEditInv(null); refresh() }} />}
       {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} />}
-      {payClient && <ReceivePaymentModal client={payClient} onClose={() => setPayClient(null)} onSaved={() => { setPayClient(null); refresh() }} />}
       {openBal   && <OpeningBalanceModal client={openBal.client} mode={openBal.mode} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
 
       {/* Right-click menu on a client */}
       {ctxMenu && (
         <div style={{ position: 'fixed', top: ctxMenu.y, left: ctxMenu.x, zIndex: 1200, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 10, boxShadow: '0 8px 30px rgba(0,0,0,0.18)', padding: 4, minWidth: 190 }}>
           {[
-            { label: 'Open',                  run: () => { setSelectedId(ctxMenu.client.id); setTab('history') } },
+            { label: 'Open',                  run: () => { setSelectedId(ctxMenu.client.id); setTab('history'); setPayClient(null) } },
             { label: 'Add Opening Balance',   run: () => setOpenBal({ client: ctxMenu.client, mode: 'add' }) },
             { label: 'Edit Opening Balance',  run: () => setOpenBal({ client: ctxMenu.client, mode: 'edit' }) },
           ].map(item => (
