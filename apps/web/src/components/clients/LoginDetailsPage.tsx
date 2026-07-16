@@ -115,6 +115,7 @@ export default function LoginDetailsPage() {
   const [loading,       setLoading]       = useState(true)
   const [searchInput,   setSearchInput]   = useState('')
   const [search,        setSearch]        = useState('')
+  const [statusFilter,  setStatusFilter]  = useState<'active' | 'inactive' | 'all'>('active')
   const [editRow,       setEditRow]       = useState<LoginDetail | null>(null)
   const [showAdd,       setShowAdd]       = useState(false)
 
@@ -154,6 +155,13 @@ export default function LoginDetailsPage() {
     finally { setDeleting(false) }
   }
 
+  const visibleRows = rows.filter(r => {
+    const active = r.client?.user?.isActive !== false
+    if (statusFilter === 'active')   return active
+    if (statusFilter === 'inactive') return !active
+    return true
+  })
+
   const td: React.CSSProperties = { padding: '6px 14px', borderBottom: `1px solid ${P.border}50`, fontFamily: F, fontSize: 13, fontWeight: 700, color: '#000', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
   const na = <span style={{ color: '#CBD5E1' }}>N/A</span>
 
@@ -164,6 +172,21 @@ export default function LoginDetailsPage() {
       {/* Filter bar */}
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: TEAL, borderRadius: 40, padding: '5px 8px' }}>
+
+          {/* Status pills */}
+          {[{ label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }, { label: 'All', value: 'all' }].map(({ label, value }) => (
+            <button key={value} onClick={() => setStatusFilter(value as any)} style={{
+              flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: F, transition: 'all .15s', whiteSpace: 'nowrap',
+              background: statusFilter === value ? NAVY : 'transparent',
+              color: statusFilter === value ? '#fff' : 'rgba(255,255,255,0.85)',
+            }}>
+              {label}
+            </button>
+          ))}
+
+          {/* Separator */}
+          <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
+
           <div style={{ position: 'relative', flex: 1, minWidth: 160, maxWidth: 260 }}>
             <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -175,7 +198,7 @@ export default function LoginDetailsPage() {
 
           <span style={{ flex: 1 }} />
 
-          <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#fff', paddingLeft: 4, paddingRight: 4 }}>{rows.length} rows</span>
+          <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#fff', paddingLeft: 4, paddingRight: 4 }}>{visibleRows.length} rows</span>
 
           <button onClick={() => setShowAdd(true)}
             style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: NAVY, color: '#fff' }}>
@@ -213,11 +236,11 @@ export default function LoginDetailsPage() {
                   ))}
                 </tr>
               ))
-            ) : rows.length === 0 ? (
+            ) : visibleRows.length === 0 ? (
               <tr><td colSpan={5} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted }}>
                 {search ? `No clients matching "${search}".` : 'No login details yet. Click + Add to create one.'}
               </td></tr>
-            ) : rows.map((r, idx) => {
+            ) : visibleRows.map((r, idx) => {
               const isActive = r.client?.user?.isActive !== false
               return (
               <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC', opacity: isActive ? 1 : 0.55 }}>
