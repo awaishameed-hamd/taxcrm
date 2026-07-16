@@ -46,6 +46,7 @@ const LABEL_GRAD: Record<string, { border: string; icon: string }> = {
   completedTasks: { border: '#0D9488', icon: '#0D9488' },
   notices:        { border: '#DC2626', icon: '#DC2626' },
   myLeaves:       { border: '#D7A520', icon: '#D7A520' },
+  loginDetails:   { border: '#132E57', icon: '#132E57' },
 }
 
 const ICONS: Record<string, string> = {
@@ -91,6 +92,8 @@ const ICONS: Record<string, string> = {
     'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75',
   myLeaves:
     'M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0z',
+  loginDetails:
+    'M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z',
 }
 
 interface NavItem { label: string; href: string; icon: string; key: string; permission?: string }
@@ -99,6 +102,7 @@ const NAV: Record<string, NavItem[]> = {
   [Role.ADMIN]: [
     { label: 'Dashboard',           href: '/admin/dashboard',        icon: 'dashboard',      key: 'dashboard'      },
     { label: 'Clients',             href: '/admin/clients',          icon: 'clients',        key: 'clients'        },
+    { label: 'Login Details',       href: '/admin/login-details',    icon: 'loginDetails',   key: 'loginDetails'   },
     { label: 'Tax Summary',         href: '/admin/tax-summary',      icon: 'taxSummary',     key: 'taxSummary'     },
     { label: 'Files',               href: '/admin/documents',        icon: 'documents',      key: 'documents'      },
     { label: 'Tasks',               href: '/admin/tasks',            icon: 'tasks',          key: 'tasks'          },
@@ -118,6 +122,7 @@ const NAV: Record<string, NavItem[]> = {
   [Role.PARTNER]: [
     { label: 'Dashboard',           href: '/partner/dashboard',        icon: 'dashboard',      key: 'dashboard',      permission: 'dashboard'           },
     { label: 'Clients',             href: '/partner/clients',          icon: 'clients',        key: 'clients',        permission: 'clients'             },
+    { label: 'Login Details',       href: '/partner/login-details',    icon: 'loginDetails',   key: 'loginDetails'                                       },
     { label: 'Tax Summary',         href: '/partner/tax-summary',      icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'         },
     { label: 'Files',               href: '/partner/documents',        icon: 'documents',      key: 'documents'                                          },
     { label: 'Tasks',               href: '/partner/tasks',            icon: 'tasks',          key: 'tasks',          permission: 'tasks'               },
@@ -137,6 +142,7 @@ const NAV: Record<string, NavItem[]> = {
   [Role.MANAGER]: [
     { label: 'Dashboard',           href: '/manager/dashboard',        icon: 'dashboard',      key: 'dashboard',      permission: 'dashboard'           },
     { label: 'Clients',             href: '/manager/clients',          icon: 'clients',        key: 'clients',        permission: 'clients'             },
+    { label: 'Login Details',       href: '/manager/login-details',    icon: 'loginDetails',   key: 'loginDetails'                                       },
     { label: 'Tax Summary',         href: '/manager/tax-summary',      icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'         },
     { label: 'Files',               href: '/manager/documents',        icon: 'documents',      key: 'documents'                                          },
     { label: 'Tasks',               href: '/manager/tasks',            icon: 'tasks',          key: 'tasks',          permission: 'tasks'               },
@@ -156,6 +162,7 @@ const NAV: Record<string, NavItem[]> = {
   [Role.TEAM_LEAD]: [
     { label: 'Dashboard',           href: '/team-lead/dashboard',        icon: 'dashboard',      key: 'dashboard',      permission: 'dashboard'           },
     { label: 'Clients',             href: '/team-lead/clients',          icon: 'clients',        key: 'clients',        permission: 'clients'             },
+    { label: 'Login Details',       href: '/team-lead/login-details',    icon: 'loginDetails',   key: 'loginDetails'                                       },
     { label: 'Tax Summary',         href: '/team-lead/tax-summary',      icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'         },
     { label: 'Files',               href: '/team-lead/documents',        icon: 'documents',      key: 'documents'                                          },
     { label: 'Tasks',               href: '/team-lead/tasks',            icon: 'tasks',          key: 'tasks',          permission: 'tasks'               },
@@ -175,6 +182,7 @@ const NAV: Record<string, NavItem[]> = {
   [Role.TRAINEE]: [
     { label: 'Dashboard',        href: '/trainee/dashboard',         icon: 'dashboard',      key: 'dashboard',      permission: 'dashboard'      },
     { label: 'My Clients',       href: '/trainee/clients',           icon: 'clients',        key: 'clients',        permission: 'clients'        },
+    { label: 'Login Details',    href: '/trainee/login-details',     icon: 'loginDetails',   key: 'loginDetails'                                  },
     { label: 'Tax Summary',      href: '/trainee/tax-summary',       icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'    },
     { label: 'Files',            href: '/trainee/documents',         icon: 'documents',      key: 'documents'                                      },
     { label: 'Tasks',            href: '/trainee/tasks',             icon: 'tasks',          key: 'tasks',          permission: 'tasks'          },

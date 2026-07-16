@@ -280,6 +280,7 @@ model ClientProfile {
   incomeTaxReturns IncomeTaxReturn[]
   generalTasks     Task[]          @relation("TaskClient")
   fbrCases         FbrCase[]
+  loginDetails     ClientLoginDetail[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -287,6 +288,26 @@ model ClientProfile {
   @@index([traineeId])
   @@index([representativeId])
   @@map("client_profiles")
+}
+
+// IRIS (or other authority portal) login credentials — one row per (client, authority).
+// Kept in sync with ClientProfile.salesTaxAuthorities: a row is auto-created for every
+// authority the client has selected (or a single FBR row if none are selected).
+model ClientLoginDetail {
+  id       String        @id @default(cuid())
+  clientId String
+  client   ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  authority String
+  loginId   String?
+  password  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, authority])
+  @@index([clientId])
+  @@map("client_login_details")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

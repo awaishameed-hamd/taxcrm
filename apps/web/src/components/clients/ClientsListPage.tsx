@@ -16,8 +16,6 @@ const ALL_CLIENT_COLS = [
   { key: 'business',       label: 'Business',        defaultWidth: 150 },
   { key: 'ntn',            label: 'NTN',             defaultWidth: 110 },
   { key: 'strn',           label: 'STRN',            defaultWidth: 110 },
-  { key: 'irisLoginId',    label: 'Login ID (IRIS)', defaultWidth: 140 },
-  { key: 'irisPassword',   label: 'Password (IRIS)', defaultWidth: 140 },
   { key: 'yearEnd',        label: 'Year End',         defaultWidth: 120 },
   { key: 'trainee',        label: 'Firm Rep.',        defaultWidth: 130 },
   { key: 'representative', label: 'Representative',  defaultWidth: 150 },
@@ -370,8 +368,6 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
 
   const [form, setForm]         = useState<Record<string, string>>(() => ({
     ...buildInitial(),
-    irisLoginId:  (initial?.extraFields as any)?.irisLoginId  ?? '',
-    irisPassword: (initial?.extraFields as any)?.irisPassword ?? '',
   }))
   const [password,  setPassword]  = useState('')
   const [showPw,    setShowPw]    = useState(false)
@@ -488,9 +484,6 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
         }
       })
 
-      // Always include IRIS credentials in extraFields
-      if (form.irisLoginId)  extraFields.irisLoginId  = form.irisLoginId
-      if (form.irisPassword) extraFields.irisPassword = form.irisPassword
       if (Object.keys(extraFields).length > 0) payload.extraFields = extraFields
 
       payload.salesTaxAuthorities = salesTaxAuthorities
@@ -582,22 +575,6 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
                 />
               )
             })}
-          </div>
-
-          {/* IRIS Credentials */}
-          <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            {[
-              { key: 'irisLoginId', label: 'Login ID (IRIS)', placeholder: 'IRIS login ID' },
-              { key: 'irisPassword', label: 'Password (IRIS)', placeholder: 'IRIS password' },
-            ].map(f => (
-              <div key={f.key}>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', marginBottom: 4, fontFamily: "'Aptos', sans-serif" }}>
-                  {f.label}
-                </label>
-                <input type="text" value={form[f.key] ?? ''} onChange={e => handleChange(f.key, e.target.value)}
-                  placeholder={f.placeholder} className={inputCls} style={inputStyle} />
-              </div>
-            ))}
           </div>
 
           {/* Assign Firm Representative */}
@@ -1645,8 +1622,6 @@ export default function ClientsListPage() {
                     business:       <td key="business"       style={{ ...td, color: P.textMuted }}>{c.businessName ?? na}</td>,
                     ntn:            <td key="ntn"            style={{ ...td, color: P.textMuted }}>{c.ntn ?? na}</td>,
                     strn:           <td key="strn"           style={{ ...td, color: P.textMuted }}>{c.strn ?? na}</td>,
-                    irisLoginId:    <td key="irisLoginId"    style={{ ...td, color: P.textMuted }}>{(c.extraFields as any)?.irisLoginId ?? na}</td>,
-                    irisPassword:   <td key="irisPassword"   style={{ ...td, color: P.textMuted }}>{(c.extraFields as any)?.irisPassword ?? na}</td>,
                     yearEnd:        <td key="yearEnd"        style={{ ...td, color: P.textMuted }}>{c.yearEnd ? c.yearEnd.charAt(0) + c.yearEnd.slice(1).toLowerCase() : na}</td>,
                     trainee:        <td key="trainee"        style={{ ...td, color: P.textMuted }}>{c.trainee?.fullName ?? na}</td>,
                     representative: <td key="representative" style={{ ...td, color: P.textMuted }}>{c.representative?.fullName ?? na}</td>,

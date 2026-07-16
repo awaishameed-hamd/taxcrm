@@ -6,6 +6,7 @@ import { PrismaModule }        from './modules/prisma/prisma.module'
 import { AuthModule }          from './modules/auth/auth.module'
 import { UsersModule }         from './modules/users/users.module'
 import { ClientsModule }       from './modules/clients/clients.module'
+import { ClientLoginDetailsModule } from './modules/client-login-details/client-login-details.module'
 import { ChatModule }          from './modules/chat/chat.module'
 import { NotificationsModule } from './modules/notifications/notifications.module'
 import { DashboardModule }     from './modules/dashboard/dashboard.module'
@@ -31,6 +32,7 @@ import { LeavesModule }          from './modules/leaves/leaves.module'
     AuthModule,
     UsersModule,
     ClientsModule,
+    ClientLoginDetailsModule,
     ChatModule,
     NotificationsModule,
     DashboardModule,

@@ -17,6 +17,26 @@ export class ClientsService {
     private config:  ConfigService,
   ) {}
 
+  // Keeps ClientLoginDetail rows in sync with a client's selected Sales Tax authorities —
+  // one row per authority (defaulting to FBR when none are selected), never dropping saved credentials.
+  private async syncLoginDetails(clientId: string, authorities: string[]) {
+    const desired  = authorities.length > 0 ? authorities : ['FBR']
+    const existing = await this.prisma.clientLoginDetail.findMany({ where: { clientId }, select: { authority: true } })
+    const existingSet = new Set(existing.map(e => e.authority))
+
+    const toCreate = desired.filter(a => !existingSet.has(a))
+    const toRemove = [...existingSet].filter(a => !desired.includes(a))
+
+    if (toCreate.length > 0) {
+      await this.prisma.clientLoginDetail.createMany({
+        data: toCreate.map(authority => ({ clientId, authority })),
+      })
+    }
+    if (toRemove.length > 0) {
+      await this.prisma.clientLoginDetail.deleteMany({ where: { clientId, authority: { in: toRemove } } })
+    }
+  }
+
   async create(dto: CreateClientDto) {
     const rawPassword = dto.password ?? randomBytes(24).toString('hex')
     const hashed      = await bcrypt.hash(rawPassword, 12)
@@ -28,7 +48,7 @@ export class ClientsService {
     const existing = await this.prisma.user.findUnique({ where: { email } })
     if (existing) throw new ConflictException('A user with this email already exists')
 
-    return this.prisma.user.create({
+    const created = await this.prisma.user.create({
       data: {
         userCode,
         fullName,
@@ -63,6 +83,12 @@ export class ClientsService {
         clientProfile: { select: { id: true } },
       },
     })
+
+    if (created.clientProfile) {
+      await this.syncLoginDetails(created.clientProfile.id, dto.salesTaxAuthorities ?? [])
+    }
+
+    return created
   }
 
   async findAll(actorId: string, actorRole: Role, search?: string) {
@@ -138,7 +164,7 @@ export class ClientsService {
       await this.prisma.user.update({ where: { id: profile.userId }, data: userUpdates })
     }
 
-    return this.prisma.clientProfile.update({
+    const updated = await this.prisma.clientProfile.update({
       where: { id },
       data: {
         ...profileFields,
@@ -153,6 +179,12 @@ export class ClientsService {
         trainee: { select: { id: true, fullName: true } },
       },
     })
+
+    if (salesTaxAuthorities !== undefined) {
+      await this.syncLoginDetails(id, salesTaxAuthorities)
+    }
+
+    return updated
   }
 
   async toggleActive(id: string) {
