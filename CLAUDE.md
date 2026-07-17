@@ -13,12 +13,11 @@ for this one).
 ## Working agreement
 
 - **Respond in English only.** Never Urdu.
-- **Deploy is user-gated.** Do the local work (edit → typecheck → build → commit → push),
-  then **stop and tell the user to change the WiFi**, and wait for their go-ahead before
-  any `ssh argroup-vps` step. Their default network's firewall blocks the VPS; GitHub
-  pushes work fine on it. Never batch the SSH deploy into the same turn as the build.
-- **No local dev servers or browser testing.** Build + typecheck, report, the user verifies
-  on the deployed site himself.
+- **Ship the whole way.** The normal flow for a change is: edit → `tsc --noEmit` →
+  build → commit → push → deploy to the VPS → verify it booted. Don't stop at the push
+  and wait to be asked.
+- **No local dev servers or browser testing.** Build + typecheck, deploy, report — the
+  user verifies on the live site himself.
 - **Keep changes proportional to the ask.** Don't add schema/tracking/abstractions that
   weren't asked for. Small UI asks get small direct edits.
 - **No em dashes in UI copy** (dropdowns, tables, labels) — use readable text or leave blank.
@@ -75,7 +74,6 @@ Nginx (`/etc/nginx/sites-enabled/argroup.conf`, Certbot TLS) routes:
 PM2: `ca-firm-api` (**cluster mode, 2 workers**) and `ca-firm-web` (fork).
 
 ```bash
-# only after the user confirms the WiFi is switched
 ssh argroup-vps "cd /var/www/ca-firm-crm && git pull origin main"
 ssh argroup-vps "cd /var/www/ca-firm-crm/apps/api && npx prisma db push"   # only if schema changed
 ssh argroup-vps "cd /var/www/ca-firm-crm/apps/api && npx nest build && cd ../web && npx next build"
