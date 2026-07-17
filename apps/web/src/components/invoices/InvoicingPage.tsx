@@ -347,12 +347,12 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, fontFamily: F, borderTop: `1px solid ${P.border}`, borderBottom: `1px solid ${P.border}` }}>
-                <span style={{ fontWeight: 800, color: NAVY }}>Invoices settled</span>
-                <span style={{ fontWeight: 800, color: NAVY }}>{money(totalSettled)}</span>
+                <span style={{ fontWeight: 700, color: NAVY }}>Invoices settled</span>
+                <span style={{ fontWeight: 700, color: NAVY }}>{money(totalSettled)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0 0', fontSize: 13, fontFamily: F }}>
-                <span style={{ fontWeight: 900, color: NAVY }}>Unapplied amount</span>
-                <span style={{ fontWeight: 900, color: unapplied < -0.001 ? '#D62828' : unapplied > 0.001 ? '#5B21B6' : '#16a34a' }}>{money(unapplied)}</span>
+                <span style={{ fontWeight: 700, color: NAVY }}>Unapplied amount</span>
+                <span style={{ fontWeight: 700, color: unapplied < -0.001 ? '#D62828' : unapplied > 0.001 ? '#5B21B6' : '#16a34a' }}>{money(unapplied)}</span>
               </div>
               {unapplied < -0.001 && (
                 <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: '#D62828', fontFamily: F, textAlign: 'right' }}>
@@ -365,7 +365,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
           {/* What happens to money beyond what it was applied to */}
           {unapplied > 0.001 && (
             <div style={{ marginTop: 14, border: `1px solid ${P.border}`, borderRadius: 8, padding: '9px 11px', background: '#F8FAFC', fontFamily: F }}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: NAVY, fontFamily: F, marginBottom: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, fontFamily: F, marginBottom: 6 }}>
                 {money(unapplied)} more than the invoices needed. What is it?
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -377,8 +377,8 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
                     <input type="radio" checked={overType === o.k} onChange={() => setOverType(o.k)}
                       style={{ accentColor: TEAL, marginTop: 1, cursor: 'pointer' }} />
                     <span>
-                      <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: overType === o.k ? TEAL : NAVY, fontFamily: F }}>{o.t}</span>
-                      <span style={{ display: 'block', fontSize: 10.5, color: '#94A3B8', fontFamily: F, marginTop: 1, lineHeight: 1.35 }}>{o.d}</span>
+                      <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: overType === o.k ? TEAL : NAVY, fontFamily: F }}>{o.t}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: '#94A3B8', fontFamily: F, marginTop: 1, lineHeight: 1.35 }}>{o.d}</span>
                     </span>
                   </label>
                 ))}

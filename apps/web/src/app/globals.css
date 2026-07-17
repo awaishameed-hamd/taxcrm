@@ -22,6 +22,35 @@
   font-display: swap;
 }
 
+/* Aptos, shipped with the app so it renders the same for everyone.
+   Only Regular and Bold are declared: Office's Aptos also has ExtraBold and
+   Black, and pulling those in is what made bolded text look far heavier than
+   the same text in Excel. With just these two faces, any font-weight above 700
+   resolves down to real Bold instead of being synthetically thickened. */
+@font-face {
+  font-family: 'Aptos';
+  src: url('/fonts/Aptos-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Aptos';
+  src: url('/fonts/Aptos-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Aptos';
+  src: url('/fonts/Aptos-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
 
 @tailwind base;
 @tailwind components;
