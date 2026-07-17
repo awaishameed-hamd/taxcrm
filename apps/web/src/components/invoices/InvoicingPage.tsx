@@ -157,7 +157,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
 
   async function save() {
     if (amountRecv <= 0) { setError('Enter the amount received'); return }
-    if (unapplied < -0.001) { setError('Cash applied to invoices is more than the payment received'); return }
+    if (unapplied < -0.001) { setError('Amount applied to invoices is more than the payment received'); return }
 
     // Allocations are optional — a payment with none is an advance, and the whole
     // amount sits as credit until there's an invoice to put it against. A row counts
@@ -351,12 +351,12 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
                 <span style={{ fontWeight: 800, color: NAVY }}>{money(totalSettled)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0 0', fontSize: 13, fontFamily: F }}>
-                <span style={{ fontWeight: 900, color: NAVY }}>Unapplied cash</span>
+                <span style={{ fontWeight: 900, color: NAVY }}>Unapplied amount</span>
                 <span style={{ fontWeight: 900, color: unapplied < -0.001 ? '#D62828' : unapplied > 0.001 ? '#5B21B6' : '#16a34a' }}>{money(unapplied)}</span>
               </div>
               {unapplied < -0.001 && (
                 <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: '#D62828', fontFamily: F, textAlign: 'right' }}>
-                  More cash applied than was received
+                  More amount applied than was received
                 </p>
               )}
             </div>
