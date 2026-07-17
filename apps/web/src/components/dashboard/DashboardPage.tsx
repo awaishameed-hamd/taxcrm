@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import api from '@/lib/api'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { usePhone, useCompact } from '@/hooks/useMediaQuery'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const NAVY   = '#132E57'
@@ -112,10 +113,14 @@ function StatCard({ label, value, hint, breakdown, border, fill, textColor, load
 
 // ── Donut — exact CC CRM VerticalDonut style ──────────────────────────────────
 function Donut({ data, colors, centerLabel }: { data: { name:string; value:number }[]; colors: string[]; centerLabel: string }) {
+  const compact = useCompact()
   const total = data.reduce((s, d) => s + d.value, 0)
   if (!total) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:148, color:MUTED, fontSize:11, fontFamily:F }}>No data</div>
   return (
-    <div style={{ display:'flex', gap:12, alignItems:'center', justifyContent:'center' }}>
+    // The chart is a fixed 148px and the legend refuses to wrap, so side by side
+    // they overrun a phone-width card. Stack them instead of letting the legend
+    // shove itself off the edge.
+    <div style={{ display:'flex', gap:12, alignItems:'center', justifyContent:'center', flexWrap:'wrap' }}>
       <div style={{ position:'relative', width:148, height:148, flexShrink:0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -130,11 +135,11 @@ function Donut({ data, colors, centerLabel }: { data: { name:string; value:numbe
           <div style={{ fontSize:7.5, color:MUTED, letterSpacing:'0.08em', marginTop:2, fontFamily:F }}>{centerLabel}</div>
         </div>
       </div>
-      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:8, minWidth:0 }}>
         {data.map((d, i) => {
           const pct = total > 0 ? Math.round(d.value / total * 100) : 0
           return (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:LABEL, whiteSpace:'nowrap', fontFamily:F }}>
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:LABEL, whiteSpace: compact ? 'normal' : 'nowrap', fontFamily:F }}>
               <span style={{ width:9, height:9, background:colors[i%colors.length], borderRadius:2, flexShrink:0 }} />
               <span>{d.name}</span>
               <span style={{ color:NAVY, fontWeight:700, marginLeft:3 }}>{pct}%</span>
@@ -255,6 +260,13 @@ function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLab
 interface Props { title: string; subtitle: string }
 
 export default function DashboardPage({ title }: Props) {
+  const phone   = usePhone()
+  const compact = useCompact()
+  // Six stat cards across a 390px phone leaves ~55px each and the contents
+  // collide. Two columns on a phone, three on a tablet, six on desktop.
+  const statCols = phone ? 'repeat(2,1fr)' : compact ? 'repeat(3,1fr)' : 'repeat(6,1fr)'
+  const boxCols  = phone ? '1fr' : compact ? 'repeat(2,1fr)' : 'repeat(4,1fr)'
+  const donutCols = phone ? '1fr' : compact ? 'repeat(2,1fr)' : '1fr 1fr 1fr'
   const [period,  setPeriod]  = useState('overall')
   const [data,    setData]    = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -304,7 +316,12 @@ export default function DashboardPage({ title }: Props) {
   }
 
   return (
-    <div style={{ background:BG, minHeight:'100vh', padding:'14px 18px', boxSizing:'border-box', fontFamily:F }}>
+    <div style={{
+      background:BG, minHeight:'100vh', boxSizing:'border-box', fontFamily:F,
+      // The hamburger is pinned top-left on compact screens, so the heading
+      // needs to start clear of it instead of underneath it.
+      padding: phone ? '14px 12px 14px 58px' : '14px 18px',
+    }}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}`}</style>
 
       {/* ── Header ── */}
@@ -322,7 +339,7 @@ export default function DashboardPage({ title }: Props) {
       {error && <div style={{ background:'#FEE2E2', border:'1px solid #FCA5A5', borderRadius:6, padding:'8px 12px', fontSize:12, color:'#991B1B', marginBottom:10 }}>{error}</div>}
 
       {/* ── Row 1 — Stat Cards + Deadline bands (flat cards, numbers only) ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, marginBottom:10 }}>
+      <div style={{ display:'grid', gridTemplateColumns:statCols, gap:10, marginBottom:10 }}>
         <StatCard label="RETURNS"           value={stats.activePipeline ?? 0}     border={TEAL}    fill="#E5F3F5" textColor={TEAL}    loading={loading} />
         <StatCard label="NOTICES & APPEALS" value={stats.activeFbr ?? 0}          border={BRICK}   fill="#F5E0D2" textColor={BRICK}   loading={loading} />
         <StatCard label="GENERAL TASKS"     value={stats.activeGeneral ?? 0}      border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
@@ -332,7 +349,7 @@ export default function DashboardPage({ title }: Props) {
       </div>
 
       {/* ── Row 2 — 4 breakdown boxes (Active top, Completed/Closed bottom) ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:10, alignItems:'stretch' }}>
+      <div style={{ display:'grid', gridTemplateColumns:boxCols, gap:10, marginBottom:10, alignItems:'stretch' }}>
         <BreakdownBox title="Returns by Type"       active={boxes.returns.active}     completed={boxes.returns.completed}     labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="COMPLETED" />
         <BreakdownBox title="Sales Tax by Authority" active={boxes.salesByAuth.active} completed={boxes.salesByAuth.completed} labelFn={authLabelFn}  colorFn={authColorFn}  completedLabel="COMPLETED" />
         <BreakdownBox title="Notices & Appeals by Tax Type" active={boxes.fbrByType.active}   completed={boxes.fbrByType.completed}   labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="CLOSED" />
@@ -351,7 +368,7 @@ export default function DashboardPage({ title }: Props) {
       </div>
 
       {/* ── Row 3 — All 3 Donuts ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:10 }}>
+      <div style={{ display:'grid', gridTemplateColumns:donutCols, gap:10, marginBottom:10 }}>
         <div style={cardStyle}>
           <div style={titleStyle}>Tasks by Type</div>
           {loading ? <Sk h={148} /> : <Donut data={typeDonut} colors={DONUT_TYPE} centerLabel="TASKS" />}
