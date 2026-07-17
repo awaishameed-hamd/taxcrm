@@ -77,16 +77,19 @@
     overscroll-behavior-y: none;
   }
 
-  /* iOS zooms the whole page in when you focus an input under 16px. These are
-     the only two rules here that change desktop as well, and only by a pixel
-     of font size on small screens. */
+  /* iOS zooms the whole page in when you focus an input under 16px, and never
+     zooms back out. Inputs here carry their size as an inline style, which
+     normally outranks a stylesheet, so this is the one rule that has earned its
+     !important — without it this block silently does nothing. Compact widths
+     only; desktop keeps its own sizing. */
   @media (max-width: 1023px) {
     input, select, textarea {
-      font-size: 16px;
+      font-size: 16px !important;
     }
 
-    /* Touch targets: a 24px row is fine for a mouse, not for a thumb. */
-    button, [role='button'] {
+    /* Kills the ~300ms tap delay mobile browsers add while waiting to see if
+       you meant to double-tap-zoom. */
+    button, [role='button'], a {
       touch-action: manipulation;
     }
   }
