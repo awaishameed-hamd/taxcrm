@@ -32,6 +32,12 @@ const METHOD_LABEL: Record<string, string> = Object.fromEntries(PAYMENT_METHODS.
 const money   = (n: any) => Number(n ?? 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
 
+// What's still owed. Cash isn't the only thing that closes an invoice — a discount or
+// tax the client withheld at source settles it just the same.
+const balanceOf = (i: any) =>
+  Number(i.amount) - Number(i.amountPaid ?? 0) - Number(i.discountTotal ?? 0)
+  - Number(i.incomeTaxWithheld ?? 0) - Number(i.salesTaxWithheld ?? 0)
+
 const iso = (d: Date) => d.toISOString().split('T')[0]
 
 // Date-range presets for the ledger. `null` means unbounded — the account from day one.
@@ -76,17 +82,23 @@ function StatCard({ label, value, border, fill }: { label: string; value: string
 
 // ─── Receive Payment (QuickBooks-style) ───────────────────────────────────────
 // Renders inline in the right pane, like the Attendance Report calendar — not as an overlay.
+type Adj = { amount: string; discount: string; incomeTaxWithheld: string; salesTaxWithheld: string }
+const blankAdj = (): Adj => ({ amount: '', discount: '', incomeTaxWithheld: '', salesTaxWithheld: '' })
+const adjNum   = (a: Adj | undefined, k: keyof Adj) => Number(a?.[k]) || 0
+const adjTotal = (a: Adj | undefined) => adjNum(a, 'amount') + adjNum(a, 'discount') + adjNum(a, 'incomeTaxWithheld') + adjNum(a, 'salesTaxWithheld')
+
 function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClose: () => void; onSaved: () => void }) {
   const [open,      setOpen]      = useState<any[]>([])
   const [loading,   setLoading]   = useState(true)
   const [received,  setReceived]  = useState('')
-  const [alloc,     setAlloc]     = useState<Record<string, string>>({})
+  const [alloc,     setAlloc]     = useState<Record<string, Adj>>({})
   const [method,    setMethod]    = useState('BANK_TRANSFER')
   const [reference, setReference] = useState('')
   const [paidAt,    setPaidAt]    = useState(new Date().toISOString().split('T')[0])
   const [notes,     setNotes]     = useState('')
   const [proofUrl,  setProofUrl]  = useState('')
   const [proofName, setProofName] = useState('')
+  const [overType,  setOverType]  = useState<'ADVANCE' | 'BONUS'>('ADVANCE')
   const [uploading, setUploading] = useState(false)
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState('')
@@ -98,27 +110,36 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
       .finally(() => setLoading(false))
   }, [client.id])
 
-  const totalOpen    = open.reduce((s, i) => s + Number(i.balance), 0)
-  const totalApplied = Object.values(alloc).reduce((s, v) => s + (Number(v) || 0), 0)
-  const amountRecv   = Number(received) || 0
-  const unapplied    = amountRecv - totalApplied
+  const totalOpen     = open.reduce((s, i) => s + Number(i.balance), 0)
+  const totalApplied  = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'amount'), 0)
+  const totalDiscount = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'discount'), 0)
+  const totalItw      = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'incomeTaxWithheld'), 0)
+  const totalStw      = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'salesTaxWithheld'), 0)
+  const totalSettled  = totalApplied + totalDiscount + totalItw + totalStw
+  const amountRecv    = Number(received) || 0
+  const unapplied     = amountRecv - totalApplied
 
-  // Spread whatever was received across the oldest invoices first, like QuickBooks does
+  // Spread the cash across the oldest invoices first, like QuickBooks does. Any
+  // discount/withholding already typed on a row reduces what cash that row still needs.
   function autoApply(amountStr: string) {
     setReceived(amountStr)
     let left = Number(amountStr) || 0
-    const next: Record<string, string> = {}
-    for (const inv of open) {
-      if (left <= 0) break
-      const take = Math.min(left, Number(inv.balance))
-      next[inv.id] = String(take)
-      left -= take
-    }
-    setAlloc(next)
+    setAlloc(prev => {
+      const next: Record<string, Adj> = {}
+      for (const inv of open) {
+        const row     = prev[inv.id] ?? blankAdj()
+        const nonCash = adjNum(row, 'discount') + adjNum(row, 'incomeTaxWithheld') + adjNum(row, 'salesTaxWithheld')
+        const needs   = Math.max(0, Number(inv.balance) - nonCash)
+        const take    = Math.min(Math.max(0, left), needs)
+        next[inv.id]  = { ...row, amount: take > 0 ? String(take) : '' }
+        left -= take
+      }
+      return next
+    })
   }
 
-  function setOne(id: string, value: string) {
-    setAlloc(p => ({ ...p, [id]: value }))
+  function setField(id: string, key: keyof Adj, value: string) {
+    setAlloc(p => ({ ...p, [id]: { ...(p[id] ?? blankAdj()), [key]: value } }))
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -136,13 +157,20 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
 
   async function save() {
     if (amountRecv <= 0) { setError('Enter the amount received'); return }
-    if (unapplied < -0.001) { setError('Applied amount is more than the payment received'); return }
+    if (unapplied < -0.001) { setError('Cash applied to invoices is more than the payment received'); return }
 
     // Allocations are optional — a payment with none is an advance, and the whole
-    // amount sits as credit until there's an invoice to put it against.
+    // amount sits as credit until there's an invoice to put it against. A row counts
+    // even with no cash on it, since a discount alone can settle an invoice.
     const allocations = Object.entries(alloc)
-      .map(([invoiceId, v]) => ({ invoiceId, amount: Number(v) || 0 }))
-      .filter(a => a.amount > 0)
+      .map(([invoiceId, a]) => ({
+        invoiceId,
+        amount:            adjNum(a, 'amount'),
+        discount:          adjNum(a, 'discount'),
+        incomeTaxWithheld: adjNum(a, 'incomeTaxWithheld'),
+        salesTaxWithheld:  adjNum(a, 'salesTaxWithheld'),
+      }))
+      .filter(a => a.amount + a.discount + a.incomeTaxWithheld + a.salesTaxWithheld > 0)
 
     setSaving(true); setError('')
     try {
@@ -150,6 +178,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
         clientId: client.id, amount: amountRecv, method,
         reference: reference || undefined, proofUrl: proofUrl || undefined,
         paidAt: paidAt || undefined, notes: notes || undefined,
+        overpaymentType: unapplied > 0.001 ? overType : undefined,
         allocations,
       })
       onSaved()
@@ -239,61 +268,123 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
               </div>
             </div>
           ) : (
-            <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+            <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 700 }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC' }}>
-                    {['Invoice', 'Date', 'Due', 'Open Balance', 'Payment'].map((h, i) => (
-                      <th key={h} style={{ ...cell, fontWeight: 900, fontSize: 10, letterSpacing: '0.08em', color: '#64748B', textTransform: 'uppercase', textAlign: i >= 3 ? 'right' : 'left' }}>{h}</th>
+                    {[
+                      { h: 'Invoice',      w: undefined },
+                      { h: 'Open Balance', w: 100 },
+                      { h: 'Payment',      w: 96 },
+                      { h: 'Discount',     w: 92 },
+                      { h: 'Income Tax W/H', w: 96 },
+                      { h: 'Sales Tax W/H',  w: 96 },
+                      { h: 'Left',         w: 84 },
+                    ].map((c, i) => (
+                      <th key={c.h} style={{ ...cell, width: c.w, fontWeight: 900, fontSize: 9.5, letterSpacing: '0.06em', color: '#64748B', textTransform: 'uppercase', textAlign: i >= 1 ? 'right' : 'left' }}>{c.h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {open.map(inv => (
-                    <tr key={inv.id}>
-                      <td style={{ ...cell, fontWeight: 700, color: TEAL }}>{inv.invoiceNumber}</td>
-                      <td style={{ ...cell, color: '#64748B' }}>{fmtDate(inv.issueDate)}</td>
-                      <td style={{ ...cell, color: '#64748B' }}>{inv.dueDate ? fmtDate(inv.dueDate) : '—'}</td>
-                      <td style={{ ...cell, textAlign: 'right', fontWeight: 700, color: NAVY }}>{money(inv.balance)}</td>
-                      <td style={{ ...cell, textAlign: 'right', width: 120 }}>
-                        <input type="number" min={0} max={inv.balance} value={alloc[inv.id] ?? ''}
-                          onChange={e => setOne(inv.id, e.target.value)} placeholder="0"
-                          style={{ ...inputStyle, padding: '5px 8px', textAlign: 'right', fontSize: 12.5, fontWeight: 700 }} />
-                      </td>
-                    </tr>
-                  ))}
+                  {open.map(inv => {
+                    const row       = alloc[inv.id]
+                    const settled   = adjTotal(row)
+                    const remaining = Number(inv.balance) - settled
+                    const numIn: React.CSSProperties = { ...inputStyle, padding: '5px 7px', textAlign: 'right', fontSize: 12, fontWeight: 700 }
+                    return (
+                      <tr key={inv.id}>
+                        <td style={{ ...cell, fontWeight: 700, color: TEAL }}>
+                          {inv.invoiceNumber}
+                          <div style={{ fontSize: 10.5, fontWeight: 400, color: '#94A3B8' }}>{fmtDate(inv.issueDate)}</div>
+                        </td>
+                        <td style={{ ...cell, textAlign: 'right', fontWeight: 700, color: NAVY }}>{money(inv.balance)}</td>
+                        <td style={cell}><input type="number" min={0} value={row?.amount ?? ''} placeholder="0"
+                          onChange={e => setField(inv.id, 'amount', e.target.value)} style={numIn} /></td>
+                        <td style={cell}><input type="number" min={0} value={row?.discount ?? ''} placeholder="0"
+                          onChange={e => setField(inv.id, 'discount', e.target.value)} style={numIn} /></td>
+                        <td style={cell}><input type="number" min={0} value={row?.incomeTaxWithheld ?? ''} placeholder="0"
+                          onChange={e => setField(inv.id, 'incomeTaxWithheld', e.target.value)} style={numIn} /></td>
+                        <td style={cell}><input type="number" min={0} value={row?.salesTaxWithheld ?? ''} placeholder="0"
+                          onChange={e => setField(inv.id, 'salesTaxWithheld', e.target.value)} style={numIn} /></td>
+                        <td style={{ ...cell, textAlign: 'right', fontWeight: 800, color: Math.abs(remaining) < 0.01 ? '#16a34a' : remaining < 0 ? '#D62828' : '#64748B' }}>
+                          {money(remaining)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           )}
 
+          {open.length > 0 && (
+            <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>
+              Discount and withheld tax close the invoice without cash — get <strong>Left</strong> to 0 and it's marked Paid.
+            </p>
+          )}
+
           {/* Totals */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-            <div style={{ width: 260 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F }}>
+            <div style={{ width: 300 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, fontFamily: F }}>
                 <span style={{ color: '#64748B' }}>Amount received</span>
                 <span style={{ fontWeight: 700, color: NAVY }}>{money(amountRecv)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F, borderBottom: `1px solid ${P.border}` }}>
-                <span style={{ color: '#64748B' }}>Applied to invoices</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, fontFamily: F }}>
+                <span style={{ color: '#64748B' }}>Cash applied</span>
                 <span style={{ fontWeight: 700, color: '#16a34a' }}>{money(totalApplied)}</span>
               </div>
+              {totalDiscount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, fontFamily: F }}>
+                  <span style={{ color: '#64748B' }}>Discount allowed</span>
+                  <span style={{ fontWeight: 700, color: '#D97706' }}>{money(totalDiscount)}</span>
+                </div>
+              )}
+              {(totalItw > 0 || totalStw > 0) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, fontFamily: F }}>
+                  <span style={{ color: '#64748B' }}>Withheld at source</span>
+                  <span style={{ fontWeight: 700, color: '#D97706' }}>{money(totalItw + totalStw)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, fontFamily: F, borderTop: `1px solid ${P.border}`, borderBottom: `1px solid ${P.border}` }}>
+                <span style={{ fontWeight: 800, color: NAVY }}>Invoices settled</span>
+                <span style={{ fontWeight: 800, color: NAVY }}>{money(totalSettled)}</span>
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0 0', fontSize: 13, fontFamily: F }}>
-                <span style={{ fontWeight: 900, color: NAVY }}>Unapplied</span>
+                <span style={{ fontWeight: 900, color: NAVY }}>Unapplied cash</span>
                 <span style={{ fontWeight: 900, color: unapplied < -0.001 ? '#D62828' : unapplied > 0.001 ? '#5B21B6' : '#16a34a' }}>{money(unapplied)}</span>
               </div>
-              {unapplied > 0.001 && (
-                <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: '#5B21B6', fontFamily: F, textAlign: 'right' }}>
-                  Held as advance credit — apply it once an invoice is raised
-                </p>
-              )}
               {unapplied < -0.001 && (
                 <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: '#D62828', fontFamily: F, textAlign: 'right' }}>
-                  Applied more than was received
+                  More cash applied than was received
                 </p>
               )}
             </div>
           </div>
+
+          {/* What happens to money beyond what it was applied to */}
+          {unapplied > 0.001 && (
+            <div style={{ marginTop: 14, border: `1px solid ${P.border}`, borderRadius: 8, padding: '12px 14px', background: '#F8FAFC' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: NAVY, fontFamily: F, marginBottom: 8 }}>
+                {money(unapplied)} more than the invoices needed — what is it?
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {([
+                  { k: 'ADVANCE', t: 'Advance', d: 'Credit on their account — shows as a negative balance until applied to a future invoice' },
+                  { k: 'BONUS',   t: 'Bonus',   d: "Client meant us to keep it — counts as income, not credit they can draw on" },
+                ] as const).map(o => (
+                  <label key={o.k} style={{ flex: 1, minWidth: 220, display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', padding: '9px 11px', borderRadius: 8, background: '#fff', border: `1.5px solid ${overType === o.k ? TEAL : P.border}` }}>
+                    <input type="radio" checked={overType === o.k} onChange={() => setOverType(o.k)}
+                      style={{ accentColor: TEAL, marginTop: 2, cursor: 'pointer' }} />
+                    <span>
+                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: overType === o.k ? TEAL : NAVY, fontFamily: F }}>{o.t}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: '#94A3B8', fontFamily: F, marginTop: 2, lineHeight: 1.4 }}>{o.d}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ marginTop: 14 }}>
             <label style={labelStyle}>Notes</label>
@@ -453,7 +544,7 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
 
 // ─── Invoice view / print ─────────────────────────────────────────────────────
 function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
-  const balance = Number(inv.amount) - Number(inv.amountPaid)
+  const balance = balanceOf(inv)
   const st = STATUS_META[inv.status] ?? STATUS_META.DRAFT
 
   return (
@@ -554,11 +645,29 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
                   <span style={{ fontWeight: 800, color: NAVY }}>Total</span>
                   <span style={{ fontWeight: 800, color: NAVY }}>{money(inv.amount)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F, borderBottom: `1px solid ${P.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F }}>
                   <span style={{ color: '#64748B' }}>Paid</span>
                   <span style={{ fontWeight: 700, color: '#16a34a' }}>− {money(inv.amountPaid)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', fontSize: 15, fontFamily: F }}>
+                {Number(inv.discountTotal) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F }}>
+                    <span style={{ color: '#64748B' }}>Discount</span>
+                    <span style={{ fontWeight: 700, color: '#16a34a' }}>− {money(inv.discountTotal)}</span>
+                  </div>
+                )}
+                {Number(inv.incomeTaxWithheld) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F }}>
+                    <span style={{ color: '#64748B' }}>Income Tax Withheld</span>
+                    <span style={{ fontWeight: 700, color: '#16a34a' }}>− {money(inv.incomeTaxWithheld)}</span>
+                  </div>
+                )}
+                {Number(inv.salesTaxWithheld) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F }}>
+                    <span style={{ color: '#64748B' }}>Sales Tax Withheld</span>
+                    <span style={{ fontWeight: 700, color: '#16a34a' }}>− {money(inv.salesTaxWithheld)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', fontSize: 15, fontFamily: F, borderTop: `1px solid ${P.border}`, marginTop: 5 }}>
                   <span style={{ fontWeight: 900, color: NAVY }}>Balance Due</span>
                   <span style={{ fontWeight: 900, color: balance > 0 ? '#D62828' : '#16a34a' }}>PKR {money(balance)}</span>
                 </div>
@@ -808,6 +917,9 @@ export default function InvoicingPage() {
                 {ledger.unappliedCredit > 0 && (
                   <StatCard label="Advance Credit" value={money(ledger.unappliedCredit)} border="#7B2D8E" fill="#E4D4EC" />
                 )}
+                {ledger.totalBonus > 0 && (
+                  <StatCard label="Bonus" value={money(ledger.totalBonus)} border="#16A34A" fill="#BBF0D6" />
+                )}
                 <StatCard label={ledger.outstanding < 0 ? 'In Credit' : 'Outstanding'}
                   value={money(Math.abs(ledger.outstanding))}
                   border={ledger.outstanding < 0 ? '#7B2D8E' : '#DC2626'}
@@ -881,9 +993,13 @@ export default function InvoicingPage() {
                       ) : ledger.timeline.map((t: any, idx: number) => {
                         const meta = t.type === 'PAYMENT'
                           ? { label: 'Payment', color: '#166534', bg: '#DCFCE7' }
-                          : t.type === 'OPENING'
-                            ? { label: 'Opening', color: '#5C5C5C', bg: '#F1F5F9' }
-                            : { label: 'Invoice', color: '#1E40AF', bg: '#DBEAFE' }
+                          : t.type === 'DISCOUNT'
+                            ? { label: 'Discount', color: '#92400E', bg: '#FEF3C7' }
+                            : t.type === 'WITHHOLDING'
+                              ? { label: 'Withheld', color: '#92400E', bg: '#FEF3C7' }
+                              : t.type === 'OPENING'
+                                ? { label: 'Opening', color: '#5C5C5C', bg: '#F1F5F9' }
+                                : { label: 'Invoice', color: '#1E40AF', bg: '#DBEAFE' }
                         return (
                           <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
                             <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(t.date)}</td>
@@ -921,7 +1037,7 @@ export default function InvoicingPage() {
                         <tr><td colSpan={8} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>No invoices for this client yet.</td></tr>
                       ) : ledger.invoices.map((r: Invoice, idx: number) => {
                         const st = STATUS_META[r.status] ?? STATUS_META.DRAFT
-                        const balance = Number(r.amount) - Number(r.amountPaid)
+                        const balance = balanceOf(r)
                         return (
                           <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
                             <td style={{ ...td, color: TEAL }}>{r.invoiceNumber}</td>
@@ -974,6 +1090,11 @@ export default function InvoicingPage() {
                               <span style={{ fontSize: 10, fontWeight: 900, padding: '1px 7px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>ADVANCE</span>
                             ) : (
                               <span style={{ color: TEAL, fontWeight: 700 }}>{p.allocations.map((a: any) => a.invoice.invoiceNumber).join(', ')}</span>
+                            )}
+                            {p.bonus > 0 && (
+                              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 900, padding: '1px 7px', borderRadius: 4, background: '#DCFCE7', color: '#166534' }}>
+                                +{money(p.bonus)} BONUS
+                              </span>
                             )}
                           </td>
                           <td style={{ ...td, textAlign: 'right' }}>{money(p.amount)}</td>

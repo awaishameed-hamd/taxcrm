@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { InvoiceKind, InvoiceStatus, Prisma } from '@prisma/client'
+import { InvoiceKind, InvoiceStatus, OverpaymentType, Prisma } from '@prisma/client'
 import { CreateInvoiceDto, UpdateInvoiceDto, ReceivePaymentDto, ApplyPaymentDto, UpdatePaymentDto } from './dto/invoice.dto'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
+
+type Alloc = { invoiceId: string; amount: number; discount?: number; incomeTaxWithheld?: number; salesTaxWithheld?: number }
 
 // Statuses that represent real money owed by the client. DRAFT isn't issued yet,
 // RETAINER_INCLUDED is covered by the monthly fee, CANCELLED is void.
@@ -99,7 +101,7 @@ export class InvoicesService {
   // Totals for the page header — outstanding excludes drafts and retainer-covered work.
   async summary() {
     await this.sweepOverdue()
-    const [agg, drafts, overdue, clients, received] = await Promise.all([
+    const [agg, drafts, overdue, clients, settledAgg] = await Promise.all([
       this.prisma.invoice.aggregate({
         where: { status: { in: BILLABLE } },
         _sum: { amount: true },
@@ -107,17 +109,33 @@ export class InvoicesService {
       this.prisma.invoice.count({ where: { status: InvoiceStatus.DRAFT } }),
       this.prisma.invoice.count({ where: { status: InvoiceStatus.OVERDUE } }),
       this.prisma.clientProfile.aggregate({ _sum: { openingBalance: true } }),
-      this.prisma.payment.aggregate({ _sum: { amount: true } }),
+      // Settled straight off the invoices, which already roll up cash, discount and
+      // withholding — so this can't drift from what the client ledgers show.
+      this.prisma.invoice.aggregate({
+        where: { status: { in: BILLABLE } },
+        _sum: { amountPaid: true, discountTotal: true, incomeTaxWithheld: true, salesTaxWithheld: true },
+      }),
     ])
     const invoiced = Number(agg._sum.amount ?? 0)
-    const paid     = Number(received._sum.amount ?? 0)
+    const paid     = Number(settledAgg._sum.amountPaid ?? 0)
+    const nonCash  = Number(settledAgg._sum.discountTotal ?? 0)
+                   + Number(settledAgg._sum.incomeTaxWithheld ?? 0)
+                   + Number(settledAgg._sum.salesTaxWithheld ?? 0)
     const opening  = Number(clients._sum.openingBalance ?? 0)
+
+    // Unapplied advances aren't tied to an invoice, so they need adding separately
+    const credits  = await this.prisma.payment.findMany({
+      where:  { overpaymentType: OverpaymentType.ADVANCE },
+      select: { amount: true, allocations: { select: { amount: true } } },
+    })
+    const unapplied = credits.reduce((s, p) => s + (Number(p.amount) - p.allocations.reduce((t, a) => t + Number(a.amount), 0)), 0)
+
     return {
       draftCount:    drafts,
       overdueCount:  overdue,
       totalInvoiced: invoiced,
-      totalPaid:     paid,
-      outstanding:   opening + invoiced - paid,
+      totalPaid:     paid + unapplied,
+      outstanding:   opening + invoiced - paid - nonCash - unapplied,
     }
   }
 
@@ -137,7 +155,12 @@ export class InvoicesService {
         id: true, businessName: true, openingBalance: true,
         user: { select: { fullName: true, isActive: true } },
         invoices: { select: { status: true, amount: true } },
-        payments: { select: { amount: true, allocations: { select: { amount: true } } } },
+        payments: {
+          select: {
+            amount: true, overpaymentType: true,
+            allocations: { select: { amount: true, discount: true, incomeTaxWithheld: true, salesTaxWithheld: true } },
+          },
+        },
       },
       orderBy: { businessName: 'asc' },
     })
@@ -145,11 +168,20 @@ export class InvoicesService {
     return clients.map(c => {
       const billable = c.invoices.filter(i => BILLABLE.includes(i.status))
       const invoiced = billable.reduce((s, i) => s + Number(i.amount), 0)
-      // Count everything received, not just what's been applied — an advance still
-      // offsets the balance and should show the client as being in credit.
-      const paid     = c.payments.reduce((s, p) => s + Number(p.amount), 0)
-      const applied  = c.payments.reduce((s, p) => s + p.allocations.reduce((t, a) => t + Number(a.amount), 0), 0)
       const opening  = Number(c.openingBalance)
+
+      // Mirrors the ledger: cash counts (advances in full, bonuses only up to what they
+      // were applied to), and so do discounts and tax withheld at source.
+      let cash = 0, nonCash = 0, credit = 0
+      for (const p of c.payments) {
+        const applied = p.allocations.reduce((s, a) => s + Number(a.amount), 0)
+        const spare   = Number(p.amount) - applied
+        const isBonus = p.overpaymentType === OverpaymentType.BONUS && spare > 0
+        cash    += isBonus ? applied : Number(p.amount)
+        credit  += isBonus ? 0 : spare
+        nonCash += p.allocations.reduce((s, a) => s + Number(a.discount) + Number(a.incomeTaxWithheld) + Number(a.salesTaxWithheld), 0)
+      }
+
       return {
         id:             c.id,
         businessName:   c.businessName,
@@ -157,9 +189,9 @@ export class InvoicesService {
         isActive:       c.user?.isActive !== false,
         openingBalance: opening,
         totalInvoiced:  invoiced,
-        totalPaid:      paid,
-        unappliedCredit: paid - applied,
-        outstanding:    opening + invoiced - paid,
+        totalPaid:      cash,
+        unappliedCredit: credit,
+        outstanding:    opening + invoiced - cash - nonCash,
         draftCount:     c.invoices.filter(i => i.status === InvoiceStatus.DRAFT).length,
         overdueCount:   c.invoices.filter(i => i.status === InvoiceStatus.OVERDUE).length,
       }
@@ -198,9 +230,8 @@ export class InvoicesService {
     const fromDate = from ? new Date(`${from}T00:00:00.000Z`) : null
     const toDate   = to   ? new Date(`${to}T23:59:59.999Z`)   : null
 
-    // Every real movement on the account, oldest first. Payments are credited in full
-    // whether or not they're applied — an unapplied advance still reduces what's owed.
-    type Txn = { date: string; type: 'INVOICE' | 'PAYMENT'; ref: string; description: string; charge: number; credit: number }
+    // Every real movement on the account, oldest first.
+    type Txn = { date: string; type: 'INVOICE' | 'PAYMENT' | 'DISCOUNT' | 'WITHHOLDING'; ref: string; description: string; charge: number; credit: number }
     const txns: Txn[] = []
     for (const i of invoices.filter(x => BILLABLE.includes(x.status))) {
       txns.push({
@@ -212,12 +243,39 @@ export class InvoicesService {
       const against = p.allocations.length > 0
         ? p.allocations.map(a => a.invoice.invoiceNumber).join(', ')
         : 'Advance'
+
+      // Cash. An unapplied advance still credits in full — it reduces what they owe.
+      // A bonus doesn't: only the applied part settles the account, the rest is our income.
+      const credit = p.bonus > 0 ? p.applied : Number(p.amount)
       txns.push({
         date: p.paidAt.toISOString(), type: 'PAYMENT', ref: against,
         description: `Payment received — ${p.method.replace(/_/g, ' ').toLowerCase()}${p.reference ? ` (${p.reference})` : ''}`
-          + (p.unapplied > 0 ? ` · ${p.unapplied} unapplied` : ''),
-        charge: 0, credit: Number(p.amount),
+          + (p.unapplied > 0 ? ` · ${p.unapplied} unapplied` : '')
+          + (p.bonus     > 0 ? ` · ${p.bonus} kept as bonus` : ''),
+        charge: 0, credit,
       })
+
+      // Discount and withholding settle the invoice without cash, so they have to
+      // credit the ledger too — otherwise a fully-settled invoice still shows a balance.
+      for (const a of p.allocations) {
+        if (Number(a.discount) > 0) {
+          txns.push({
+            date: p.paidAt.toISOString(), type: 'DISCOUNT', ref: a.invoice.invoiceNumber,
+            description: 'Discount allowed', charge: 0, credit: Number(a.discount),
+          })
+        }
+        const withheld = Number(a.incomeTaxWithheld) + Number(a.salesTaxWithheld)
+        if (withheld > 0) {
+          const bits = [
+            Number(a.incomeTaxWithheld) > 0 ? `income tax ${a.incomeTaxWithheld}` : null,
+            Number(a.salesTaxWithheld)  > 0 ? `sales tax ${a.salesTaxWithheld}`   : null,
+          ].filter(Boolean).join(', ')
+          txns.push({
+            date: p.paidAt.toISOString(), type: 'WITHHOLDING', ref: a.invoice.invoiceNumber,
+            description: `Withheld at source — ${bits}`, charge: 0, credit: withheld,
+          })
+        }
+      }
     }
     txns.sort((a, b) => a.date.localeCompare(b.date))
 
@@ -232,7 +290,12 @@ export class InvoicesService {
     }
 
     const totalInvoiced = inPeriod.reduce((s, t) => s + t.charge, 0)
-    const totalPaid     = inPeriod.reduce((s, t) => s + t.credit, 0)
+    // Everything that reduced what they owe, cash or not — this is what makes
+    // opening + invoiced − settled tie out to the closing balance.
+    const totalSettled  = inPeriod.reduce((s, t) => s + t.credit, 0)
+    const totalPaid     = inPeriod.filter(t => t.type === 'PAYMENT').reduce((s, t) => s + t.credit, 0)
+    const totalDiscount = inPeriod.filter(t => t.type === 'DISCOUNT').reduce((s, t) => s + t.credit, 0)
+    const totalWithheld = inPeriod.filter(t => t.type === 'WITHHOLDING').reduce((s, t) => s + t.credit, 0)
 
     let running = openingBalance
     const timeline = inPeriod.map(t => {
@@ -243,14 +306,18 @@ export class InvoicesService {
     // Credit sitting on the account with no invoice against it yet. A client who has
     // paid ahead ends up with a negative outstanding, which is the signal we want.
     const unappliedCredit = payments.reduce((s, p) => s + p.unapplied, 0)
+    const totalBonus      = payments.reduce((s, p) => s + p.bonus, 0)
 
     return {
       client,
       openingBalance,
       totalInvoiced,
       totalPaid,
+      totalDiscount,
+      totalWithheld,
+      totalBonus,
       unappliedCredit,
-      outstanding: openingBalance + totalInvoiced - totalPaid,
+      outstanding: openingBalance + totalInvoiced - totalSettled,
       invoices:    invoices.map(i => this.decorate(i)),
       payments,
       timeline,
@@ -262,9 +329,17 @@ export class InvoicesService {
     const invoices = await this.prisma.invoice.findMany({
       where:   { clientId, status: { in: AWAITING } },
       orderBy: { issueDate: 'asc' }, // oldest first — that's the order payment auto-applies in
-      select:  { id: true, invoiceNumber: true, description: true, issueDate: true, dueDate: true, amount: true, amountPaid: true },
+      select:  {
+        id: true, invoiceNumber: true, description: true, issueDate: true, dueDate: true, amount: true,
+        amountPaid: true, discountTotal: true, incomeTaxWithheld: true, salesTaxWithheld: true,
+      },
     })
-    return invoices.map(i => ({ ...i, balance: Number(i.amount) - Number(i.amountPaid) }))
+    // Balance is what's left after everything that settles it, cash or not
+    return invoices.map(i => ({
+      ...i,
+      balance: Number(i.amount) - Number(i.amountPaid) - Number(i.discountTotal)
+             - Number(i.incomeTaxWithheld) - Number(i.salesTaxWithheld),
+    }))
   }
 
   async setOpeningBalance(clientId: string, openingBalance: number) {
@@ -376,10 +451,12 @@ export class InvoicesService {
   }
 
   // ── Payments ───────────────────────────────────────────────────────────────
-  private deriveStatus(amount: number, amountPaid: number, dueDate?: Date | null): InvoiceStatus {
-    if (amountPaid >= amount && amount > 0) return InvoiceStatus.PAID
-    if (amountPaid > 0)                     return InvoiceStatus.PARTIALLY_PAID
-    if (dueDate && dueDate < startOfToday()) return InvoiceStatus.OVERDUE
+  // `settled` is everything that has closed the invoice out — cash plus any discount
+  // given and tax the client withheld at source.
+  private deriveStatus(amount: number, settled: number, dueDate?: Date | null): InvoiceStatus {
+    if (settled >= amount - 0.001 && amount > 0) return InvoiceStatus.PAID
+    if (settled > 0)                             return InvoiceStatus.PARTIALLY_PAID
+    if (dueDate && dueDate < startOfToday())     return InvoiceStatus.OVERDUE
     return InvoiceStatus.SENT
   }
 
@@ -397,34 +474,52 @@ export class InvoicesService {
     })
   }
 
-  // amountPaid/status on an invoice are a rollup of its allocations — always rebuild
-  // them from the allocations rather than nudging the running total, so they can't drift.
+  // The four settlement figures on an invoice are a rollup of its allocations — always
+  // rebuild them from the allocations rather than nudging running totals, so they can't drift.
   private async recomputeInvoices(invoiceIds: string[]) {
     for (const id of [...new Set(invoiceIds)]) {
       const inv = await this.prisma.invoice.findUnique({
         where:  { id },
-        select: { id: true, amount: true, status: true, paidAt: true, dueDate: true, allocations: { select: { amount: true } } },
+        select: {
+          id: true, amount: true, status: true, paidAt: true, dueDate: true,
+          allocations: { select: { amount: true, discount: true, incomeTaxWithheld: true, salesTaxWithheld: true } },
+        },
       })
       if (!inv) continue
       // Retainer-covered and cancelled invoices aren't billable, so leave their status alone
       if (inv.status === InvoiceStatus.RETAINER_INCLUDED || inv.status === InvoiceStatus.CANCELLED) continue
 
-      const paid   = inv.allocations.reduce((s, a) => s + Number(a.amount), 0)
-      const status = this.deriveStatus(Number(inv.amount), paid, inv.dueDate)
+      const paid     = inv.allocations.reduce((s, a) => s + Number(a.amount), 0)
+      const discount = inv.allocations.reduce((s, a) => s + Number(a.discount), 0)
+      const itw      = inv.allocations.reduce((s, a) => s + Number(a.incomeTaxWithheld), 0)
+      const stw      = inv.allocations.reduce((s, a) => s + Number(a.salesTaxWithheld), 0)
+      const status   = this.deriveStatus(Number(inv.amount), paid + discount + itw + stw, inv.dueDate)
+
       await this.prisma.invoice.update({
         where: { id },
-        data:  { amountPaid: paid, status, paidAt: status === InvoiceStatus.PAID ? (inv.paidAt ?? new Date()) : null },
+        data: {
+          amountPaid: paid, discountTotal: discount, incomeTaxWithheld: itw, salesTaxWithheld: stw,
+          status, paidAt: status === InvoiceStatus.PAID ? (inv.paidAt ?? new Date()) : null,
+        },
       })
     }
   }
 
+  // What one allocation closes off an invoice: cash + discount + tax withheld at source
+  private settledBy(a: Alloc): number {
+    return a.amount + (a.discount ?? 0) + (a.incomeTaxWithheld ?? 0) + (a.salesTaxWithheld ?? 0)
+  }
+
   // Checks a set of allocations against the invoices they target. Throws on the first
   // problem so nothing is written unless the whole lot is valid.
-  private async validateAllocations(clientId: string, allocations: { invoiceId: string; amount: number }[]) {
+  private async validateAllocations(clientId: string, allocations: Alloc[]) {
     if (allocations.length === 0) return
     const invoices = await this.prisma.invoice.findMany({
       where:  { id: { in: allocations.map(a => a.invoiceId) }, clientId },
-      select: { id: true, invoiceNumber: true, amount: true, amountPaid: true, status: true },
+      select: {
+        id: true, invoiceNumber: true, amount: true, status: true,
+        amountPaid: true, discountTotal: true, incomeTaxWithheld: true, salesTaxWithheld: true,
+      },
     })
     if (invoices.length !== allocations.length) throw new BadRequestException('One or more invoices do not belong to this client')
 
@@ -433,9 +528,10 @@ export class InvoicesService {
       if (!AWAITING.includes(inv.status)) {
         throw new BadRequestException(`${inv.invoiceNumber} is not awaiting payment`)
       }
-      const balance = Number(inv.amount) - Number(inv.amountPaid)
-      if (a.amount > balance + 0.001) {
-        throw new BadRequestException(`Applied amount exceeds the balance on ${inv.invoiceNumber}`)
+      const already = Number(inv.amountPaid) + Number(inv.discountTotal) + Number(inv.incomeTaxWithheld) + Number(inv.salesTaxWithheld)
+      const balance = Number(inv.amount) - already
+      if (this.settledBy(a) > balance + 0.001) {
+        throw new BadRequestException(`Payment, discount and withholding together exceed the balance on ${inv.invoiceNumber}`)
       }
     }
   }
@@ -444,29 +540,40 @@ export class InvoicesService {
   // allocations say which invoices it settles. Anything left over — including a payment
   // with no allocations at all — stays as unapplied credit against the client.
   async receivePayment(dto: ReceivePaymentDto, userId: string) {
-    const applied = (dto.allocations ?? []).filter(a => a.amount > 0)
-    const total   = applied.reduce((s, a) => s + a.amount, 0)
-    if (total > dto.amount + 0.001) {
-      throw new BadRequestException('Applied amount is more than the payment received')
+    // A line counts if it settles anything at all — an invoice can be closed purely by
+    // a discount or withheld tax, with no cash against it.
+    const applied = (dto.allocations ?? []).filter(a => this.settledBy(a) > 0)
+    const cash    = applied.reduce((s, a) => s + a.amount, 0)
+    if (cash > dto.amount + 0.001) {
+      throw new BadRequestException('Cash applied to invoices is more than the payment received')
     }
     await this.validateAllocations(dto.clientId, applied)
 
     const payment = await this.prisma.payment.create({
       data: {
-        clientId:     dto.clientId,
-        amount:       dto.amount,
-        method:       dto.method,
-        reference:    dto.reference,
-        proofUrl:     dto.proofUrl,
-        paidAt:       dto.paidAt ? new Date(dto.paidAt) : new Date(),
-        notes:        dto.notes,
-        recordedById: userId,
-        allocations:  { create: applied.map(a => ({ invoiceId: a.invoiceId, amount: a.amount })) },
+        clientId:        dto.clientId,
+        amount:          dto.amount,
+        method:          dto.method,
+        reference:       dto.reference,
+        proofUrl:        dto.proofUrl,
+        paidAt:          dto.paidAt ? new Date(dto.paidAt) : new Date(),
+        notes:           dto.notes,
+        overpaymentType: dto.overpaymentType ?? OverpaymentType.ADVANCE,
+        recordedById:    userId,
+        allocations: {
+          create: applied.map(a => ({
+            invoiceId:         a.invoiceId,
+            amount:            a.amount,
+            discount:          a.discount ?? 0,
+            incomeTaxWithheld: a.incomeTaxWithheld ?? 0,
+            salesTaxWithheld:  a.salesTaxWithheld ?? 0,
+          })),
+        },
       },
     })
     await this.recomputeInvoices(applied.map(a => a.invoiceId))
 
-    return { ok: true, paymentId: payment.id, applied: applied.length, unapplied: dto.amount - total }
+    return { ok: true, paymentId: payment.id, applied: applied.length, unapplied: dto.amount - cash }
   }
 
   // Put an advance payment's leftover credit against invoices raised since.
@@ -494,11 +601,21 @@ export class InvoicesService {
       if (existing) {
         await this.prisma.paymentAllocation.update({
           where: { id: existing.id },
-          data:  { amount: Number(existing.amount) + a.amount },
+          data: {
+            amount:            Number(existing.amount) + a.amount,
+            discount:          Number(existing.discount) + (a.discount ?? 0),
+            incomeTaxWithheld: Number(existing.incomeTaxWithheld) + (a.incomeTaxWithheld ?? 0),
+            salesTaxWithheld:  Number(existing.salesTaxWithheld) + (a.salesTaxWithheld ?? 0),
+          },
         })
       } else {
         await this.prisma.paymentAllocation.create({
-          data: { paymentId, invoiceId: a.invoiceId, amount: a.amount },
+          data: {
+            paymentId, invoiceId: a.invoiceId, amount: a.amount,
+            discount:          a.discount ?? 0,
+            incomeTaxWithheld: a.incomeTaxWithheld ?? 0,
+            salesTaxWithheld:  a.salesTaxWithheld ?? 0,
+          },
         })
       }
     }
@@ -516,7 +633,16 @@ export class InvoicesService {
     })
     return payments.map(p => {
       const applied = p.allocations.reduce((s, a) => s + Number(a.amount), 0)
-      return { ...p, applied, unapplied: Number(p.amount) - applied }
+      const spare   = Number(p.amount) - applied
+      // Money left over is either credit we owe back in service (advance) or income
+      // the client meant us to keep (bonus). Only the former is a client liability.
+      const isBonus = p.overpaymentType === OverpaymentType.BONUS && spare > 0
+      return {
+        ...p,
+        applied,
+        unapplied: isBonus ? 0 : spare,
+        bonus:     isBonus ? spare : 0,
+      }
     })
   }
 

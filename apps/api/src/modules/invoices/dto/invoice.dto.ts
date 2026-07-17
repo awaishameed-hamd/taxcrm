@@ -1,6 +1,6 @@
 import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
-import { InvoiceStatus, PaymentMethod } from '@prisma/client'
+import { InvoiceStatus, PaymentMethod, OverpaymentType } from '@prisma/client'
 
 export class CreateInvoiceDto {
   @IsString() @IsNotEmpty() clientId: string
@@ -35,10 +35,14 @@ export class UpdateOpeningBalanceDto {
   @IsNumber() openingBalance: number
 }
 
-// One slice of a received payment, applied against a single open invoice
+// One slice of a received payment, applied against a single open invoice.
+// `amount` is cash; the rest settle the invoice without money changing hands.
 export class PaymentAllocationDto {
   @IsString() @IsNotEmpty() invoiceId: string
   @IsNumber() @Min(0) amount: number
+  @IsOptional() @IsNumber() @Min(0) discount?: number
+  @IsOptional() @IsNumber() @Min(0) incomeTaxWithheld?: number
+  @IsOptional() @IsNumber() @Min(0) salesTaxWithheld?: number
 }
 
 // QuickBooks-style "Receive Payment": one payment from a client, spread across
@@ -53,6 +57,8 @@ export class ReceivePaymentDto {
   @IsOptional() @IsString() proofUrl?: string
   @IsOptional() @IsString() paidAt?: string
   @IsOptional() @IsString() notes?: string
+  // What happens to anything received beyond what was applied
+  @IsOptional() @IsEnum(OverpaymentType) overpaymentType?: OverpaymentType
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => PaymentAllocationDto)
   allocations?: PaymentAllocationDto[]
 }

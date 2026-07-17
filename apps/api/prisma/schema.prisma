@@ -336,6 +336,12 @@ enum PaymentMethod {
   OTHER
 }
 
+// What to do with money received beyond what the payment was applied to
+enum OverpaymentType {
+  ADVANCE // sits as credit on the client's account against future invoices
+  BONUS   // the client meant us to keep it — income, not a liability
+}
+
 model Invoice {
   id            String @id @default(cuid())
   invoiceNumber String @unique
@@ -359,10 +365,17 @@ model Invoice {
   // amount is the billed total and is always subtotal + salesTax + outOfPocket —
   // recomputed on write so the parts and the total can never disagree.
   subtotal    Decimal @default(0) @db.Decimal(12, 2) // professional fee
-  salesTax    Decimal @default(0) @db.Decimal(12, 2)
+  salesTax    Decimal @default(0) @db.Decimal(12, 2) // sales tax we charged the client
   outOfPocket Decimal @default(0) @db.Decimal(12, 2) // filing fees, challans, travel etc.
   amount      Decimal @default(0) @db.Decimal(12, 2)
-  amountPaid  Decimal @default(0) @db.Decimal(12, 2)
+
+  // How the invoice got settled. amountPaid is cash; the rest are non-cash — the client
+  // took a discount or withheld tax at source. All four are rolled up from the payment
+  // allocations, and the invoice is PAID once they add up to `amount`.
+  amountPaid        Decimal @default(0) @db.Decimal(12, 2)
+  discountTotal     Decimal @default(0) @db.Decimal(12, 2)
+  incomeTaxWithheld Decimal @default(0) @db.Decimal(12, 2)
+  salesTaxWithheld  Decimal @default(0) @db.Decimal(12, 2)
 
   issueDate DateTime  @default(now())
   dueDate   DateTime?
@@ -395,12 +408,15 @@ model Payment {
   clientId String
   client   ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  amount    Decimal       @db.Decimal(12, 2) // total received
+  amount    Decimal       @db.Decimal(12, 2) // cash actually received
   method    PaymentMethod @default(BANK_TRANSFER)
   reference String?       // cheque no, transaction id, etc.
   proofUrl  String?
   paidAt    DateTime      @default(now())
   notes     String?       @db.Text
+
+  // Only matters when more came in than was applied to invoices
+  overpaymentType OverpaymentType @default(ADVANCE)
 
   recordedById String?
   recordedBy   User?   @relation("PaymentRecorder", fields: [recordedById], references: [id])
@@ -424,7 +440,13 @@ model PaymentAllocation {
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
-  amount Decimal @db.Decimal(12, 2)
+  amount Decimal @db.Decimal(12, 2) // cash out of this payment put against the invoice
+
+  // Non-cash settlement agreed at the same time: a discount the client took, and tax
+  // they withheld at source. These close out the invoice without money changing hands.
+  discount          Decimal @default(0) @db.Decimal(12, 2)
+  incomeTaxWithheld Decimal @default(0) @db.Decimal(12, 2)
+  salesTaxWithheld  Decimal @default(0) @db.Decimal(12, 2)
 
   createdAt DateTime @default(now())
 
