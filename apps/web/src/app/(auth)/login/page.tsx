@@ -391,7 +391,7 @@ export default function LoginPage() {
               value={password} onChange={e => setPassword(e.target.value)}
               placeholder="Password" style={inputStyle} />
             <button type="button" onClick={() => setShowPw(v => !v)}
-              style={{ background: 'transparent', border: 0, color: '#8a9aa2', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, transition: 'color .2s' }}
+              style={{ background: 'transparent', border: 0, color: '#8a9aa2', cursor: 'pointer', padding: 6, marginRight: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, transition: 'color .2s' }}
               onMouseEnter={e => { e.currentTarget.style.color = '#4a5a63' }}
               onMouseLeave={e => { e.currentTarget.style.color = '#8a9aa2' }}>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
