@@ -5,9 +5,15 @@ import { CreateInvoiceDto, UpdateInvoiceDto, ReceivePaymentDto, ApplyPaymentDto,
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
+const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
+
 // Statuses that represent real money owed by the client. DRAFT isn't issued yet,
 // RETAINER_INCLUDED is covered by the monthly fee, CANCELLED is void.
-const BILLABLE: InvoiceStatus[] = [InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.PAID]
+const BILLABLE: InvoiceStatus[] = [InvoiceStatus.SENT, InvoiceStatus.OVERDUE, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.PAID]
+
+// Issued but not yet settled — these are the ones a payment can be applied to,
+// and the ones that can tip into OVERDUE.
+const AWAITING: InvoiceStatus[] = [InvoiceStatus.SENT, InvoiceStatus.OVERDUE, InvoiceStatus.PARTIALLY_PAID]
 
 const INVOICE_INCLUDE = {
   client: {
@@ -64,6 +70,7 @@ export class InvoicesService {
 
   // ── Listing ────────────────────────────────────────────────────────────────
   async list(status?: string, clientId?: string, search?: string) {
+    await this.sweepOverdue()
     const where: Prisma.InvoiceWhereInput = {}
     if (status && status !== 'ALL') where.status = status as InvoiceStatus
     if (clientId) where.clientId = clientId
@@ -91,12 +98,14 @@ export class InvoicesService {
 
   // Totals for the page header — outstanding excludes drafts and retainer-covered work.
   async summary() {
-    const [agg, drafts, clients, received] = await Promise.all([
+    await this.sweepOverdue()
+    const [agg, drafts, overdue, clients, received] = await Promise.all([
       this.prisma.invoice.aggregate({
         where: { status: { in: BILLABLE } },
         _sum: { amount: true },
       }),
       this.prisma.invoice.count({ where: { status: InvoiceStatus.DRAFT } }),
+      this.prisma.invoice.count({ where: { status: InvoiceStatus.OVERDUE } }),
       this.prisma.clientProfile.aggregate({ _sum: { openingBalance: true } }),
       this.prisma.payment.aggregate({ _sum: { amount: true } }),
     ])
@@ -104,7 +113,8 @@ export class InvoicesService {
     const paid     = Number(received._sum.amount ?? 0)
     const opening  = Number(clients._sum.openingBalance ?? 0)
     return {
-      draftCount:  drafts,
+      draftCount:    drafts,
+      overdueCount:  overdue,
       totalInvoiced: invoiced,
       totalPaid:     paid,
       outstanding:   opening + invoiced - paid,
@@ -113,6 +123,7 @@ export class InvoicesService {
 
   // Every client with their running account totals — powers the client sidebar.
   async clientsWithBalances(search?: string) {
+    await this.sweepOverdue()
     const clients = await this.prisma.clientProfile.findMany({
       where: search
         ? {
@@ -150,6 +161,7 @@ export class InvoicesService {
         unappliedCredit: paid - applied,
         outstanding:    opening + invoiced - paid,
         draftCount:     c.invoices.filter(i => i.status === InvoiceStatus.DRAFT).length,
+        overdueCount:   c.invoices.filter(i => i.status === InvoiceStatus.OVERDUE).length,
       }
     })
   }
@@ -162,6 +174,7 @@ export class InvoicesService {
   // openingBalance + invoiced − received for the window on screen, so the numbers tie out
   // whatever range is picked.
   async clientLedger(clientId: string, from?: string, to?: string) {
+    await this.sweepOverdue()
     const client = await this.prisma.clientProfile.findUnique({
       where:  { id: clientId },
       select: {
@@ -245,7 +258,7 @@ export class InvoicesService {
   // Invoices this client still owes money on — the "Receive Payment" picker.
   async openInvoices(clientId: string) {
     const invoices = await this.prisma.invoice.findMany({
-      where:   { clientId, status: { in: [InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID] } },
+      where:   { clientId, status: { in: AWAITING } },
       orderBy: { issueDate: 'asc' }, // oldest first — that's the order payment auto-applies in
       select:  { id: true, invoiceNumber: true, description: true, issueDate: true, dueDate: true, amount: true, amountPaid: true },
     })
@@ -264,13 +277,17 @@ export class InvoicesService {
 
   // ── Create / edit ──────────────────────────────────────────────────────────
   async create(dto: CreateInvoiceDto, userId: string) {
+    const subtotal    = dto.subtotal ?? 0
+    const salesTax    = dto.salesTax ?? 0
+    const outOfPocket = dto.outOfPocket ?? 0
     return this.prisma.invoice.create({
       data: {
         invoiceNumber: await this.nextInvoiceNumber(),
         clientId:      dto.clientId,
         kind:          InvoiceKind.MANUAL,
         status:        InvoiceStatus.DRAFT,
-        amount:        dto.amount ?? 0,
+        subtotal, salesTax, outOfPocket,
+        amount:        subtotal + salesTax + outOfPocket,
         description:   dto.description,
         dueDate:       dto.dueDate ? new Date(dto.dueDate) : undefined,
         notes:         dto.notes,
@@ -285,16 +302,26 @@ export class InvoicesService {
     if (!inv) throw new NotFoundException('Invoice not found')
 
     const data: Prisma.InvoiceUpdateInput = {}
-    if (dto.amount      !== undefined) data.amount      = dto.amount
     if (dto.description !== undefined) data.description = dto.description
     if (dto.notes       !== undefined) data.notes       = dto.notes
     if (dto.dueDate     !== undefined) data.dueDate     = dto.dueDate ? new Date(dto.dueDate) : null
     if (dto.status      !== undefined) data.status      = dto.status
 
-    // Repricing an invoice that's already part-paid can flip it between
-    // PARTIALLY_PAID and PAID, so re-derive the status from the new total.
-    if (dto.amount !== undefined && dto.status === undefined && Number(inv.amountPaid) > 0) {
-      data.status = this.deriveStatus(dto.amount, Number(inv.amountPaid))
+    // The total is always the three parts added up — never trust a client-sent total
+    const priced = dto.subtotal !== undefined || dto.salesTax !== undefined || dto.outOfPocket !== undefined
+    const subtotal    = dto.subtotal    ?? Number(inv.subtotal)
+    const salesTax    = dto.salesTax    ?? Number(inv.salesTax)
+    const outOfPocket = dto.outOfPocket ?? Number(inv.outOfPocket)
+    const amount      = subtotal + salesTax + outOfPocket
+    if (priced) {
+      data.subtotal = subtotal; data.salesTax = salesTax; data.outOfPocket = outOfPocket; data.amount = amount
+    }
+
+    // Repricing or moving the due date can flip an issued invoice between
+    // SENT / OVERDUE / PARTIALLY_PAID / PAID, so re-derive rather than assume.
+    const dueDate = dto.dueDate !== undefined ? (dto.dueDate ? new Date(dto.dueDate) : null) : inv.dueDate
+    if ((priced || dto.dueDate !== undefined) && dto.status === undefined && AWAITING.includes(inv.status)) {
+      data.status = this.deriveStatus(amount, Number(inv.amountPaid), dueDate)
     }
 
     await this.prisma.invoice.update({ where: { id }, data })
@@ -308,7 +335,10 @@ export class InvoicesService {
 
     await this.prisma.invoice.update({
       where: { id },
-      data:  { status: InvoiceStatus.SENT, sentAt: new Date() },
+      data: {
+        status: this.deriveStatus(Number(inv.amount), Number(inv.amountPaid), inv.dueDate),
+        sentAt: new Date(),
+      },
     })
     return this.getOne(id)
   }
@@ -344,10 +374,25 @@ export class InvoicesService {
   }
 
   // ── Payments ───────────────────────────────────────────────────────────────
-  private deriveStatus(amount: number, amountPaid: number): InvoiceStatus {
+  private deriveStatus(amount: number, amountPaid: number, dueDate?: Date | null): InvoiceStatus {
     if (amountPaid >= amount && amount > 0) return InvoiceStatus.PAID
     if (amountPaid > 0)                     return InvoiceStatus.PARTIALLY_PAID
+    if (dueDate && dueDate < startOfToday()) return InvoiceStatus.OVERDUE
     return InvoiceStatus.SENT
+  }
+
+  // Flip anything issued and unpaid whose due date has passed. Cheap enough to run
+  // before a read, which keeps the list honest without waiting on a nightly job.
+  private async sweepOverdue() {
+    await this.prisma.invoice.updateMany({
+      where: { status: InvoiceStatus.SENT, dueDate: { lt: startOfToday() } },
+      data:  { status: InvoiceStatus.OVERDUE },
+    })
+    // A due date pushed back out should pull it off the overdue list again
+    await this.prisma.invoice.updateMany({
+      where: { status: InvoiceStatus.OVERDUE, OR: [{ dueDate: null }, { dueDate: { gte: startOfToday() } }] },
+      data:  { status: InvoiceStatus.SENT },
+    })
   }
 
   // amountPaid/status on an invoice are a rollup of its allocations — always rebuild
@@ -356,14 +401,14 @@ export class InvoicesService {
     for (const id of [...new Set(invoiceIds)]) {
       const inv = await this.prisma.invoice.findUnique({
         where:  { id },
-        select: { id: true, amount: true, status: true, paidAt: true, allocations: { select: { amount: true } } },
+        select: { id: true, amount: true, status: true, paidAt: true, dueDate: true, allocations: { select: { amount: true } } },
       })
       if (!inv) continue
       // Retainer-covered and cancelled invoices aren't billable, so leave their status alone
       if (inv.status === InvoiceStatus.RETAINER_INCLUDED || inv.status === InvoiceStatus.CANCELLED) continue
 
       const paid   = inv.allocations.reduce((s, a) => s + Number(a.amount), 0)
-      const status = this.deriveStatus(Number(inv.amount), paid)
+      const status = this.deriveStatus(Number(inv.amount), paid, inv.dueDate)
       await this.prisma.invoice.update({
         where: { id },
         data:  { amountPaid: paid, status, paidAt: status === InvoiceStatus.PAID ? (inv.paidAt ?? new Date()) : null },
@@ -383,7 +428,7 @@ export class InvoicesService {
 
     for (const a of allocations) {
       const inv = invoices.find(i => i.id === a.invoiceId)!
-      if (inv.status !== InvoiceStatus.SENT && inv.status !== InvoiceStatus.PARTIALLY_PAID) {
+      if (!AWAITING.includes(inv.status)) {
         throw new BadRequestException(`${inv.invoiceNumber} is not awaiting payment`)
       }
       const balance = Number(inv.amount) - Number(inv.amountPaid)
@@ -521,23 +566,60 @@ export class InvoicesService {
     return { ok: true }
   }
 
+  // Which services the client's retainer covers, for the retainer invoice's description
+  private retainerServices(c: { retainerSalesTax: boolean; retainerSalesTaxAuthorities: string[]; retainerIncomeTax: boolean; retainerWht: boolean }): string {
+    const parts: string[] = []
+    if (c.retainerSalesTax && c.retainerSalesTaxAuthorities.length > 0) parts.push(`Sales Tax (${c.retainerSalesTaxAuthorities.join(', ')})`)
+    if (c.retainerIncomeTax) parts.push('Income Tax')
+    if (c.retainerWht)       parts.push('WHT')
+    return parts.join(', ')
+  }
+
   // ── Auto-drafting ──────────────────────────────────────────────────────────
-  // Called when a task hits COMPLETED. The amount is left at 0 on purpose —
-  // the manager prices it before sending.
+  // Called when a task hits COMPLETED, and the only thing that puts a draft in front
+  // of the manager:
+  //   - covered by the client's monthly retainer → rolls into that month's single
+  //     retainer draft, pre-priced at the agreed fee. Later retainer tasks in the same
+  //     month find it already there, so the client gets one bill, not one per service.
+  //   - not covered → its own draft at zero for the manager to price.
   async createDraftForTask(taskId: string) {
     const task = await this.prisma.salesTaxTask.findUnique({
       where:  { id: taskId },
-      select: { id: true, clientId: true, taskType: true, authority: true, periodMonth: true, periodYear: true, invoice: { select: { id: true } } },
+      select: {
+        id: true, clientId: true, taskType: true, authority: true, periodMonth: true, periodYear: true,
+        invoice: { select: { id: true } },
+        client: {
+          select: {
+            hasMonthlyRetainer: true, retainerAmount: true, retainerSalesTax: true,
+            retainerSalesTaxAuthorities: true, retainerIncomeTax: true, retainerWht: true,
+          },
+        },
+      },
     })
     if (!task || task.invoice) return null // already invoiced, or task vanished
 
-    const label = task.taskType === 'SALES_TAX'
-      ? `Sales Tax Return (${task.authority}) — ${MONTHS[(task.periodMonth ?? 1) - 1]} ${task.periodYear}`
-      : task.taskType === 'INCOME_TAX'
-        ? `Income Tax — ${task.periodYear}`
-        : `Withholding Tax — ${MONTHS[(task.periodMonth ?? 1) - 1]} ${task.periodYear}`
-
     try {
+      const c = task.client
+      const covered = c.hasMonthlyRetainer && (
+        task.taskType === 'INCOME_TAX' ? c.retainerIncomeTax :
+        task.taskType === 'WHT'        ? c.retainerWht :
+        task.taskType === 'SALES_TAX'  ? (c.retainerSalesTax && c.retainerSalesTaxAuthorities.includes(task.authority ?? 'FBR')) :
+        false
+      )
+
+      if (covered) {
+        const now   = new Date()
+        const month = now.getMonth() + 1
+        const year  = now.getFullYear()
+        return await this.ensureRetainerInvoice(task.clientId, month, year, Number(c.retainerAmount), this.retainerServices(c))
+      }
+
+      const label = task.taskType === 'SALES_TAX'
+        ? `Sales Tax Return (${task.authority}) — ${MONTHS[(task.periodMonth ?? 1) - 1]} ${task.periodYear}`
+        : task.taskType === 'INCOME_TAX'
+          ? `Income Tax — ${task.periodYear}`
+          : `Withholding Tax — ${MONTHS[(task.periodMonth ?? 1) - 1]} ${task.periodYear}`
+
       return await this.prisma.invoice.create({
         data: {
           invoiceNumber: await this.nextInvoiceNumber(),
@@ -545,6 +627,7 @@ export class InvoicesService {
           taskId:        task.id,
           kind:          InvoiceKind.TASK,
           status:        InvoiceStatus.DRAFT,
+          subtotal:      0,
           amount:        0,
           description:   label,
         },
@@ -556,43 +639,60 @@ export class InvoicesService {
     }
   }
 
+  // One retainer draft per client per month. Both the monthly cron and a covered task
+  // completing land here; the unique index on (clientId, kind, period) settles any race.
+  private async ensureRetainerInvoice(clientId: string, month: number, year: number, retainerAmount: number, services: string) {
+    const existing = await this.prisma.invoice.findFirst({
+      where: { clientId, kind: InvoiceKind.RETAINER, periodMonth: month, periodYear: year },
+    })
+    if (existing) return existing
+
+    const label = `Monthly Retainership — ${MONTHS[month - 1]} ${year}`
+    try {
+      return await this.prisma.invoice.create({
+        data: {
+          invoiceNumber: await this.nextInvoiceNumber(),
+          clientId,
+          kind:        InvoiceKind.RETAINER,
+          status:      InvoiceStatus.DRAFT,
+          subtotal:    retainerAmount,
+          amount:      retainerAmount,
+          periodMonth: month,
+          periodYear:  year,
+          description: services ? `${label} (${services})` : label,
+        },
+      })
+    } catch (e: any) {
+      if (e?.code === 'P2002') {
+        return this.prisma.invoice.findFirst({
+          where: { clientId, kind: InvoiceKind.RETAINER, periodMonth: month, periodYear: year },
+        })
+      }
+      throw e
+    }
+  }
+
   // One draft retainer invoice per retainer client per month. The unique constraint
   // on (clientId, kind, periodMonth, periodYear) makes a re-run a no-op.
   async generateRetainerInvoices(month: number, year: number) {
     const clients = await this.prisma.clientProfile.findMany({
       where:  { hasMonthlyRetainer: true, user: { isActive: true } },
-      select: { id: true, retainerAmount: true },
+      select: {
+        id: true, retainerAmount: true, retainerSalesTax: true,
+        retainerSalesTaxAuthorities: true, retainerIncomeTax: true, retainerWht: true,
+      },
     })
 
     let created = 0, skipped = 0
     for (const c of clients) {
-      const exists = await this.prisma.invoice.findFirst({
-        where: { clientId: c.id, kind: InvoiceKind.RETAINER, periodMonth: month, periodYear: year },
+      const before = await this.prisma.invoice.findFirst({
+        where:  { clientId: c.id, kind: InvoiceKind.RETAINER, periodMonth: month, periodYear: year },
         select: { id: true },
       })
-      if (exists) { skipped++; continue }
+      if (before) { skipped++; continue }
 
-      try {
-        await this.prisma.invoice.create({
-          data: {
-            invoiceNumber: await this.nextInvoiceNumber(),
-            clientId:      c.id,
-            kind:          InvoiceKind.RETAINER,
-            status:        InvoiceStatus.DRAFT,
-            amount:        c.retainerAmount,
-            periodMonth:   month,
-            periodYear:    year,
-            description:   `Monthly Retainership — ${MONTHS[month - 1]} ${year}`,
-          },
-        })
-        created++
-      } catch (e: any) {
-        // The API runs as multiple cluster workers, so this cron fires once per worker and they
-        // race past the check above. The unique index on (clientId, kind, period) is the real
-        // guard — losing that race just means someone else already drafted it.
-        if (e?.code === 'P2002') { skipped++; continue }
-        throw e
-      }
+      await this.ensureRetainerInvoice(c.id, month, year, Number(c.retainerAmount), this.retainerServices(c))
+      created++
     }
     return { created, skipped }
   }

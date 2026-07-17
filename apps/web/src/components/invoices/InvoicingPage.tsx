@@ -13,6 +13,7 @@ const F    = "'Aptos', sans-serif"
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   DRAFT:             { label: 'Draft',          color: '#5C5C5C', bg: '#F1F5F9' },
   SENT:              { label: 'Sent',           color: '#1E40AF', bg: '#DBEAFE' },
+  OVERDUE:           { label: 'Overdue',        color: '#991B1B', bg: '#FEE2E2' },
   PARTIALLY_PAID:    { label: 'Partially Paid', color: '#92400E', bg: '#FEF3C7' },
   PAID:              { label: 'Paid',           color: '#166534', bg: '#DCFCE7' },
   RETAINER_INCLUDED: { label: 'In Retainer',    color: '#5B21B6', bg: '#EDE9FE' },
@@ -75,17 +76,27 @@ function StatCard({ label, value, border, fill }: { label: string; value: string
 
 // ─── Edit invoice ─────────────────────────────────────────────────────────────
 function EditModal({ inv, onClose, onSaved }: { inv: Invoice; onClose: () => void; onSaved: () => void }) {
-  const [amount,      setAmount]      = useState(inv.amount != null ? String(Number(inv.amount)) : '')
+  const [subtotal,    setSubtotal]    = useState(inv.subtotal    != null ? String(Number(inv.subtotal))    : '')
+  const [salesTax,    setSalesTax]    = useState(inv.salesTax    != null ? String(Number(inv.salesTax))    : '')
+  const [outOfPocket, setOutOfPocket] = useState(inv.outOfPocket != null ? String(Number(inv.outOfPocket)) : '')
   const [description, setDescription] = useState(inv.description ?? '')
   const [dueDate,     setDueDate]     = useState(inv.dueDate ? inv.dueDate.split('T')[0] : '')
   const [notes,       setNotes]       = useState(inv.notes ?? '')
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState('')
 
+  const nSub   = Number(subtotal) || 0
+  const nTax   = Number(salesTax) || 0
+  const nOop   = Number(outOfPocket) || 0
+  const total  = nSub + nTax + nOop
+
   async function save() {
     setSaving(true); setError('')
     try {
-      await api.patch(`/invoices/${inv.id}`, { amount: Number(amount) || 0, description, dueDate: dueDate || undefined, notes })
+      await api.patch(`/invoices/${inv.id}`, {
+        subtotal: nSub, salesTax: nTax, outOfPocket: nOop,
+        description, dueDate: dueDate || undefined, notes,
+      })
       onSaved()
     } catch (e: any) { setError(e?.response?.data?.message ?? 'Failed to save') }
     finally { setSaving(false) }
@@ -93,14 +104,35 @@ function EditModal({ inv, onClose, onSaved }: { inv: Invoice; onClose: () => voi
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 440, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
         <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 900, color: NAVY, fontFamily: F }}>Edit Invoice</h3>
-        <p style={{ margin: '0 0 16px', fontSize: 12, color: P.textMuted, fontFamily: F }}>{inv.invoiceNumber}</p>
+        <p style={{ margin: '0 0 16px', fontSize: 12, color: P.textMuted, fontFamily: F }}>
+          {inv.invoiceNumber}
+          {inv.kind === 'RETAINER' && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>RETAINER</span>}
+        </p>
 
         <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Amount (PKR) <span style={{ color: '#ef4444' }}>*</span></label>
-          <input type="number" min={0} value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" style={inputStyle} />
+          <label style={labelStyle}>Professional Fee <span style={{ color: '#ef4444' }}>*</span></label>
+          <input type="number" min={0} value={subtotal} onChange={e => setSubtotal(e.target.value)} placeholder="0" style={inputStyle} />
         </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div>
+            <label style={labelStyle}>Sales Tax</label>
+            <input type="number" min={0} value={salesTax} onChange={e => setSalesTax(e.target.value)} placeholder="0" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Out of Pocket</label>
+            <input type="number" min={0} value={outOfPocket} onChange={e => setOutOfPocket(e.target.value)} placeholder="0" style={inputStyle} />
+          </div>
+        </div>
+
+        {/* Total is derived, never typed — keeps the parts and the total honest */}
+        <div style={{ background: '#F8FAFC', border: `1px solid ${P.border}`, borderRadius: 8, padding: '9px 14px', marginBottom: 14, display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#64748B', fontFamily: F }}>Invoice Total</span>
+          <span style={{ fontSize: 14, fontWeight: 900, color: NAVY, fontFamily: F }}>{money(total)}</span>
+        </div>
+
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Description</label>
           <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What is being billed" style={inputStyle} />
@@ -108,6 +140,9 @@ function EditModal({ inv, onClose, onSaved }: { inv: Invoice; onClose: () => voi
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Due Date</label>
           <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
+          <p style={{ margin: '5px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>
+            Once past this date an unpaid invoice is flagged Overdue
+          </p>
         </div>
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Notes</label>
@@ -584,12 +619,28 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
             </table>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-              <div style={{ width: 260 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, fontFamily: F }}>
-                  <span style={{ color: '#64748B' }}>Subtotal</span>
-                  <span style={{ fontWeight: 700, color: NAVY }}>{money(inv.amount)}</span>
+              <div style={{ width: 280 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F }}>
+                  <span style={{ color: '#64748B' }}>Professional Fee</span>
+                  <span style={{ fontWeight: 700, color: NAVY }}>{money(inv.subtotal)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, fontFamily: F, borderBottom: `1px solid ${P.border}` }}>
+                {Number(inv.salesTax) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F }}>
+                    <span style={{ color: '#64748B' }}>Sales Tax</span>
+                    <span style={{ fontWeight: 700, color: NAVY }}>{money(inv.salesTax)}</span>
+                  </div>
+                )}
+                {Number(inv.outOfPocket) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F }}>
+                    <span style={{ color: '#64748B' }}>Out of Pocket</span>
+                    <span style={{ fontWeight: 700, color: NAVY }}>{money(inv.outOfPocket)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13, fontFamily: F, borderTop: `1px solid ${P.border}` }}>
+                  <span style={{ fontWeight: 800, color: NAVY }}>Total</span>
+                  <span style={{ fontWeight: 800, color: NAVY }}>{money(inv.amount)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, fontFamily: F, borderBottom: `1px solid ${P.border}` }}>
                   <span style={{ color: '#64748B' }}>Paid</span>
                   <span style={{ fontWeight: 700, color: '#16a34a' }}>− {money(inv.amountPaid)}</span>
                 </div>
@@ -827,7 +878,10 @@ export default function InvoicingPage() {
                       {c.businessName ?? c.fullName}
                     </span>
                     {c.draftCount > 0 && (
-                      <span style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, color: '#5C5C5C', background: '#E2E8F0', flexShrink: 0 }}>{c.draftCount}</span>
+                      <span title={`${c.draftCount} draft`} style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, color: '#5C5C5C', background: '#E2E8F0', flexShrink: 0 }}>{c.draftCount}</span>
+                    )}
+                    {c.overdueCount > 0 && (
+                      <span title={`${c.overdueCount} overdue`} style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, color: '#fff', background: '#D62828', flexShrink: 0 }}>!</span>
                     )}
                     {/* Negative means they've paid ahead — show it as credit, not as a minus */}
                     <span title={c.outstanding < 0 ? 'In credit' : 'Outstanding'}
@@ -982,18 +1036,18 @@ export default function InvoicingPage() {
                 <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
                   <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
                     <colgroup>
-                      <col style={{ width: '14%' }} /><col style={{ width: '13%' }} /><col style={{ width: '27%' }} />
-                      <col style={{ width: '11%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /><col style={{ width: 120 }} />
+                      <col style={{ width: '13%' }} /><col style={{ width: '11%' }} /><col style={{ width: '22%' }} /><col style={{ width: '11%' }} />
+                      <col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '12%' }} /><col style={{ width: 120 }} />
                     </colgroup>
                     <thead>
                       <tr style={{ background: '#F2AC18' }}>
-                        {['Invoice #', 'Date', 'Description', 'Amount', 'Balance', 'Status'].map(l => <th key={l} style={th}>{l}</th>)}
+                        {['Invoice #', 'Date', 'Description', 'Due Date', 'Amount', 'Balance', 'Status'].map(l => <th key={l} style={th}>{l}</th>)}
                         <th style={th} />
                       </tr>
                     </thead>
                     <tbody>
                       {ledger.invoices.length === 0 ? (
-                        <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>No invoices for this client yet.</td></tr>
+                        <tr><td colSpan={8} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>No invoices for this client yet.</td></tr>
                       ) : ledger.invoices.map((r: Invoice, idx: number) => {
                         const st = STATUS_META[r.status] ?? STATUS_META.DRAFT
                         const balance = Number(r.amount) - Number(r.amountPaid)
@@ -1003,10 +1057,11 @@ export default function InvoicingPage() {
                             <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(r.issueDate)}</td>
                             <td style={{ ...td, fontWeight: 400 }}>
                               {r.description ?? '—'}
-                              {r.retainerCovered && r.status === 'DRAFT' && (
-                                <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>IN RETAINER?</span>
+                              {r.kind === 'RETAINER' && (
+                                <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>RETAINER</span>
                               )}
                             </td>
+                            <td style={{ ...td, fontWeight: 400, color: r.status === 'OVERDUE' ? '#D62828' : '#64748B' }}>{r.dueDate ? fmtDate(r.dueDate) : '—'}</td>
                             <td style={td}>{money(r.amount)}</td>
                             <td style={{ ...td, color: balance > 0 ? '#D62828' : '#16a34a' }}>{money(balance)}</td>
                             <td style={td}><span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: st.color, background: st.bg }}>{st.label}</span></td>

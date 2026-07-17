@@ -4,14 +4,18 @@ import { InvoiceStatus, PaymentMethod } from '@prisma/client'
 
 export class CreateInvoiceDto {
   @IsString() @IsNotEmpty() clientId: string
-  @IsOptional() @IsNumber() @Min(0) amount?: number
+  @IsOptional() @IsNumber() @Min(0) subtotal?: number
+  @IsOptional() @IsNumber() @Min(0) salesTax?: number
+  @IsOptional() @IsNumber() @Min(0) outOfPocket?: number
   @IsOptional() @IsString() description?: string
   @IsOptional() @IsString() dueDate?: string
   @IsOptional() @IsString() notes?: string
 }
 
 export class UpdateInvoiceDto {
-  @IsOptional() @IsNumber() @Min(0) amount?: number
+  @IsOptional() @IsNumber() @Min(0) subtotal?: number
+  @IsOptional() @IsNumber() @Min(0) salesTax?: number
+  @IsOptional() @IsNumber() @Min(0) outOfPocket?: number
   @IsOptional() @IsString() description?: string
   @IsOptional() @IsString() dueDate?: string
   @IsOptional() @IsString() notes?: string

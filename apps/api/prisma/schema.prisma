@@ -321,6 +321,7 @@ enum InvoiceKind {
 enum InvoiceStatus {
   DRAFT             // waiting on the manager to price it and send it
   SENT              // issued to the client, awaiting payment
+  OVERDUE           // sent, still unpaid, past its due date
   PARTIALLY_PAID
   PAID
   RETAINER_INCLUDED // work covered by the monthly retainer — never billed separately
@@ -353,9 +354,15 @@ model Invoice {
   periodMonth Int?
   periodYear  Int?
 
-  description String?  @db.Text
-  amount      Decimal  @default(0) @db.Decimal(12, 2)
-  amountPaid  Decimal  @default(0) @db.Decimal(12, 2)
+  description String? @db.Text
+
+  // amount is the billed total and is always subtotal + salesTax + outOfPocket —
+  // recomputed on write so the parts and the total can never disagree.
+  subtotal    Decimal @default(0) @db.Decimal(12, 2) // professional fee
+  salesTax    Decimal @default(0) @db.Decimal(12, 2)
+  outOfPocket Decimal @default(0) @db.Decimal(12, 2) // filing fees, challans, travel etc.
+  amount      Decimal @default(0) @db.Decimal(12, 2)
+  amountPaid  Decimal @default(0) @db.Decimal(12, 2)
 
   issueDate DateTime  @default(now())
   dueDate   DateTime?
