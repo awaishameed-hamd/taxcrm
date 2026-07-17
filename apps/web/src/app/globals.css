@@ -69,6 +69,27 @@
     font-family: 'Aptos', sans-serif;
     color: #132E57;
   }
+
+  /* The page itself must never scroll sideways. Wide content scrolls inside
+     <main> instead (see AppLayout), so the shell stays put. */
+  html, body {
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  /* iOS zooms the whole page in when you focus an input under 16px. These are
+     the only two rules here that change desktop as well, and only by a pixel
+     of font size on small screens. */
+  @media (max-width: 1023px) {
+    input, select, textarea {
+      font-size: 16px;
+    }
+
+    /* Touch targets: a 24px row is fine for a mouse, not for a thumb. */
+    button, [role='button'] {
+      touch-action: manipulation;
+    }
+  }
 }
 
 .completed-search::placeholder {

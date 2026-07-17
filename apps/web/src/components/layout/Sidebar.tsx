@@ -224,11 +224,11 @@ const ROLE_LABELS: Record<string, string> = {
 
 const AVATAR_KEY_PREFIX = 'ca_firm_avatar_'
 
-interface SidebarProps { collapsed: boolean; onToggle: () => void }
+interface SidebarProps { collapsed: boolean; onToggle: () => void; compact?: boolean }
 
 const BLANK_FORM = { title: '', clientId: '', priority: 'MEDIUM', dueDate: '', assignedToId: '', description: '', taxType: '', incomeTaxKind: 'return', periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), authority: 'FBR', returnType: 'ORIGINAL', fbrEntryPoint: 'FRESH_NOTICE', fbrTaxType: 'INCOME_TAX', fbrTaxYear: '', fbrNoticeSection: '', fbrNoticeNumber: '', fbrTaxTypeOther: '' }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, compact = false }: SidebarProps) {
   const { user, logout, permissions } = useAuth()
   const pathname                      = usePathname()
   const fileRef          = useRef<HTMLInputElement>(null)
@@ -574,8 +574,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         flexShrink:    0,
         overflow:      'hidden',
         background:    C.bg,
-        width:         collapsed ? 0 : 256,
-        transition:    'width 0.2s',
+        // Desktop: the sidebar is a flex column that squeezes to nothing.
+        // Compact: it lifts out of the flow and slides over the page instead,
+        // so the content pane keeps the full width underneath it.
+        ...(compact
+          ? {
+              position:  'fixed' as const,
+              top:       0,
+              left:      0,
+              bottom:    0,
+              zIndex:    50,
+              width:     256,
+              transform: collapsed ? 'translateX(-100%)' : 'translateX(0)',
+              transition: 'transform 0.2s',
+              boxShadow: collapsed ? 'none' : '0 0 24px rgba(0,0,0,0.18)',
+            }
+          : {
+              width:      collapsed ? 0 : 256,
+              transition: 'width 0.2s',
+            }),
       }}
     >
       {/* ── Brand header ── */}
@@ -688,9 +705,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             : 0
           return (
             <Link key={item.href} href={item.href}
+              // The drawer sits over the page on compact screens, so it has to
+              // get out of the way once you've picked where you're going.
+              onClick={() => { if (compact && !collapsed) onToggle() }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
-                padding: '0.3rem 0.75rem', borderRadius: 8, marginBottom: 2,
+                padding: compact ? '0.55rem 0.75rem' : '0.3rem 0.75rem', borderRadius: 8, marginBottom: 2,
                 fontSize: 16, fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.03em',
                 textDecoration: 'none', transition: 'all .15s ease',
                 background: isActive ? C.bgActive : 'transparent',

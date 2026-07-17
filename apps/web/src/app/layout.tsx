@@ -1,9 +1,18 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Asif Associates',
   description: 'Centralized tax return management for CA firms',
+}
+
+// Without this a phone renders the page at ~980px and zooms out, which is why
+// the CRM used to arrive as a shrunken desktop screen. userScalable stays on so
+// rotating or pinching a wide table is still possible.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  userScalable: true,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
