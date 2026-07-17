@@ -185,8 +185,10 @@ export class InvoicesService {
     })
     if (!client) throw new NotFoundException('Client not found')
 
+    // Drafts live in Invoice Approval until the manager sends them — this section
+    // only shows what has actually been issued to the client.
     const invoices = await this.prisma.invoice.findMany({
-      where:   { clientId },
+      where:   { clientId, status: { not: InvoiceStatus.DRAFT } },
       include: INVOICE_INCLUDE,
       orderBy: { issueDate: 'desc' },
     })

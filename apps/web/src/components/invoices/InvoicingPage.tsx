@@ -74,92 +74,6 @@ function StatCard({ label, value, border, fill }: { label: string; value: string
   )
 }
 
-// ─── Edit invoice ─────────────────────────────────────────────────────────────
-function EditModal({ inv, onClose, onSaved }: { inv: Invoice; onClose: () => void; onSaved: () => void }) {
-  const [subtotal,    setSubtotal]    = useState(inv.subtotal    != null ? String(Number(inv.subtotal))    : '')
-  const [salesTax,    setSalesTax]    = useState(inv.salesTax    != null ? String(Number(inv.salesTax))    : '')
-  const [outOfPocket, setOutOfPocket] = useState(inv.outOfPocket != null ? String(Number(inv.outOfPocket)) : '')
-  const [description, setDescription] = useState(inv.description ?? '')
-  const [dueDate,     setDueDate]     = useState(inv.dueDate ? inv.dueDate.split('T')[0] : '')
-  const [notes,       setNotes]       = useState(inv.notes ?? '')
-  const [saving,      setSaving]      = useState(false)
-  const [error,       setError]       = useState('')
-
-  const nSub   = Number(subtotal) || 0
-  const nTax   = Number(salesTax) || 0
-  const nOop   = Number(outOfPocket) || 0
-  const total  = nSub + nTax + nOop
-
-  async function save() {
-    setSaving(true); setError('')
-    try {
-      await api.patch(`/invoices/${inv.id}`, {
-        subtotal: nSub, salesTax: nTax, outOfPocket: nOop,
-        description, dueDate: dueDate || undefined, notes,
-      })
-      onSaved()
-    } catch (e: any) { setError(e?.response?.data?.message ?? 'Failed to save') }
-    finally { setSaving(false) }
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 900, color: NAVY, fontFamily: F }}>Edit Invoice</h3>
-        <p style={{ margin: '0 0 16px', fontSize: 12, color: P.textMuted, fontFamily: F }}>
-          {inv.invoiceNumber}
-          {inv.kind === 'RETAINER' && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>RETAINER</span>}
-        </p>
-
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Professional Fee <span style={{ color: '#ef4444' }}>*</span></label>
-          <input type="number" min={0} value={subtotal} onChange={e => setSubtotal(e.target.value)} placeholder="0" style={inputStyle} />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-          <div>
-            <label style={labelStyle}>Sales Tax</label>
-            <input type="number" min={0} value={salesTax} onChange={e => setSalesTax(e.target.value)} placeholder="0" style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Out of Pocket</label>
-            <input type="number" min={0} value={outOfPocket} onChange={e => setOutOfPocket(e.target.value)} placeholder="0" style={inputStyle} />
-          </div>
-        </div>
-
-        {/* Total is derived, never typed — keeps the parts and the total honest */}
-        <div style={{ background: '#F8FAFC', border: `1px solid ${P.border}`, borderRadius: 8, padding: '9px 14px', marginBottom: 14, display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#64748B', fontFamily: F }}>Invoice Total</span>
-          <span style={{ fontSize: 14, fontWeight: 900, color: NAVY, fontFamily: F }}>{money(total)}</span>
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Description</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What is being billed" style={inputStyle} />
-        </div>
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Due Date</label>
-          <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
-          <p style={{ margin: '5px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>
-            Once past this date an unpaid invoice is flagged Overdue
-          </p>
-        </div>
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Notes</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none' }} placeholder="Shown on the invoice" />
-        </div>
-
-        {error && <p style={{ fontSize: 12, color: '#ef4444', marginBottom: 12 }}>{error}</p>}
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
-          <button onClick={save} disabled={saving} style={{ ...btn(TEAL), opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save'}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Receive Payment (QuickBooks-style) ───────────────────────────────────────
 // Renders inline in the right pane, like the Attendance Report calendar — not as an overlay.
 function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClose: () => void; onSaved: () => void }) {
@@ -724,19 +638,16 @@ export default function InvoicingPage() {
   const [searchInput,   setSearchInput]   = useState('')
   const [loading,       setLoading]       = useState(true)
   const [tab,           setTab]           = useState<'history' | 'invoices' | 'payments'>('history')
-  const [busy,          setBusy]          = useState<string | null>(null)
   const [listCollapsed, setListCollapsed] = useState(false)
 
   const [range,      setRange]      = useState<RangeKey>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo,   setCustomTo]   = useState('')
 
-  const [editInv,    setEditInv]    = useState<Invoice | null>(null)
   const [viewInv,    setViewInv]    = useState<Invoice | null>(null)
   const [payClient,  setPayClient]  = useState<any>(null)
   const [applyPay,   setApplyPay]   = useState<any>(null)
   const [openBal,    setOpenBal]    = useState<{ client: any; mode: 'add' | 'edit' } | null>(null)
-  const [confirmDel, setConfirmDel] = useState<Invoice | null>(null)
   const [ctxMenu,    setCtxMenu]    = useState<{ x: number; y: number; client: any } | null>(null)
 
   // A custom range only applies once both ends are picked, so the ledger doesn't
@@ -776,21 +687,6 @@ export default function InvoicingPage() {
 
   function refresh() { fetchClients(); fetchRight() }
 
-  async function act(id: string, path: string) {
-    setBusy(id)
-    try { await api.post(`/invoices/${id}/${path}`); refresh() }
-    catch (e: any) { alert(e?.response?.data?.message ?? 'Action failed') }
-    finally { setBusy(null) }
-  }
-
-  async function doDelete() {
-    if (!confirmDel) return
-    setBusy(confirmDel.id)
-    try { await api.delete(`/invoices/${confirmDel.id}`); setConfirmDel(null); refresh() }
-    catch (e: any) { alert(e?.response?.data?.message ?? 'Delete failed') }
-    finally { setBusy(null) }
-  }
-
   const selectedClient = useMemo(() => clients.find(c => c.id === selectedId), [clients, selectedId])
 
   const td: React.CSSProperties = {
@@ -802,36 +698,14 @@ export default function InvoicingPage() {
     color: '#1a1a1a', fontFamily: F, letterSpacing: '0.07em', whiteSpace: 'nowrap',
   }
 
-  // Row action buttons, shared by the ledger and the all-invoices list
+  // Issued invoices only — pricing, sending and deleting all live in Invoice Approval
   function actions(r: Invoice) {
-    const isDraft  = r.status === 'DRAFT'
-    const disabled = busy === r.id
     return (
       <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
         <button onClick={() => setViewInv(r)} title="View / Print"
           style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
           <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
         </button>
-        {isDraft && (
-          <>
-            <button onClick={() => setEditInv(r)} title="Edit"
-              style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931z" /></svg>
-            </button>
-            <button onClick={() => act(r.id, 'send')} disabled={disabled} title="Send to client"
-              style={{ padding: '0 8px', height: 26, borderRadius: 6, border: 'none', background: TEAL, color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F, opacity: disabled ? 0.5 : 1 }}>
-              Send
-            </button>
-            <button onClick={() => act(r.id, 'mark-retainer')} disabled={disabled} title="Covered by monthly retainer"
-              style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B2D8E', opacity: disabled ? 0.5 : 1 }}>
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-            </button>
-            <button onClick={() => setConfirmDel(r)} title="Delete"
-              style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-            </button>
-          </>
-        )}
       </div>
     )
   }
@@ -877,9 +751,6 @@ export default function InvoicingPage() {
                     <span style={{ fontSize: 12, fontWeight: 700, color: active ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.businessName ?? c.fullName}
                     </span>
-                    {c.draftCount > 0 && (
-                      <span title={`${c.draftCount} draft`} style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, color: '#5C5C5C', background: '#E2E8F0', flexShrink: 0 }}>{c.draftCount}</span>
-                    )}
                     {c.overdueCount > 0 && (
                       <span title={`${c.overdueCount} overdue`} style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, color: '#fff', background: '#D62828', flexShrink: 0 }}>!</span>
                     )}
@@ -1127,7 +998,6 @@ export default function InvoicingPage() {
         </div>
       </div>
 
-      {editInv   && <EditModal inv={editInv} onClose={() => setEditInv(null)} onSaved={() => { setEditInv(null); refresh() }} />}
       {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} />}
       {openBal   && <OpeningBalanceModal client={openBal.client} mode={openBal.mode} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
 
@@ -1149,20 +1019,6 @@ export default function InvoicingPage() {
         </div>
       )}
 
-      {confirmDel && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 380, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 900, color: '#D62828', fontFamily: F }}>Delete Invoice?</h3>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: P.textMuted, fontFamily: F, lineHeight: 1.5 }}>
-              <strong>{confirmDel.invoiceNumber}</strong> will be permanently removed. This cannot be undone.
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setConfirmDel(null)} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
-              <button onClick={doDelete} style={btn('#D62828')}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

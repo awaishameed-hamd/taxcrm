@@ -47,7 +47,8 @@ const LABEL_GRAD: Record<string, { border: string; icon: string }> = {
   notices:        { border: '#DC2626', icon: '#DC2626' },
   myLeaves:       { border: '#D7A520', icon: '#D7A520' },
   loginDetails:   { border: '#132E57', icon: '#132E57' },
-  invoicing:      { border: '#3A6B3A', icon: '#D7A520' },
+  invoicing:       { border: '#3A6B3A', icon: '#D7A520' },
+  invoiceApproval: { border: '#D7A520', icon: '#3A6B3A' },
 }
 
 const ICONS: Record<string, string> = {
@@ -97,6 +98,8 @@ const ICONS: Record<string, string> = {
     'M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z',
   invoicing:
     'M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z',
+  invoiceApproval:
+    'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z',
 }
 
 interface NavItem { label: string; href: string; icon: string; key: string; permission?: string }
@@ -106,6 +109,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Dashboard',           href: '/admin/dashboard',        icon: 'dashboard',      key: 'dashboard'      },
     { label: 'Clients',             href: '/admin/clients',          icon: 'clients',        key: 'clients'        },
     { label: 'Login Details',       href: '/admin/login-details',    icon: 'loginDetails',   key: 'loginDetails'   },
+    { label: 'Invoice Approval',    href: '/admin/invoice-approval', icon: 'invoiceApproval',key: 'invoiceApproval'},
     { label: 'Invoicing',           href: '/admin/invoicing',        icon: 'invoicing',      key: 'invoicing'      },
     { label: 'Tax Summary',         href: '/admin/tax-summary',      icon: 'taxSummary',     key: 'taxSummary'     },
     { label: 'Files',               href: '/admin/documents',        icon: 'documents',      key: 'documents'      },
@@ -127,6 +131,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Dashboard',           href: '/partner/dashboard',        icon: 'dashboard',      key: 'dashboard',      permission: 'dashboard'           },
     { label: 'Clients',             href: '/partner/clients',          icon: 'clients',        key: 'clients',        permission: 'clients'             },
     { label: 'Login Details',       href: '/partner/login-details',    icon: 'loginDetails',   key: 'loginDetails'                                       },
+    { label: 'Invoice Approval',    href: '/partner/invoice-approval', icon: 'invoiceApproval',key: 'invoiceApproval'                                   },
     { label: 'Invoicing',           href: '/partner/invoicing',        icon: 'invoicing',      key: 'invoicing'                                          },
     { label: 'Tax Summary',         href: '/partner/tax-summary',      icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'         },
     { label: 'Files',               href: '/partner/documents',        icon: 'documents',      key: 'documents'                                          },
@@ -148,6 +153,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Dashboard',           href: '/manager/dashboard',        icon: 'dashboard',      key: 'dashboard',      permission: 'dashboard'           },
     { label: 'Clients',             href: '/manager/clients',          icon: 'clients',        key: 'clients',        permission: 'clients'             },
     { label: 'Login Details',       href: '/manager/login-details',    icon: 'loginDetails',   key: 'loginDetails'                                       },
+    { label: 'Invoice Approval',    href: '/manager/invoice-approval', icon: 'invoiceApproval',key: 'invoiceApproval'                                   },
     { label: 'Invoicing',           href: '/manager/invoicing',        icon: 'invoicing',      key: 'invoicing'                                          },
     { label: 'Tax Summary',         href: '/manager/tax-summary',      icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'         },
     { label: 'Files',               href: '/manager/documents',        icon: 'documents',      key: 'documents'                                          },
@@ -335,8 +341,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   }
 
   // ── Sidebar nav badges: Tasks, Task Approval, Attendance Approval, Chats ────
-  const [navCounts, setNavCounts] = useState<{ tasks: number; taskApproval: number; attApproval: number; messages: number }>({
-    tasks: 0, taskApproval: 0, attApproval: 0, messages: 0,
+  const [navCounts, setNavCounts] = useState<{ tasks: number; taskApproval: number; attApproval: number; messages: number; invoiceApproval: number }>({
+    tasks: 0, taskApproval: 0, attApproval: 0, messages: 0, invoiceApproval: 0,
   })
 
   const fetchNavCounts = useCallback(() => {
@@ -356,6 +362,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         api.get('/attendance/pending-count').then(r => {
           const d = r.data?.data ?? r.data
           setNavCounts(c => ({ ...c, attApproval: typeof d === 'number' ? d : (d.count ?? 0) }))
+        }).catch(() => {})
+      }
+      // Billing is Manager-and-above only — the endpoint 403s for anyone else
+      if (user.role === Role.ADMIN || user.role === Role.PARTNER || user.role === Role.MANAGER) {
+        api.get('/invoices/summary').then(r => {
+          const d = r.data?.data ?? r.data
+          setNavCounts(c => ({ ...c, invoiceApproval: d.draftCount ?? 0 }))
         }).catch(() => {})
       }
     }
@@ -670,6 +683,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           const badgeCount = item.key === 'tasks' ? navCounts.tasks
             : item.key === 'taskApproval' ? navCounts.taskApproval
+            : item.key === 'invoiceApproval' ? navCounts.invoiceApproval
             : item.key === 'messages' ? navCounts.messages
             : 0
           return (
