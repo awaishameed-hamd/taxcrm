@@ -728,7 +728,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             maxHeight: 'calc(100vh - 16px)', overflowY: 'auto', overflowX: 'hidden',
           }}
         >
-          <div style={{ padding: '8px 14px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.gray, fontFamily: "'Aptos', 'Inter', sans-serif" }}>
+          <div style={{ padding: '8px 14px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.gray, fontFamily: "'Aptos', sans-serif" }}>
             Attendance
           </div>
           {attendanceSubItems.map(item => {
@@ -774,9 +774,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             boxShadow: '0 -8px 24px rgba(0,0,0,0.10)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px 6px', flexShrink: 0 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', 'Inter', sans-serif" }}>Notifications</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', sans-serif" }}>Notifications</span>
               {notifs.length > 0 && (
-                <button onClick={deleteAllNotifs} style={{ fontSize: 10, color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Aptos', 'Inter', sans-serif", padding: 0 }}>
+                <button onClick={deleteAllNotifs} style={{ fontSize: 10, color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Aptos', sans-serif", padding: 0 }}>
                   Delete all
                 </button>
               )}
@@ -788,7 +788,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   <button key={f} onClick={() => setNotifFilter(f)}
                     style={{
                       border: 0, borderRadius: 12, padding: '3px 10px', fontSize: 10.5, fontWeight: 700,
-                      cursor: 'pointer', fontFamily: "'Aptos', 'Inter', sans-serif",
+                      cursor: 'pointer', fontFamily: "'Aptos', sans-serif",
                       background: active ? C.tealDim : '#F1F5F9',
                       color: active ? C.teal : C.slate,
                     }}>
@@ -802,7 +802,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 const filtered = notifFilter === 'unread' ? notifs.filter(n => !n.isRead) : notifs
                 if (filtered.length === 0) {
                   return (
-                    <p style={{ margin: 0, padding: '14px 12px', fontSize: 12, color: C.gray, fontFamily: "'Aptos', 'Inter', sans-serif", textAlign: 'center' }}>
+                    <p style={{ margin: 0, padding: '14px 12px', fontSize: 12, color: C.gray, fontFamily: "'Aptos', sans-serif", textAlign: 'center' }}>
                       {notifFilter === 'unread' ? 'No unread notifications' : 'No notifications'}
                     </p>
                   )
@@ -824,9 +824,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.gray }}>
                     ×
                   </button>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', 'Inter', sans-serif", textAlign: 'left' }}>{n.title}</p>
-                  <p style={{ margin: 0, fontSize: 11, color: C.slate, fontFamily: "'Aptos', 'Inter', sans-serif", lineHeight: 1.4, marginTop: 1, textAlign: 'left' }}>{n.body}</p>
-                  <p style={{ margin: 0, fontSize: 10, color: C.gray, fontFamily: "'Aptos', 'Inter', sans-serif", marginTop: 2, textAlign: 'left' }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "'Aptos', sans-serif", textAlign: 'left' }}>{n.title}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: C.slate, fontFamily: "'Aptos', sans-serif", lineHeight: 1.4, marginTop: 1, textAlign: 'left' }}>{n.body}</p>
+                  <p style={{ margin: 0, fontSize: 10, color: C.gray, fontFamily: "'Aptos', sans-serif", marginTop: 2, textAlign: 'left' }}>
                     {new Date(n.createdAt).toLocaleString('en-PK', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
                   </p>
                 </div>

@@ -76,13 +76,13 @@
   body {
     background: #EDF0F3;
     color: #132E57;
-    font-family: 'Aptos', 'Inter', system-ui, sans-serif;
+    font-family: 'Aptos', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4 {
-    font-family: 'Aptos', 'Inter', sans-serif;
+    font-family: 'Aptos', sans-serif;
     color: #132E57;
   }
 }

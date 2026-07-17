@@ -30,7 +30,7 @@ const DONUT_FBR    = [TEAL, GOLD, BRICK, NAVY, FOREST]
 const DONUT_GEN    = [MUTED, TEAL, FOREST]
 const TREE_COLORS  = [NAVY, TEAL, GOLD, KHAKI, BRICK, FOREST, PURPLE, MUTED]
 
-const F         = "'Aptos','Inter',sans-serif"
+const F         = "'Aptos',sans-serif"
 const cardStyle: React.CSSProperties = { background: WHITE, borderRadius: 8, padding: '12px 14px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }
 const titleStyle: React.CSSProperties = { color: NAVY, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8, fontFamily: F }
 
@@ -240,7 +240,7 @@ function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLab
   return (
     <div style={{ background:WHITE, border:`1px solid ${BORDER}`, borderRadius:12, overflow:'hidden', display:'flex', flexDirection:'column' }}>
       <div style={{ padding:'11px 14px 13px', display:'flex', flexDirection:'column', flex:1 }}>
-        <div style={{ ...titleStyle, marginBottom:10, fontFamily:"'Aptos', 'Inter', sans-serif" }}>{title}</div>
+        <div style={{ ...titleStyle, marginBottom:10, fontFamily:"'Aptos', sans-serif" }}>{title}</div>
         <div style={{ display:'flex', flexDirection:'column', gap:11, flex:1 }}>
           <Section heading="ACTIVE" rows={active} accent={TEAL} accentBg="#E5F3F5" />
           <div style={{ borderTop:`1px dashed ${BORDER}` }} />
