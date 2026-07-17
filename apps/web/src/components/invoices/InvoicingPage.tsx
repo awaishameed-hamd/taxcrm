@@ -319,7 +319,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
 
           {open.length > 0 && (
             <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>
-              Discount and withheld tax close the invoice without cash — get <strong>Left</strong> to 0 and it's marked Paid.
+              Discount and withheld tax close the invoice without cash. Get <strong>Left</strong> to 0 and it's marked Paid.
             </p>
           )}
 
@@ -331,7 +331,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
                 <span style={{ fontWeight: 700, color: NAVY }}>{money(amountRecv)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, fontFamily: F }}>
-                <span style={{ color: '#64748B' }}>Cash applied</span>
+                <span style={{ color: '#64748B' }}>Amount applied</span>
                 <span style={{ fontWeight: 700, color: '#16a34a' }}>{money(totalApplied)}</span>
               </div>
               {totalDiscount > 0 && (
@@ -364,21 +364,21 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
 
           {/* What happens to money beyond what it was applied to */}
           {unapplied > 0.001 && (
-            <div style={{ marginTop: 14, border: `1px solid ${P.border}`, borderRadius: 8, padding: '12px 14px', background: '#F8FAFC' }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: NAVY, fontFamily: F, marginBottom: 8 }}>
-                {money(unapplied)} more than the invoices needed — what is it?
+            <div style={{ marginTop: 14, border: `1px solid ${P.border}`, borderRadius: 8, padding: '9px 11px', background: '#F8FAFC', fontFamily: F }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: NAVY, fontFamily: F, marginBottom: 6 }}>
+                {money(unapplied)} more than the invoices needed. What is it?
               </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {([
-                  { k: 'ADVANCE', t: 'Advance', d: 'Credit on their account — shows as a negative balance until applied to a future invoice' },
-                  { k: 'BONUS',   t: 'Bonus',   d: "Client meant us to keep it — counts as income, not credit they can draw on" },
+                  { k: 'ADVANCE', t: 'Advance', d: 'Credit on their account, shows as a negative balance until applied to a future invoice' },
+                  { k: 'BONUS',   t: 'Bonus',   d: 'Client meant us to keep it, counts as income and not credit they can draw on' },
                 ] as const).map(o => (
-                  <label key={o.k} style={{ flex: 1, minWidth: 220, display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', padding: '9px 11px', borderRadius: 8, background: '#fff', border: `1.5px solid ${overType === o.k ? TEAL : P.border}` }}>
+                  <label key={o.k} style={{ flex: 1, minWidth: 180, display: 'flex', gap: 7, alignItems: 'flex-start', cursor: 'pointer', padding: '6px 8px', borderRadius: 6, background: '#fff', border: `1.5px solid ${overType === o.k ? TEAL : P.border}` }}>
                     <input type="radio" checked={overType === o.k} onChange={() => setOverType(o.k)}
-                      style={{ accentColor: TEAL, marginTop: 2, cursor: 'pointer' }} />
+                      style={{ accentColor: TEAL, marginTop: 1, cursor: 'pointer' }} />
                     <span>
-                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: overType === o.k ? TEAL : NAVY, fontFamily: F }}>{o.t}</span>
-                      <span style={{ display: 'block', fontSize: 11, color: '#94A3B8', fontFamily: F, marginTop: 2, lineHeight: 1.4 }}>{o.d}</span>
+                      <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: overType === o.k ? TEAL : NAVY, fontFamily: F }}>{o.t}</span>
+                      <span style={{ display: 'block', fontSize: 10.5, color: '#94A3B8', fontFamily: F, marginTop: 1, lineHeight: 1.35 }}>{o.d}</span>
                     </span>
                   </label>
                 ))}
