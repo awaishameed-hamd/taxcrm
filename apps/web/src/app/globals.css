@@ -1,20 +1,4 @@
 ﻿@font-face {
-  font-family: 'Gladolia';
-  src: url('/fonts/GladoliaDEMO-Regular.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Sakana';
-  src: url('/fonts/Sakana.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'Angelos';
   src: url('/fonts/Angelos.ttf') format('truetype');
   font-weight: normal;

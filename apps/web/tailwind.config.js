@@ -27,8 +27,8 @@ module.exports = {
       },
       fontFamily: {
         sans:     ['Aptos', 'system-ui', 'sans-serif'],
-        outfit:   ['Outfit', 'Inter', 'sans-serif'],
-        rajdhani: ['Rajdhani', 'Inter', 'sans-serif'],
+        outfit:   ['Outfit', 'sans-serif'],
+        rajdhani: ['Rajdhani', 'sans-serif'],
         bebas:    ['"Bebas Neue"', 'Impact', 'sans-serif'],
       },
       boxShadow: {
