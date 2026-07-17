@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { usePhone } from '@/hooks/useMediaQuery'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -741,6 +742,7 @@ function OpeningBalanceModal({ client, mode, onClose, onSaved }: { client: any; 
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function InvoicingPage() {
+  const phone = usePhone()
   const [clients,     setClients]     = useState<any[]>([])
   const [selectedId,  setSelectedId]  = useState<string | null>(null)
   const [ledger,      setLedger]      = useState<any>(null)
@@ -823,11 +825,24 @@ export default function InvoicingPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: P.bgMain, fontFamily: F }}>
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
 
-        {/* ── Left panel: clients ── */}
-        <div style={{ width: listCollapsed ? 0 : 280, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#EDF0F3', borderRight: `1px solid ${P.border}`, overflow: 'hidden', transition: 'width .25s' }}>
+        {/* ── Left panel: clients ──
+            A 280px rail beside the account leaves nothing usable on a phone, so
+            there the list and the account take turns: list is the screen until
+            you pick a client, then the account is, and the header chevron walks
+            back. listCollapsed doubles as that master/detail switch. */}
+        <div style={{
+          width: phone ? (listCollapsed ? 0 : '100%') : (listCollapsed ? 0 : 280),
+          flexShrink: 0,
+          display: phone && listCollapsed ? 'none' : 'flex',
+          flexDirection: 'column',
+          background: '#EDF0F3',
+          borderRight: phone ? 'none' : `1px solid ${P.border}`,
+          overflow: 'hidden',
+          transition: phone ? 'none' : 'width .25s',
+        }}>
 
           <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: '0 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: phone ? '0 14px 0 58px' : '0 14px' }}>
               <h2 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, color: NAVY, display: 'inline-block', transform: 'skewX(12deg)' }}>Invoicing</h2>
               <button onClick={() => setListCollapsed(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: P.iconMuted, padding: 4, borderRadius: 6 }}>
                 <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -850,7 +865,7 @@ export default function InvoicingPage() {
             ) : clients.map(c => {
               const active = selectedId === c.id
               return (
-                <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history'); setPayClient(null) }}
+                <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history'); setPayClient(null); if (phone) setListCollapsed(true) }}
                   onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, client: c }) }}
                   style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${active ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 6, background: active ? '#E8EEF7' : '#F8FAFC', fontFamily: F, opacity: c.isActive ? 1 : 0.55 }}
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
@@ -878,13 +893,24 @@ export default function InvoicingPage() {
         </div>
 
         {/* ── Right panel ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        <div style={{
+          flex: 1,
+          display: phone && !listCollapsed ? 'none' : 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          minWidth: 0,
+        }}>
 
           {/* Header */}
           <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, padding: '0 20px' }}>
             {listCollapsed && (
-              <button onClick={() => setListCollapsed(false)} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg,${TEAL} 0%,#0E5F6E 100%)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              <button onClick={() => setListCollapsed(false)} aria-label={phone ? 'Back to clients' : 'Show client list'}
+                style={{ width: phone ? 32 : 28, height: phone ? 32 : 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg,${TEAL} 0%,#0E5F6E 100%)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {/* On a phone this is the only route back to the list, so it
+                    points the way it actually behaves. */}
+                <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={phone ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'} />
+                </svg>
               </button>
             )}
             <h1 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import api, { FILE_BASE_URL } from '@/lib/api'
 import { getSocket } from '@/lib/socket'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import { usePhone } from '@/hooks/useMediaQuery'
 
 // ── WhatsApp-authentic palette + font — scoped to this page only ─────────────
 const WA = {
@@ -333,6 +334,7 @@ function NewChatModal({ onClose, onSelect, title = 'New chat' }: { onClose: () =
 export default function ChatPage() {
   const { user } = useAuth()
   const searchParams = useSearchParams()
+  const phone = usePhone()
 
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId,    setSelectedId]     = useState<string | null>(null)
@@ -682,9 +684,18 @@ export default function ChatPage() {
       {showNewChat && <NewChatModal onClose={() => setShowNewChat(false)} onSelect={handleSelectContact} />}
       {forwardMsg && <NewChatModal title="Forward to…" onClose={() => setForwardMsg(null)} onSelect={handleForwardToContact} />}
 
-      {/* Conversation list */}
-      <div style={{ width: 380, flexShrink: 0, borderRight: `1px solid ${WA.border}`, display: 'flex', flexDirection: 'column', background: WA.panelBg }}>
-        <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Conversation list — on a phone this is a whole screen, not a 380px rail
+          sitting next to the thread. Opening a chat swaps it out entirely,
+          the way WhatsApp does it. */}
+      <div style={{
+        width: phone ? '100%' : 380,
+        flexShrink: 0,
+        borderRight: phone ? 'none' : `1px solid ${WA.border}`,
+        display: phone && selectedConv ? 'none' : 'flex',
+        flexDirection: 'column',
+        background: WA.panelBg,
+      }}>
+        <div style={{ padding: phone ? '16px 16px 16px 58px' : '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: WA.textPrimary, margin: 0, fontFamily: WA_FONT }}>
             Chats
           </h1>
@@ -886,7 +897,16 @@ export default function ChatPage() {
       )}
 
       {/* Message thread */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: WA.chatBg }}>
+      <div style={{
+        flex: 1,
+        minWidth: 0,
+        // Nothing to show next to the list on a phone: with no chat open the
+        // list is the screen, so the empty "pick a conversation" pane would
+        // just be a blank half.
+        display: phone && !selectedConv ? 'none' : 'flex',
+        flexDirection: 'column',
+        background: WA.chatBg,
+      }}>
         {!selectedConv ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: WA.textSecondary, fontSize: 14 }}>
             Select a conversation or start a new chat
@@ -895,13 +915,26 @@ export default function ChatPage() {
           <>
             <div
               onContextMenu={e => handleContextMenu(e, selectedConv.id)}
-              style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 14, background: WA.panelBg, borderBottom: `1px solid ${WA.border}` }}>
-              <Avatar name={selectedConv.otherUser?.fullName} photo={selectedConv.otherUser?.avatar} size={40} />
-              <div>
-                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 500, color: WA.textPrimary, fontFamily: WA_FONT }}>
+              style={{ padding: phone ? '8px 12px' : '10px 20px', display: 'flex', alignItems: 'center', gap: phone ? 10 : 14, background: WA.panelBg, borderBottom: `1px solid ${WA.border}` }}>
+              {/* The list is gone on a phone, so this is the only way back to it. */}
+              {phone && (
+                <button onClick={() => setSelectedId(null)} aria-label="Back to chats"
+                  style={{
+                    background: 'transparent', border: 0, cursor: 'pointer', color: WA.textSecondary,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 32, height: 32, marginLeft: -4, flexShrink: 0,
+                  }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+                  </svg>
+                </button>
+              )}
+              <Avatar name={selectedConv.otherUser?.fullName} photo={selectedConv.otherUser?.avatar} size={phone ? 34 : 40} />
+              <div style={{ minWidth: 0 }}>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 500, color: WA.textPrimary, fontFamily: WA_FONT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {selectedConv.otherUser?.fullName}
                 </h2>
-                <p style={{ margin: 0, fontSize: 13, color: WA.textSecondary }}>
+                <p style={{ margin: 0, fontSize: 13, color: WA.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {lastSeenLabel(selectedConv.otherUser)}
                 </p>
               </div>
