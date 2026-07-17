@@ -24,7 +24,7 @@ const inputStyle: React.CSSProperties = {
   background:    'transparent',
   outline:       'none',
   padding:       '16px 12px',
-  fontFamily:    "'Inter', sans-serif",
+  fontFamily:    "'Aptos', sans-serif",
   fontSize:      15,
   color:         '#4a5a63',
   fontWeight:    500,
@@ -73,7 +73,7 @@ function SetPasswordForm() {
   // ── Success screen ────────────────────────────────────────────────────────
   if (done) {
     return (
-      <div style={{ fontFamily: "'Inter', sans-serif", background: bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ fontFamily: "'Aptos', sans-serif", background: bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(40px)', opacity: .55, zIndex: 0, width: 340, height: 340, background: 'radial-gradient(circle, #ffffff 0%, rgba(255,255,255,0) 70%)', top: -80, left: -80, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(40px)', opacity: .55, zIndex: 0, width: 420, height: 420, background: 'radial-gradient(circle, #c2ccd2 0%, rgba(194,204,210,0) 70%)', bottom: -120, right: -100, pointerEvents: 'none' }} />
         <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 400, background: 'linear-gradient(180deg, rgba(255,255,255,.90), rgba(255,255,255,.75))', backdropFilter: 'blur(20px) saturate(1.1)', border: '1px solid rgba(255,255,255,.7)', borderRadius: 22, padding: '44px 38px', boxShadow: '0 30px 60px -20px rgba(74,90,99,.35)', textAlign: 'center' }}>
@@ -96,7 +96,7 @@ function SetPasswordForm() {
 
   // ── Form ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", background: bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', color: '#5d6f78', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ fontFamily: "'Aptos', sans-serif", background: bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', color: '#5d6f78', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(40px)', opacity: .55, zIndex: 0, width: 340, height: 340, background: 'radial-gradient(circle, #ffffff 0%, rgba(255,255,255,0) 70%)', top: -80, left: -80, pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(40px)', opacity: .55, zIndex: 0, width: 420, height: 420, background: 'radial-gradient(circle, #c2ccd2 0%, rgba(194,204,210,0) 70%)', bottom: -120, right: -100, pointerEvents: 'none' }} />
 

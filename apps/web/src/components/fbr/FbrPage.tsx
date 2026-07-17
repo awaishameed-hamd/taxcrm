@@ -40,7 +40,7 @@ const ENTRY_LABELS: Record<string, string> = {
 const TAX_TYPES = ['ALL', 'SALES_TAX', 'INCOME_TAX', 'WHT']
 const STAGES    = ['ALL', 'NOTICE', 'APPEAL', 'STAY', 'HIGHER_FORUM', 'CLOSED']
 
-const F = "'Inter', 'Outfit', sans-serif"
+const F = "'Aptos', sans-serif"
 
 interface Client {
   id: string

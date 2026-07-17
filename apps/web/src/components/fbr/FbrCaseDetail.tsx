@@ -9,7 +9,7 @@ const GREEN  = '#16a34a'
 const WARN   = '#D97706'
 const DANGER = '#DC2626'
 const PURPLE = '#7C3AED'
-const F      = "'Inter','DM Sans',-apple-system,sans-serif"
+const F      = "'Aptos',sans-serif"
 
 // Review/approval steps are Manager+ or Partner+ tier decisions — mirrors the backend's enforcement in fbr.service.ts
 const MANAGER_TIER = ['ADMIN', 'PARTNER', 'MANAGER', 'TEAM_LEAD']

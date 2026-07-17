@@ -356,7 +356,7 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
   const iStyle: React.CSSProperties = {
     width: '100%', padding: '9px 12px', borderRadius: 8,
     border: `1px solid #D1D5DB`, fontSize: 13, outline: 'none',
-    color: P.textHeading, fontFamily: '"Inter", sans-serif', boxSizing: 'border-box',
+    color: P.textHeading, fontFamily: '"Aptos", sans-serif', boxSizing: 'border-box',
   }
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 700, color: P.textMuted,

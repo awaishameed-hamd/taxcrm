@@ -44,7 +44,7 @@ const inputStyle: React.CSSProperties = {
   background:    'transparent',
   outline:       'none',
   padding:       '16px 12px',
-  fontFamily:    "'Inter', sans-serif",
+  fontFamily:    "'Aptos', sans-serif",
   fontSize:      15,
   color:         '#4a5a63',
   fontWeight:    500,
@@ -121,7 +121,7 @@ export default function LoginPage() {
       <div
         className="login-bg"
         style={{
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: "'Aptos', sans-serif",
           background: 'radial-gradient(1200px 700px at 20% 10%, #f3f6f8 0%, transparent 60%), radial-gradient(900px 600px at 90% 90%, #d9e0e4 0%, transparent 55%), linear-gradient(135deg, #eef1f3 0%, #dde3e7 50%, #cdd5da 100%)',
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '32px 16px', position: 'relative', overflow: 'hidden',
@@ -224,7 +224,7 @@ export default function LoginPage() {
       <div
         className="login-bg"
         style={{
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: "'Aptos', sans-serif",
           background: 'radial-gradient(1200px 700px at 20% 10%, #f3f6f8 0%, transparent 60%), radial-gradient(900px 600px at 90% 90%, #d9e0e4 0%, transparent 55%), linear-gradient(135deg, #eef1f3 0%, #dde3e7 50%, #cdd5da 100%)',
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '32px 16px', position: 'relative', overflow: 'hidden',
@@ -316,7 +316,7 @@ export default function LoginPage() {
     <div
       className="login-bg"
       style={{
-        fontFamily: "'Inter', sans-serif",
+        fontFamily: "'Aptos', sans-serif",
         background: 'radial-gradient(1200px 700px at 20% 10%, #f3f6f8 0%, transparent 60%), radial-gradient(900px 600px at 90% 90%, #d9e0e4 0%, transparent 55%), linear-gradient(135deg, #eef1f3 0%, #dde3e7 50%, #cdd5da 100%)',
         minHeight:  '100vh',
         display:    'flex',

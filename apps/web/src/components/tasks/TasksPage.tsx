@@ -914,7 +914,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
       if (key === 'FILED' && (selectedPipe.taskType === 'SALES_TAX' || selectedPipe.taskType === 'INCOME_TAX')) return () => setAdvanceModal(true)
       return handleAdvance
     }
-    const F = "'Inter','DM Sans',-apple-system,sans-serif"
+    const F = "'Aptos',sans-serif"
     const skippedKeys: string[] = selectedPipe.skippedSteps ?? []
     const activeSteps = taskSteps.filter(s => !skippedKeys.includes(s.key))
     const doneCount = isCompleted ? activeSteps.length : activeSteps.filter(s => stepOrder.indexOf(s.key) < curIdx).length
@@ -1580,7 +1580,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
 
       {/* Gen task detail modal (completedOnly / incompleteOnly) */}
       {(completedOnly || incompleteOnly) && selectedGen && (() => {
-        const F = "'Inter','DM Sans',-apple-system,sans-serif"
+        const F = "'Aptos',sans-serif"
         const sm = GEN_STATUS[selectedGen.status] ?? { label: selectedGen.status, color: NAVY, bg: '#eee' }
         const isDone = selectedGen.status === 'DONE'
         const steps: any[] = selectedGen.steps ?? []
@@ -1857,7 +1857,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
 
             {/* ── General task detail ── */}
             {isGenView && selectedGen && (() => {
-              const F = "'Inter','DM Sans',-apple-system,sans-serif"
+              const F = "'Aptos',sans-serif"
               const sm = GEN_STATUS[selectedGen.status] ?? { label: selectedGen.status, color: NAVY, bg: '#eee' }
               const isDone = selectedGen.status === 'DONE'
               const steps: any[] = selectedGen.steps ?? []

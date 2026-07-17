@@ -108,7 +108,7 @@
     color: #132E57;
     outline: none;
     transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Aptos', sans-serif;
   }
 
   .form-input::placeholder {
