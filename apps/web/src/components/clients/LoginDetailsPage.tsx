@@ -166,8 +166,12 @@ export default function LoginDetailsPage() {
   const na = <span style={{ color: '#CBD5E1' }}>N/A</span>
 
   return (
-    <div style={{ padding: '20px 24px' }}>
-      <h2 style={{ margin: '0 0 14px', fontSize: 26, color: '#1E8496', fontFamily: "'Faster One', cursive", display: 'inline-block' }}>Login Details</h2>
+    {/* No top padding: the heading gets its own 52px band, the same height as the
+        sidebar's brand header, so "Login Details" sits level with ASIF ASSOCIATES. */}
+    <div style={{ padding: '0 24px 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', minHeight: 52, marginBottom: 8 }}>
+        <h2 style={{ margin: 0, fontSize: 26, color: '#1E8496', fontFamily: "'Faster One', cursive", display: 'inline-block', lineHeight: 1.15 }}>Login Details</h2>
+      </div>
 
       {/* Filter bar */}
       <div style={{ marginBottom: 14 }}>

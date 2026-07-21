@@ -695,8 +695,10 @@ export default function ChatPage() {
         flexDirection: 'column',
         background: WA.panelBg,
       }}>
-        <div style={{ padding: phone ? '16px 16px 16px 58px' : '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1 style={{ fontSize: 22, fontWeight: 600, color: WA.textPrimary, margin: 0, fontFamily: WA_FONT }}>
+        {/* 52px band with no top padding, matching the sidebar brand header, so
+            "Chats" lines up with ASIF ASSOCIATES the way the other pages do. */}
+        <div style={{ padding: phone ? '16px 16px 16px 58px' : '0 20px', minHeight: phone ? undefined : 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h1 style={{ fontSize: 26, color: '#1E8496', margin: 0, fontFamily: "'Faster One', cursive", lineHeight: 1.15 }}>
             Chats
           </h1>
           <button onClick={() => setShowNewChat(true)} title="New chat"
