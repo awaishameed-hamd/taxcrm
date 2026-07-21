@@ -242,6 +242,67 @@ export class ClientsService {
     return { message: 'Invite sent successfully.' }
   }
 
+  /**
+   * Permanently deletes a client and its login — for records created by mistake,
+   * as opposed to toggleActive which only hides them.
+   *
+   * Refuses whenever the client carries real work or money, so a delete can never
+   * punch a hole in the task pipeline or the ledger. Tasks count whatever their
+   * status: a COMPLETED return is history the firm needs to keep just as much as
+   * an open one.
+   */
+  async remove(id: string) {
+    const profile = await this.prisma.clientProfile.findUnique({
+      where:  { id },
+      select: {
+        id: true, userId: true, businessName: true,
+        user: { select: { fullName: true, userCode: true } },
+        _count: {
+          select: {
+            salesTaxTasks:    true,   // Sales Tax / Income Tax / WHT pipeline
+            generalTasks:     true,
+            fbrCases:         true,
+            invoices:         true,
+            payments:         true,
+            salesTaxReturns:  true,
+            incomeTaxReturns: true,
+          },
+        },
+      },
+    })
+    if (!profile) throw new NotFoundException('Client not found')
+
+    const c = profile._count
+    const blockers: string[] = []
+    const taskCount = c.salesTaxTasks + c.generalTasks
+    if (taskCount > 0)         blockers.push(`${taskCount} task${taskCount === 1 ? '' : 's'}`)
+    if (c.fbrCases > 0)        blockers.push(`${c.fbrCases} FBR case${c.fbrCases === 1 ? '' : 's'}`)
+    if (c.invoices > 0)        blockers.push(`${c.invoices} invoice${c.invoices === 1 ? '' : 's'}`)
+    if (c.payments > 0)        blockers.push(`${c.payments} payment${c.payments === 1 ? '' : 's'}`)
+    const returnCount = c.salesTaxReturns + c.incomeTaxReturns
+    if (returnCount > 0)       blockers.push(`${returnCount} tax return${returnCount === 1 ? '' : 's'}`)
+
+    if (blockers.length > 0) {
+      const label = profile.businessName ?? profile.user?.fullName ?? 'This client'
+      throw new BadRequestException(
+        `${label} cannot be deleted because it still has ${blockers.join(', ')}. ` +
+        `Deactivate the client instead so the history stays intact.`,
+      )
+    }
+
+    // Chat messages have no cascade rule, so the delete would fail on the foreign
+    // key while the client sits half-removed. Clear them in the same transaction.
+    await this.prisma.$transaction(async tx => {
+      await tx.message.deleteMany({ where: { senderId: profile.userId } })
+      await tx.conversationParticipant.deleteMany({ where: { userId: profile.userId } })
+      // ClientProfile, login details, notifications and refresh tokens all cascade
+      // from the user row.
+      await tx.user.delete({ where: { id: profile.userId } })
+    })
+
+    return { message: 'Client deleted permanently.' }
+  }
+
   async acceptInvite(token: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { inviteToken: token } })
     if (!user) throw new BadRequestException('Invalid or expired invite link.')

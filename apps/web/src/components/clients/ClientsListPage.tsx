@@ -953,10 +953,11 @@ function RepColumnPicker({ visible, onChange }: { visible: string[]; onChange: (
 }
 
 // ── Client Representatives Section ───────────────────────────────────────────
-function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep }: { canCreate: boolean; canEdit: boolean; showNewRep: boolean; setShowNewRep: (v: boolean) => void }) {
+function RepresentativesSection({ canCreate, canEdit, canDelete, showNewRep, setShowNewRep }: { canCreate: boolean; canEdit: boolean; canDelete: boolean; showNewRep: boolean; setShowNewRep: (v: boolean) => void }) {
   const [reps, setReps]             = useState<any[]>([])
   const [loading, setLoading]       = useState(true)
   const [editRep, setEditRep]       = useState<any | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<any | null>(null)
   const [toast, setToast]           = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -1016,6 +1017,22 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
     } catch { setToast({ message: 'Failed to update status.', type: 'error' }) }
   }
 
+  const handleDeleteRep = async () => {
+    const r = confirmDelete
+    if (!r) return
+    setConfirmDelete(null)
+    try {
+      await api.delete(`/client-representatives/${r.id}`)
+      setReps(prev => prev.filter(x => x.id !== r.id))
+      setToast({ message: `${r.fullName} deleted permanently.`, type: 'success' })
+    } catch (err: any) {
+      // The API refuses while clients are still assigned and says which ones,
+      // so surface that rather than a generic failure.
+      const msg = err?.response?.data?.message
+      setToast({ message: Array.isArray(msg) ? msg.join(', ') : msg ?? 'Failed to delete representative.', type: 'error' })
+    }
+  }
+
   const handleToggleRepPortal = async (r: any) => {
     try {
       const { data: env } = await api.patch(`/client-representatives/${r.id}/toggle-portal`)
@@ -1030,6 +1047,14 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
   return (
     <div>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`Permanently delete "${confirmDelete.fullName}"? This removes the record from the database and cannot be undone.`}
+          onConfirm={handleDeleteRep}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
 
       {(showNewRep || editRep) && (
         <RepFormModal
@@ -1157,7 +1182,7 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
                     <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC', opacity: r.isActive === false ? 0.55 : 1 }}>
                       {visibleRepCols.map(col => cellMap[col.key])}
                       <td style={{ padding: '6px 14px', borderBottom: `1px solid ${P.border}50`, textAlign: 'right' }}>
-                        {(canCreate || canEdit) && (
+                        {(canCreate || canEdit || canDelete) && (
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                             {canEdit && (
                               <button onClick={() => setEditRep(r)} title="Edit"
@@ -1178,6 +1203,16 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
                                 : <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                               }
                             </button>
+                            {canDelete && (
+                              <button onClick={() => setConfirmDelete(r)} title="Delete permanently"
+                                style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B91C1C' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2' }}
+                                onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                </svg>
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>
@@ -1401,6 +1436,8 @@ export default function ClientsListPage() {
   const canViewReps        = usePermission('representatives')
   const canCreateRep       = usePermission('representatives_create')
   const canEditRep         = usePermission('representatives_edit')
+  // Permanent delete is irreversible, so it matches the API guard: Admin/Partner only.
+  const canDelete          = user?.role === 'ADMIN' || user?.role === 'PARTNER'
   // Legacy canAdd for staff fetching (manager+ can always see trainee list for assignment)
   const canAdd             = user?.role === 'ADMIN' || user?.role === 'PARTNER' || canCreateClient || canEditClient
 
@@ -1417,6 +1454,7 @@ export default function ClientsListPage() {
   const [showNewRep,     setShowNewRep]     = useState(false)
   const [editClient,     setEditClient]     = useState<any | null>(null)
   const [confirmToggle,  setConfirmToggle]  = useState<any | null>(null)
+  const [confirmDelete,  setConfirmDelete]  = useState<any | null>(null)
   const [inviteSending,  setInviteSending]  = useState<string | null>(null)
   const [toast,          setToast]          = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [statusFilter,   setStatusFilter]   = useState<'all' | 'active' | 'inactive'>('all')
@@ -1519,6 +1557,22 @@ export default function ClientsListPage() {
     }
   }
 
+  const handleDeleteClient = async () => {
+    const c = confirmDelete
+    if (!c) return
+    setConfirmDelete(null)
+    try {
+      await api.delete(`/clients/${c.id}`)
+      setClients(prev => prev.filter(x => x.id !== c.id))
+      setToast({ message: `${c.businessName || c.user?.fullName || 'Client'} deleted permanently.`, type: 'success' })
+    } catch (err: any) {
+      // The API refuses when tasks, cases, invoices or payments exist and names
+      // the counts, so show that message rather than a generic failure.
+      const msg = err?.response?.data?.message
+      setToast({ message: Array.isArray(msg) ? msg.join(', ') : msg ?? 'Failed to delete client.', type: 'error' })
+    }
+  }
+
   const handleToggleActive = async () => {
     const c = confirmToggle
     setConfirmToggle(null)
@@ -1563,6 +1617,13 @@ export default function ClientsListPage() {
           message={`${confirmToggle.user?.isActive ? 'Deactivate' : 'Activate'} client "${confirmToggle.businessName || confirmToggle.user?.userCode}"?`}
           onConfirm={handleToggleActive}
           onCancel={() => setConfirmToggle(null)}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`Permanently delete client "${confirmDelete.businessName || confirmDelete.user?.userCode}"? This removes the record and its portal login from the database and cannot be undone. It is refused if the client has any tasks, cases, invoices or payments.`}
+          onConfirm={handleDeleteClient}
+          onCancel={() => setConfirmDelete(null)}
         />
       )}
 
@@ -1622,7 +1683,7 @@ export default function ClientsListPage() {
       </div>
 
       {/* Representatives Tab */}
-      {activeTab === 'representatives' && canViewReps && <RepresentativesSection canCreate={canCreateRep} canEdit={canEditRep} showNewRep={showNewRep} setShowNewRep={setShowNewRep} />}
+      {activeTab === 'representatives' && canViewReps && <RepresentativesSection canCreate={canCreateRep} canEdit={canEditRep} canDelete={canDelete} showNewRep={showNewRep} setShowNewRep={setShowNewRep} />}
 
       {/* Clients Tab */}
       {activeTab === 'clients' && <>
@@ -1797,6 +1858,16 @@ export default function ClientsListPage() {
                               }
                             </button>
                           </>
+                        )}
+                        {canDelete && (
+                          <button onClick={() => setConfirmDelete(c)} title="Delete permanently"
+                            style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B91C1C' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg>
+                          </button>
                         )}
                       </div>
                     </td>

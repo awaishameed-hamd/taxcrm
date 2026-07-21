@@ -66,4 +66,11 @@ export class ClientsController {
   sendInvite(@Param('id') id: string) {
     return this.clientsService.sendInvite(id)
   }
+
+  // Irreversible, so it stops at Partner — everyone else deactivates instead.
+  @Delete(':id')
+  @Roles(Role.ADMIN, Role.PARTNER)
+  remove(@Param('id') id: string) {
+    return this.clientsService.remove(id)
+  }
 }

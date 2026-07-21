@@ -156,13 +156,50 @@ export class ClientRepresentativesService {
     return { message: 'Invite sent successfully.' }
   }
 
+  /**
+   * Permanently deletes a representative — for records created by mistake.
+   *
+   * Refuses while any client still points at them. It used to quietly unlink
+   * those clients first, which meant deleting a representative silently stripped
+   * the contact off every client they handled.
+   */
   async remove(id: string) {
-    await this.findOne(id)
-    // Unlink from clients before deleting
-    await this.prisma.clientProfile.updateMany({
-      where: { representativeId: id },
-      data: { representativeId: null },
+    const rep = await this.prisma.clientRepresentative.findUnique({
+      where:  { id },
+      select: {
+        id: true, fullName: true, userId: true,
+        clients: {
+          select: { businessName: true, user: { select: { fullName: true, userCode: true } } },
+          take: 5,
+        },
+        _count: { select: { clients: true } },
+      },
     })
-    return this.prisma.clientRepresentative.delete({ where: { id } })
+    if (!rep) throw new NotFoundException('Representative not found')
+
+    if (rep._count.clients > 0) {
+      const names = rep.clients
+        .map(c => c.businessName ?? c.user?.fullName ?? c.user?.userCode)
+        .filter(Boolean)
+      const extra = rep._count.clients - names.length
+      const list  = names.join(', ') + (extra > 0 ? ` and ${extra} more` : '')
+      throw new BadRequestException(
+        `${rep.fullName} is still assigned to ${rep._count.clients} client${rep._count.clients === 1 ? '' : 's'} (${list}). ` +
+        `Reassign or clear the representative on those clients first.`,
+      )
+    }
+
+    await this.prisma.$transaction(async tx => {
+      if (rep.userId) {
+        // Chat messages have no cascade rule and would block the delete.
+        await tx.message.deleteMany({ where: { senderId: rep.userId } })
+        await tx.conversationParticipant.deleteMany({ where: { userId: rep.userId } })
+      }
+      await tx.clientRepresentative.delete({ where: { id } })
+      // The portal login is only ever created for this representative, so it goes too.
+      if (rep.userId) await tx.user.delete({ where: { id: rep.userId } })
+    })
+
+    return { message: 'Representative deleted permanently.' }
   }
 }
