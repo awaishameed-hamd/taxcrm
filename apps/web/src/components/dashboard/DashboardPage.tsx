@@ -333,7 +333,7 @@ export default function DashboardPage({ title }: Props) {
             Sized by eye, not by cap height: matching cap height to the sidebar left
             this looking smaller, because Faster One's speed-line slashes cut into
             each glyph and lighten it. 26 reads level with the brand. */}
-        <div style={{ fontSize:26, color:NAVY, fontFamily:"'Faster One',cursive", display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
+        <div style={{ fontSize:29, color:NAVY, fontFamily:"'Faster One',cursive", display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
         <div style={{ display:'flex', gap:2, background:WHITE, border:`1px solid ${BORDER}`, borderRadius:8, padding:3 }}>
           {PERIODS.map(p => (
             <button key={p.key} onClick={() => setPeriod(p.key)} style={{ background:period===p.key ? NAVY : 'transparent', color:period===p.key ? '#fff' : SLATE, border:'none', padding:'5px 13px', borderRadius:6, fontSize:11, fontWeight:period===p.key ? 600 : 400, cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.15s', fontFamily:F }}>
