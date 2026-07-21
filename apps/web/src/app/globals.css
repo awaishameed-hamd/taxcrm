@@ -1,12 +1,4 @@
-﻿@font-face {
-  font-family: 'Angelos';
-  src: url('/fonts/Angelos.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Aptos, shipped with the app so it renders the same for everyone.
+﻿/* Aptos, shipped with the app so it renders the same for everyone.
    Only Regular and Bold are declared: Office's Aptos also has ExtraBold and
    Black, and pulling those in is what made bolded text look far heavier than
    the same text in Excel. With just these two faces, any font-weight above 700

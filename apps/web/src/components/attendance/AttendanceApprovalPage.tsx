@@ -237,7 +237,7 @@ export default function AttendanceApprovalPage() {
 
       {/* Header */}
       <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: P.navy }}>
+        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
           {moduleTab === 'attendance' ? 'Attendance Approval' : 'Leave Approvals'}
         </h1>
         {/* Module tabs */}

@@ -972,7 +972,7 @@ export default function TaxSummaryPage() {
 
           <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: '0 14px' }}>
-              <h2 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 20, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>
+              <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
                 Tax Summary
               </h2>
               <button
@@ -1074,7 +1074,7 @@ export default function TaxSummaryPage() {
 
               {/* Client header */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <h2 style={{ margin: 0, fontSize: 22, color: NAVY, fontFamily: "'Angelos', sans-serif", display: 'inline-block', transform: 'skewX(12deg)', letterSpacing: '0.04em', flex: 1 }}>
+                <h2 style={{ margin: 0, fontSize: 26, color: '#1E8496', fontFamily: "'Faster One', cursive", display: 'inline-block', letterSpacing: '0.04em', flex: 1 }}>
                   {displayName(selected)}
                 </h2>
                 <button onClick={() => setSelected(null)}

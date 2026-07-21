@@ -622,7 +622,7 @@ export function TaskFormModal({
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
 
         <div style={{ background: '#7EC8D0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY, letterSpacing: '0.06em' }}>{title}</span>
+          <span style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496', letterSpacing: '0.06em' }}>{title}</span>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.35)', border: 'none', borderRadius: 7, cursor: 'pointer', color: NAVY, fontSize: 20, lineHeight: 1, fontWeight: 700, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
 

@@ -72,7 +72,7 @@ function CalendarView({ calendar, year, month, userName, userRole, summary }: {
       {/* Header bar — matches Attendance Report's calendar header */}
       <div style={{ background: '#64748B', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h2 style={{ fontFamily: "'Angelos', sans-serif", fontSize: 20, display: 'inline-block', transform: 'skewX(12deg)', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
+          <h2 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
             {userName ?? 'My Attendance'}
           </h2>
           {userRole && (
@@ -284,7 +284,7 @@ export default function MyAttendancePage() {
 
       {/* Header */}
       <div style={{ height: 52, display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-        <h1 style={{ fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: P.navy, margin: 0 }}>
+        <h1 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496', margin: 0 }}>
           My Attendance
         </h1>
       </div>

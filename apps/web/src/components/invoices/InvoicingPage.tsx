@@ -194,7 +194,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
         {/* Header */}
         <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h2 style={{ fontFamily: "'Angelos', sans-serif", fontSize: 20, display: 'inline-block', transform: 'skewX(12deg)', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
+            <h2 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
               Receive Payment
             </h2>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
@@ -457,7 +457,7 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
     <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F }}>
       <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h2 style={{ fontFamily: "'Angelos', sans-serif", fontSize: 20, display: 'inline-block', transform: 'skewX(12deg)', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
+          <h2 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
             Apply Advance
           </h2>
           <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
@@ -843,7 +843,7 @@ export default function InvoicingPage() {
 
           <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: phone ? '0 14px 0 58px' : '0 14px' }}>
-              <h2 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, color: NAVY, display: 'inline-block', transform: 'skewX(12deg)' }}>Invoicing</h2>
+              <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", fontSize: 26, color: '#1E8496', display: 'inline-block' }}>Invoicing</h2>
               <button onClick={() => setListCollapsed(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: P.iconMuted, padding: 4, borderRadius: 6 }}>
                 <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
               </button>
@@ -913,7 +913,7 @@ export default function InvoicingPage() {
                 </svg>
               </button>
             )}
-            <h1 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>
+            <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
               {selectedId === null ? 'All Invoices' : (ledger?.client?.businessName ?? ledger?.client?.user?.fullName ?? 'Client Account')}
             </h1>
           </div>

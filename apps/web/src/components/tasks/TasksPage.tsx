@@ -1258,7 +1258,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
           {/* Header + tax pills on same row */}
           <div style={{ background:'#EDF0F3', flexShrink:0 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 20px 8px', gap:12 }}>
-              <h2 style={{ margin:0, fontSize:22, fontFamily:"'Angelos', sans-serif", color:NAVY, flexShrink:0, display:'inline-block', transform:'skewX(12deg)' }}>{incompleteOnly ? 'Incomplete Tasks' : 'Completed Tasks'}</h2>
+              <h2 style={{ margin:0, fontSize: 26, fontFamily:"'Faster One', cursive", color: '#1E8496', flexShrink:0, display:'inline-block' }}>{incompleteOnly ? 'Incomplete Tasks' : 'Completed Tasks'}</h2>
               <div style={{ display:'flex', gap:2, background:'#fff', border:`1px solid ${P.border}`, borderRadius:8, padding:3, flexShrink:0 }}>
                 {TAX_TABS.map(tab => {
                   const isActive = activeTax === tab.key
@@ -1683,7 +1683,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
 
           <div style={{ flexShrink:0, borderBottom:`1px solid ${P.border}` }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', height:52, padding:'0 14px' }}>
-              <h2 style={{ margin:0, fontFamily:"'Angelos', sans-serif", fontSize:22, color:NAVY, display:'inline-block', transform:'skewX(12deg)' }}>{activeTab.label}</h2>
+              <h2 style={{ margin:0, fontFamily:"'Faster One', cursive", fontSize: 26, color: '#1E8496', display:'inline-block' }}>{activeTab.label}</h2>
               <div style={{ display:'flex', gap:6 }}>
                 <button onClick={() => setListCollapsed(true)} style={{ background:'transparent', border:'none', cursor:'pointer', color:P.iconMuted, padding:4, borderRadius:6 }}>
                   <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>

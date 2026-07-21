@@ -130,7 +130,7 @@ export default function SettingsPage() {
 
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 52, borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
-            <span style={{ fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY, whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496', whiteSpace: 'nowrap' }}>
               Settings
             </span>
             <button onClick={() => setCollapsed(true)}
@@ -275,7 +275,7 @@ export default function SettingsPage() {
       {/* ── Main content ── */}
       <div style={{ flex: 1, padding: '0 20px 20px', overflowY: 'auto' }}>
         <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <h1 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>
+          <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
             {activeLabel}
           </h1>
           {(activeTaxSub || activeAttSub) && (

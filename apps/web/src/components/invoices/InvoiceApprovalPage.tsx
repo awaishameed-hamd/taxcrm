@@ -80,7 +80,7 @@ function PriceModal({ inv, onClose, onSaved }: { inv: any; onClose: () => void; 
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 470, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
         <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontFamily: "'Angelos', sans-serif", fontSize: 19, display: 'inline-block', transform: 'skewX(12deg)', color: '#F1F5F9', margin: 0 }}>
+          <h2 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#F1F5F9', margin: 0 }}>
             {inv.invoiceNumber}
           </h2>
           <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
@@ -201,7 +201,7 @@ export default function InvoiceApprovalPage() {
     <div className="flex flex-col" style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
 
       <div style={{ height: 52, display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 22, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>
+        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
           Invoice Approval
         </h1>
       </div>

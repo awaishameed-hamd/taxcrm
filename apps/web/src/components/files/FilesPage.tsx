@@ -372,7 +372,7 @@ export default function FilesPage() {
         <div style={{ minWidth: 280, display: 'flex', flexDirection: 'column', height: '100%' }}>
           <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: '0 14px' }}>
-              <h2 style={{ margin: 0, fontFamily: "'Angelos', sans-serif", fontSize: 20, display: 'inline-block', transform: 'skewX(12deg)', color: NAVY }}>Files</h2>
+              <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496' }}>Files</h2>
               <button onClick={() => setListCollapsed(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: P.iconMuted, padding: 4, borderRadius: 6 }}
                 onMouseEnter={e => { e.currentTarget.style.color = NAVY }} onMouseLeave={e => { e.currentTarget.style.color = P.iconMuted }}>
                 <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
