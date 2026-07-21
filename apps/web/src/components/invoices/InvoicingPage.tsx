@@ -194,7 +194,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
         {/* Header */}
         <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h2 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
+            <h2 style={{ fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
               Receive Payment
             </h2>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
@@ -457,7 +457,7 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
     <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F }}>
       <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h2 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
+          <h2 style={{ fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
             Apply Advance
           </h2>
           <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
