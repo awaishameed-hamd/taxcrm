@@ -330,10 +330,10 @@ export default function DashboardPage({ title }: Props) {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', minHeight: phone ? undefined : 52, marginBottom: phone ? 12 : 8, flexWrap:'wrap', gap:8 }}>
         {/* Faster One carries its own forward slant, so no skewX here — stacking the
             two made it lean over far enough to look like a mistake.
-            18px is not arbitrary: it puts Faster One's cap height at 12px, which is
-            exactly what Ethnocentric gives at the sidebar's 1.15rem, so the two read
-            as the same size despite being different typefaces. */}
-        <div style={{ fontSize:18, color:NAVY, fontFamily:"'Faster One',cursive", display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
+            Sized by eye, not by cap height: matching cap height to the sidebar left
+            this looking smaller, because Faster One's speed-line slashes cut into
+            each glyph and lighten it. 26 reads level with the brand. */}
+        <div style={{ fontSize:26, color:NAVY, fontFamily:"'Faster One',cursive", display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
         <div style={{ display:'flex', gap:2, background:WHITE, border:`1px solid ${BORDER}`, borderRadius:8, padding:3 }}>
           {PERIODS.map(p => (
             <button key={p.key} onClick={() => setPeriod(p.key)} style={{ background:period===p.key ? NAVY : 'transparent', color:period===p.key ? '#fff' : SLATE, border:'none', padding:'5px 13px', borderRadius:6, fontSize:11, fontWeight:period===p.key ? 600 : 400, cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.15s', fontFamily:F }}>
