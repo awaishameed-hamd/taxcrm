@@ -237,7 +237,7 @@ function DynamicField({ field, value, onChange, error, trainees, disabled }: {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                       </svg>
                     </label>
-                    {/* Sub-options — always visible when parent is checked, or on hover via open state */}
+                    {/* Sub-options, always visible when parent is checked, or on hover via open state */}
                     {anySubSelected && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', paddingLeft: 22, marginTop: 6, paddingBottom: 2 }}>
                         {item.sub.map((sub: string) => {
@@ -252,7 +252,7 @@ function DynamicField({ field, value, onChange, error, trainees, disabled }: {
                         })}
                       </div>
                     )}
-                    {/* Show sub-options always visible below parent even when unchecked — as expandable */}
+                    {/* Show sub-options always visible below parent even when unchecked, as expandable */}
                     {!anySubSelected && (
                       <details style={{ paddingLeft: 22, marginTop: 4 }}>
                         <summary style={{ fontSize: 11, color: TEAL, cursor: 'pointer', fontFamily: "'Aptos', sans-serif", fontWeight: 600, listStyle: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -344,7 +344,7 @@ interface ClientFormModalProps {
 function ClientFormModal({ mode, initial, fieldConfigs, trainees, representatives, onClose, onSuccess }: ClientFormModalProps) {
   const isEdit = mode === 'edit'
   const { user } = useAuth()
-  // Billing contract is a Manager-and-above concern — hidden from Team Leads and Trainees
+  // Billing contract is a Manager-and-above concern, hidden from Team Leads and Trainees
   const canManageBilling = ['ADMIN', 'PARTNER', 'MANAGER'].includes(user?.role ?? '')
 
   // Build initial form state from field configs
@@ -387,7 +387,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
   const [hasAdvanceTaxService, setHasAdvanceTaxService] = useState<boolean>(initial?.hasAdvanceTaxService ?? false)
   const [yearEnd,             setYearEnd]             = useState<string>(initial?.yearEnd ?? 'JUNE')
 
-  // Monthly retainership contract — Manager and above only
+  // Monthly retainership contract. Manager and above only
   const [hasMonthlyRetainer,  setHasMonthlyRetainer]  = useState<boolean>(initial?.hasMonthlyRetainer ?? false)
   const [retainerAmount,      setRetainerAmount]      = useState<string>(initial?.retainerAmount != null ? String(initial.retainerAmount) : '')
   const [retainerSalesTax,    setRetainerSalesTax]    = useState<boolean>(initial?.retainerSalesTax ?? false)
@@ -409,7 +409,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
 
   // Portal access
   const [portalAccess,   setPortalAccess]   = useState<boolean>(initial?.user?.hasPortalAccess ?? false)
-  // 'invite' | 'set_password' | null — null = not chosen yet (portal is OFF)
+  // 'invite' | 'set_password' | null, null = not chosen yet (portal is OFF)
   const [portalMethod,   setPortalMethod]   = useState<'invite' | 'set_password' | null>(null)
   const [portalLoading,  setPortalLoading]  = useState(false)
   const [inviteSendingM, setInviteSendingM] = useState(false)
@@ -509,7 +509,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
       payload.yearEnd             = yearEnd
       payload.representativeId    = representativeId || null
 
-      // Billing contract — only Manager+ can see or change this, so never send it otherwise
+      // Billing contract, only Manager+ can see or change this, so never send it otherwise
       if (canManageBilling) {
         payload.hasMonthlyRetainer          = hasMonthlyRetainer
         payload.retainerAmount              = Number(retainerAmount) || 0
@@ -518,7 +518,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
         payload.retainerIncomeTax           = hasMonthlyRetainer && retainerIncomeTax
         payload.retainerWht                 = hasMonthlyRetainer && retainerWht
       }
-      // Always send the assignment — it's mandatory and rendered outside the dynamic field loop above,
+      // Always send the assignment, it's mandatory and rendered outside the dynamic field loop above,
       // so it must not depend on that field's admin-configurable visibility toggle.
       payload.traineeId           = form.traineeId
 
@@ -578,7 +578,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
             </div>
           )}
 
-          {/* Client ID — only shown in edit mode */}
+          {/* Client ID, only shown in edit mode */}
           {isEdit && (
             <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif", flexShrink: 0 }}>
@@ -590,7 +590,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
             </div>
           )}
 
-          {/* Dynamic fields (excluding traineeId — rendered as section below) */}
+          {/* Dynamic fields (excluding traineeId, rendered as section below) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 14 }}>
             {visibleFields.filter(f => (f.fieldKey || f.field_key) !== 'traineeId').map(field => {
               const key = field.fieldKey || field.field_key
@@ -759,7 +759,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
             </div>
           </div>
 
-          {/* Billing — Manager and above only */}
+          {/* Billing. Manager and above only */}
           {canManageBilling && (
             <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
               <div style={{ padding: '10px 18px', borderBottom: `1px solid ${P.border}`, background: '#F1F5F9' }}>
@@ -1064,7 +1064,7 @@ function RepresentativesSection({ canCreate, canEdit, canDelete, showNewRep, set
         />
       )}
 
-      {/* Filter bar — identical to Clients */}
+      {/* Filter bar, identical to Clients */}
       <div style={{ flexShrink: 0, marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: TEAL, borderRadius: 40, padding: '5px 8px' }}>
 
@@ -1363,7 +1363,7 @@ function RepFormModal({ initial, onClose, onSuccess }: { initial?: any; onClose:
               </span>
             </div>
 
-            {/* Step 2: password mode selection — shown when portal is ON */}
+            {/* Step 2: password mode selection, shown when portal is ON */}
             {portalAccess && (!isEdit || !initial?.hasPortalAccess) && (
               <div style={{ padding: '0 18px 16px', borderTop: `1px solid ${P.border}` }}>
                 <p style={{ margin: '12px 0 8px', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: "'Aptos', sans-serif" }}>
@@ -1395,7 +1395,7 @@ function RepFormModal({ initial, onClose, onSuccess }: { initial?: any; onClose:
               </div>
             )}
 
-            {/* Resend invite — edit mode, portal already ON */}
+            {/* Resend invite, edit mode, portal already ON */}
             {isEdit && portalAccess && initial?.hasPortalAccess && (
               <div style={{ padding: '0 18px 14px', borderTop: `1px solid ${P.border}` }}>
                 <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1633,7 +1633,7 @@ export default function ClientsListPage() {
           {activeTab === 'clients' ? 'Clients' : 'Client Representatives'}
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Tab Pills — same style as Dashboard period pills */}
+          {/* Tab Pills, same style as Dashboard period pills */}
           <div style={{ display: 'flex', gap: 2, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: 3 }}>
             {([
               { key: 'clients', label: 'Clients', show: true },

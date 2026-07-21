@@ -11,7 +11,7 @@ const DANGER = '#DC2626'
 const PURPLE = '#7C3AED'
 const F      = "'Aptos',sans-serif"
 
-// Review/approval steps are Manager+ or Partner+ tier decisions — mirrors the backend's enforcement in fbr.service.ts
+// Review/approval steps are Manager+ or Partner+ tier decisions, mirrors the backend's enforcement in fbr.service.ts
 const MANAGER_TIER = ['ADMIN', 'PARTNER', 'MANAGER', 'TEAM_LEAD']
 const PARTNER_TIER = ['ADMIN', 'PARTNER']
 

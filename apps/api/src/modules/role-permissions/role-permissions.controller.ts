@@ -11,21 +11,21 @@ import { Role } from '@ca-firm/shared'
 export class RolePermissionsController {
   constructor(private svc: RolePermissionsService) {}
 
-  // Admin/Partner only — get full permission matrix
+  // Admin/Partner only, get full permission matrix
   @Get()
   @Roles(Role.ADMIN, Role.PARTNER)
   getAll() {
     return this.svc.getAll()
   }
 
-  // Admin/Partner only — get feature definitions
+  // Admin/Partner only, get feature definitions
   @Get('features')
   @Roles(Role.ADMIN, Role.PARTNER)
   getFeatures() {
     return this.svc.getFeatures()
   }
 
-  // Any logged in user — get their own permissions
+  // Any logged in user, get their own permissions
   @Get('my')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
   getMyPermissions(@CurrentUser() user: { role: Role }) {
@@ -35,7 +35,7 @@ export class RolePermissionsController {
     return this.svc.getForRole(user.role)
   }
 
-  // Admin/Partner only — toggle a permission
+  // Admin/Partner only, toggle a permission
   @Patch(':role/:feature')
   @Roles(Role.ADMIN, Role.PARTNER)
   toggle(

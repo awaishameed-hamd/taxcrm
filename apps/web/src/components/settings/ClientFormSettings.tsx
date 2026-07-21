@@ -815,7 +815,7 @@ function FieldRow({ field, sectionIndex, sectionLength, onChange, onInstantSave,
   )
 }
 
-// ── Main export — Client Form Settings (admin) ─────────────────────────────────
+// ── Main export. Client Form Settings (admin) ─────────────────────────────────
 export default function ClientFormSettings() {
   const [fields, setFields]             = useState<Record<string, any>[]>([])
   const [sectionOrder, setSectionOrder] = useState<string[]>([])

@@ -10,7 +10,7 @@ import { TaskFormModal } from '@/components/tasks/GeneralTasksPage'
 import { getSocket } from '@/lib/socket'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
-// ── Palette — exact match to Call Center CRM Sidebar.jsx ──────────────────────
+// ── Palette, exact match to Call Center CRM Sidebar.jsx ──────────────────────
 const C = {
   bg:        '#E8EAED',
   bgActive:  '#E8EEF7',
@@ -258,7 +258,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     attCloseTimer.current = setTimeout(() => setShowAttMenu(false), 150)
   }, [])
 
-  // Used when re-entering the already-open panel — cancels the pending close
+  // Used when re-entering the already-open panel, cancels the pending close
   // WITHOUT recomputing position, so the flip-to-fit correction below doesn't get undone.
   const cancelCloseAttMenu = useCallback(() => {
     if (attCloseTimer.current) { clearTimeout(attCloseTimer.current); attCloseTimer.current = null }
@@ -317,7 +317,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     return () => { sock.off('notification', onNotif) }
   }, [user?.id])
 
-  // Opening the notifications panel marks everything read — the badge count clears immediately
+  // Opening the notifications panel marks everything read, the badge count clears immediately
   const markAllReadOnOpen = () => {
     if (unreadCount === 0) return
     setNotifs(prev => prev.map(n => ({ ...n, isRead: true })))
@@ -364,7 +364,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
           setNavCounts(c => ({ ...c, attApproval: typeof d === 'number' ? d : (d.count ?? 0) }))
         }).catch(() => {})
       }
-      // Billing is Manager-and-above only — the endpoint 403s for anyone else
+      // Billing is Manager-and-above only, the endpoint 403s for anyone else
       if (user.role === Role.ADMIN || user.role === Role.PARTNER || user.role === Role.MANAGER) {
         api.get('/invoices/summary').then(r => {
           const d = r.data?.data ?? r.data
@@ -434,7 +434,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
       return
     }
 
-    // Pipeline types: sales_tax, income_tax, wht — any role can hold the task
+    // Pipeline types: sales_tax, income_tax, wht, any role can hold the task
     const PIPELINE_TYPES = ['sales_tax', 'income_tax', 'wht']
     const isPipelineTask = PIPELINE_TYPES.includes(ntForm.taxType)
 
@@ -489,7 +489,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
   const allNavItems = NAV[user?.role ?? ''] ?? []
   const hasAllPerms = (permissions as any)?.all === true
 
-  // Filter items by permission — items without a permission key always show
+  // Filter items by permission, items without a permission key always show
   const navItems = allNavItems.filter(item => {
     if (!item.permission) return true
     if (hasAllPerms) return true
@@ -669,7 +669,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
         </div>
       )}
 
-      {/* ── Navigation — flat list, exact font sizing ── */}
+      {/* ── Navigation, flat list, exact font sizing ── */}
       <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 12px 16px', minWidth: 256 }}>
         {renderList.map(entry => {
           if ('__group' in entry) {

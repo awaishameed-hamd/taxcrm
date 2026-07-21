@@ -475,7 +475,7 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
                       </div>
                     </div>
 
-                    {/* Team Lead assignment — required for TRAINEE */}
+                    {/* Team Lead assignment, required for TRAINEE */}
                     {form.role === 'TRAINEE' && (
                       <div>
                         <label style={labelStyle}>Team Lead <span style={{ color: '#D62828' }}>*</span></label>

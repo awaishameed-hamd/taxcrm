@@ -12,7 +12,7 @@ async function main() {
     }
   })
 
-  // New field list — clean structure
+  // New field list, clean structure
   const fields: any[] = [
     // ── Personal Information ────────────────────────────────────────────────
     { fieldKey: 'fullName',    label: 'Display Name',   fieldType: 'text', section: 'Personal Information', colSpan: 'half',  sortOrder: 1,  isCore: true,  placeholder: 'Full display name' },

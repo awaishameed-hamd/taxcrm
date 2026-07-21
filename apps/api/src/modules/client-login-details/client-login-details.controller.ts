@@ -6,7 +6,7 @@ import { Role } from '@ca-firm/shared'
 import { ClientLoginDetailsService } from './client-login-details.service'
 import { UpdateLoginDetailDto, CreateClientWithLoginDto } from './dto/client-login-detail.dto'
 
-// Equal access for every staff role — no permission gating, per business requirement.
+// Equal access for every staff role, no permission gating, per business requirement.
 const ALL = [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE]
 
 @Controller('client-login-details')

@@ -225,7 +225,7 @@ export default function RoleAccessSettings() {
           if (catFeatures.length === 0) return null
           return (
             <div key={cat.key}>
-              {/* Section heading — like "Personal Information" */}
+              {/* Section heading, like "Personal Information" */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 background: '#F4F6FA',

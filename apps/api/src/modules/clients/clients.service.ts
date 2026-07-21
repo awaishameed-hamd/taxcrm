@@ -17,7 +17,7 @@ export class ClientsService {
     private config:  ConfigService,
   ) {}
 
-  // Keeps ClientLoginDetail rows in sync with a client's selected Sales Tax authorities —
+  // Keeps ClientLoginDetail rows in sync with a client's selected Sales Tax authorities ,
   // one row per authority (defaulting to FBR when none are selected), never dropping saved credentials.
   private async syncLoginDetails(clientId: string, authorities: string[]) {
     const desired  = authorities.length > 0 ? authorities : ['FBR']
@@ -57,7 +57,7 @@ export class ClientsService {
         password:        hashed,
         role:                 Role.CLIENT,
         hasPortalAccess:      dto.hasPortalAccess ?? false,
-        attendanceApplicable: false, // Clients are never staff — attendance never applies to them
+        attendanceApplicable: false, // Clients are never staff, attendance never applies to them
         clientProfile: {
           create: {
             cnic:                dto.cnic,
@@ -243,7 +243,7 @@ export class ClientsService {
   }
 
   /**
-   * Permanently deletes a client and its login — for records created by mistake,
+   * Permanently deletes a client and its login, for records created by mistake,
    * as opposed to toggleActive which only hides them.
    *
    * Refuses whenever the client carries real work or money, so a delete can never

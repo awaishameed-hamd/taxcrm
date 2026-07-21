@@ -30,7 +30,7 @@ export class ChatController {
     return this.chatService.getUnreadCount(user.id)
   }
 
-  // ── Start (or resume) a direct 1:1 chat — not tied to a tax return ─────────
+  // ── Start (or resume) a direct 1:1 chat, not tied to a tax return ─────────
   @Post('conversations/direct')
   getOrCreateDirect(
     @Body('userId') userId: string,

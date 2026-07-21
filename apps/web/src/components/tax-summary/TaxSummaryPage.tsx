@@ -1056,7 +1056,7 @@ export default function TaxSummaryPage() {
             </button>
           )}
 
-          {/* Empty state — no client selected */}
+          {/* Empty state, no client selected */}
           {!selected && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
               <div style={{ textAlign: 'center' }}>
@@ -1085,10 +1085,10 @@ export default function TaxSummaryPage() {
                 </button>
               </div>
 
-              {/* Sales Tax tab — authority filter + table */}
+              {/* Sales Tax tab, authority filter + table */}
               {activeTax === 'sales_tax' && (
                 <>
-                  {/* Filter bar — same style as Tasks */}
+                  {/* Filter bar, same style as Tasks */}
                   <div style={{ background: '#EDF0F3', margin: '-16px -20px 16px', padding: '10px 16px', borderBottom: `1px solid ${P.border}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: TEAL, borderRadius: 40, padding: '5px 8px' }}>
 
@@ -1258,7 +1258,7 @@ export default function TaxSummaryPage() {
                 const lbl = (text: string) => <div style={{ fontSize:11, fontWeight:700, color:'#64748B', fontFamily:F, marginBottom:4 }}>{text}</div>
                 return (
                   <>
-                    {/* Filter bar — same style as Sales Tax */}
+                    {/* Filter bar, same style as Sales Tax */}
                     <div style={{ background:'#EDF0F3', margin:'-16px -20px 16px', padding:'10px 16px', borderBottom:`1px solid ${P.border}` }}>
                       <div style={{ display:'flex', alignItems:'center', gap:6, background:TEAL, borderRadius:40, padding:'5px 8px' }}>
 

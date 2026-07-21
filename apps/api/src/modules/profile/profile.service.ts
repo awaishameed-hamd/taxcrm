@@ -49,7 +49,7 @@ export class ProfileService {
     return { message: 'Password updated successfully.' }
   }
 
-  // Shapes the full profile payload — mirrors the Call Center CRM's profileData()
+  // Shapes the full profile payload, mirrors the Call Center CRM's profileData()
   profileData(user: any) {
     return {
       id:                   user.id,

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 
 // Tracks which users currently have an open socket connection.
-// A user can have multiple sockets (multiple tabs/devices) — they only
+// A user can have multiple sockets (multiple tabs/devices), they only
 // go "offline" once the last one disconnects.
 @Injectable()
 export class PresenceService {

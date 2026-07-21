@@ -8,7 +8,7 @@ import { getSocket } from '@/lib/socket'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { usePhone } from '@/hooks/useMediaQuery'
 
-// ── WhatsApp-authentic palette + font — scoped to this page only ─────────────
+// ── WhatsApp-authentic palette + font, scoped to this page only ─────────────
 const WA = {
   panelBg:        '#FFFFFF',
   chatBg:         '#EFEAE2',
@@ -126,7 +126,7 @@ function Avatar({ name, photo, size = 40 }: { name?: string; photo?: string | nu
   )
 }
 
-// WhatsApp-style status ticks — only shown on messages the current user sent
+// WhatsApp-style status ticks, only shown on messages the current user sent
 type TickStatus = 'sent' | 'delivered' | 'read'
 
 function MessageTicks({ status, size = 13 }: { status: TickStatus; size?: number }) {
@@ -156,7 +156,7 @@ function formatVoiceTime(s: number) {
   return `${m}:${String(sec).padStart(2, '0')}`
 }
 
-// Custom WhatsApp-style voice player — replaces the native browser <audio controls> UI
+// Custom WhatsApp-style voice player, replaces the native browser <audio controls> UI
 interface VoiceMessageProps {
   src:        string
   isMine:     boolean
@@ -204,7 +204,7 @@ function VoiceMessage({ src, isMine, avatar, senderName, time, tickStatus }: Voi
     setCurrentTime(audio.currentTime)
   }
 
-  // Deterministic varied bar heights — stable across re-renders, looks like a waveform
+  // Deterministic varied bar heights, stable across re-renders, looks like a waveform
   const bars = useMemo(() => Array.from({ length: VOICE_BAR_COUNT }, (_, i) =>
     28 + Math.abs(Math.sin(i * 0.7)) * 50 + Math.abs(Math.cos(i * 1.9)) * 22,
   ), [])
@@ -417,7 +417,7 @@ export default function ChatPage() {
     return () => { socket.off('new_message', onNewMessage) }
   }, [selectedId, fetchConversations, user?.id])
 
-  // Live read receipts — updates tick status on messages already on screen
+  // Live read receipts, updates tick status on messages already on screen
   useEffect(() => {
     const socket = socketRef.current
     function onReadReceipt(data: { conversationId: string; userId: string; lastReadAt: string }) {
@@ -433,7 +433,7 @@ export default function ChatPage() {
     return () => { socket.off('read_receipt', onReadReceipt) }
   }, [])
 
-  // Live online/last-seen updates — patch the matching conversation's otherUser in place
+  // Live online/last-seen updates, patch the matching conversation's otherUser in place
   useEffect(() => {
     const socket = socketRef.current
     function onPresence(data: { userId: string; online: boolean; lastSeenAt?: string }) {
@@ -447,7 +447,7 @@ export default function ChatPage() {
     return () => { socket.off('presence_update', onPresence) }
   }, [])
 
-  // Live message deletion — remove from view the instant it's deleted by anyone
+  // Live message deletion, remove from view the instant it's deleted by anyone
   useEffect(() => {
     const socket = socketRef.current
     function onMessageDeleted(data: { messageId: string; conversationId: string }) {
@@ -684,7 +684,7 @@ export default function ChatPage() {
       {showNewChat && <NewChatModal onClose={() => setShowNewChat(false)} onSelect={handleSelectContact} />}
       {forwardMsg && <NewChatModal title="Forward to…" onClose={() => setForwardMsg(null)} onSelect={handleForwardToContact} />}
 
-      {/* Conversation list — on a phone this is a whole screen, not a 380px rail
+      {/* Conversation list, on a phone this is a whole screen, not a 380px rail
           sitting next to the thread. Opening a chat swaps it out entirely,
           the way WhatsApp does it. */}
       <div style={{
@@ -1079,7 +1079,7 @@ export default function ChatPage() {
 
               {isRecording ? (
                 <>
-                  {/* Recording indicator — replaces the pill while recording */}
+                  {/* Recording indicator, replaces the pill while recording */}
                   <div style={{
                     flex: 1, display: 'flex', alignItems: 'center', gap: 10,
                     background: '#fff', borderRadius: 24, padding: '8px 16px',
@@ -1161,7 +1161,7 @@ export default function ChatPage() {
                       }}
                     />
 
-                    {/* Mic — only shown inside the pill when there's no text; click to start recording */}
+                    {/* Mic, only shown inside the pill when there's no text; click to start recording */}
                     {!text.trim() && (
                       <button type="button" onClick={startRecording} title="Record voice message"
                         style={{
@@ -1177,7 +1177,7 @@ export default function ChatPage() {
                     )}
                   </div>
 
-                  {/* Send — appears only once there's text to send */}
+                  {/* Send, appears only once there's text to send */}
                   {text.trim() && (
                     <button type="submit"
                       style={{

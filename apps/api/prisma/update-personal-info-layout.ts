@@ -2,10 +2,10 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 async function main() {
-  // Row 1: Display Name, Email, Phone — all third
-  // Row 2: First, Middle, Last Name — all third
-  // Row 3: DOB, DOJ, Department — all third
-  // Row 4: Employment Type, Articles Type, (computed Remaining) — all third
+  // Row 1: Display Name, Email, Phone, all third
+  // Row 2: First, Middle, Last Name, all third
+  // Row 3: DOB, DOJ, Department, all third
+  // Row 4: Employment Type, Articles Type, (computed Remaining), all third
   const updates = [
     { fieldKey: 'fullName',      sortOrder: 1,  colSpan: 'third' },
     { fieldKey: 'email',         sortOrder: 2,  colSpan: 'third' },

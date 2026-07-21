@@ -12,13 +12,13 @@ import { Roles } from '../../common/decorators/roles.decorator'
 export class FormFieldsController {
   constructor(private formFields: FormFieldsService) {}
 
-  // ── Public — any authenticated user (drives their own Profile form) ────────
+  // ── Public, any authenticated user (drives their own Profile form) ────────
   @Get('public')
   getPublic(@Query('form_type') formType?: string) {
     return this.formFields.getPublicFields(formType)
   }
 
-  // ── Admin management — Partner only ─────────────────────────────────────────
+  // ── Admin management. Partner only ─────────────────────────────────────────
   @Get()
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.PARTNER)

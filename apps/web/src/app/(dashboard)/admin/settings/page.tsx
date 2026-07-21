@@ -151,7 +151,7 @@ export default function SettingsPage() {
               <NavBtn key={tab.key} tabKey={tab.key} label={tab.label} iconPath={tab.icon} />
             ))}
 
-            {/* Attendance Settings — collapsible parent */}
+            {/* Attendance Settings, collapsible parent */}
             <button onClick={toggleAtt}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
@@ -203,7 +203,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Tax Return Settings — collapsible parent */}
+            {/* Tax Return Settings, collapsible parent */}
             <button onClick={toggleTax}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,

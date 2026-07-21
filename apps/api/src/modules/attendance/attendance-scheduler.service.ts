@@ -4,7 +4,7 @@ import { DayType, AttendanceStatus, Role } from '@prisma/client'
 import { PrismaService }    from '../prisma/prisma.service'
 import { AttendanceService } from './attendance.service'
 
-// Attendance is a firm-staff concept only — Clients (and Representatives) must never be marked
+// Attendance is a firm-staff concept only. Clients (and Representatives) must never be marked
 const INTERNAL_STAFF_ROLES: Role[] = [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE]
 
 @Injectable()
@@ -17,7 +17,7 @@ export class AttendanceSchedulerService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // v3 flag — re-runs after fixing weekend + pre-createdAt logic
+    // v3 flag, re-runs after fixing weekend + pre-createdAt logic
     const flag = await this.prisma.attendanceSetting.findUnique({ where: { key: 'absent_backfill_v3_done' } })
     if (flag) return
 
@@ -67,7 +67,7 @@ export class AttendanceSchedulerService implements OnModuleInit {
     // Run the corrected backfill
     this.logger.log('[BackfillAbsent] Running corrected absent backfill…')
     const { created } = await this.attendance.backfillAbsent()
-    this.logger.log(`[BackfillAbsent] Done — ${created} records created`)
+    this.logger.log(`[BackfillAbsent] Done, ${created} records created`)
 
     await this.prisma.attendanceSetting.upsert({
       where:  { key: 'absent_backfill_v3_done' },
@@ -76,7 +76,7 @@ export class AttendanceSchedulerService implements OnModuleInit {
     })
   }
 
-  // Runs every minute — fires the batch mark exactly at the reporting_time
+  // Runs every minute, fires the batch mark exactly at the reporting_time
   @Cron('* * * * *')
   async batchMarkEarlyLogins() {
     try {
@@ -97,7 +97,7 @@ export class AttendanceSchedulerService implements OnModuleInit {
       const workingDay = await this.prisma.workingDay.findUnique({ where: { date: today } })
       const resolvedType = workingDay?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
       if (resolvedType !== DayType.WORKING_DAY) {
-        this.logger.log('[AutoAttendance] Not a working day — skipping batch mark')
+        this.logger.log('[AutoAttendance] Not a working day, skipping batch mark')
         return
       }
 
@@ -161,7 +161,7 @@ export class AttendanceSchedulerService implements OnModuleInit {
     }
   }
 
-  // Runs every minute — marks absent at cutoff_time for users with no record today
+  // Runs every minute, marks absent at cutoff_time for users with no record today
   @Cron('* * * * *')
   async autoMarkAbsent() {
     try {
@@ -182,9 +182,9 @@ export class AttendanceSchedulerService implements OnModuleInit {
       const workingDay = await this.prisma.workingDay.findUnique({ where: { date: today } })
       const resolvedType = workingDay?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
 
-      // Only auto-absent on mandatory working days — weekends are voluntary
+      // Only auto-absent on mandatory working days, weekends are voluntary
       if (resolvedType !== DayType.WORKING_DAY) {
-        this.logger.log('[AutoAbsent] Not a working day — skipping')
+        this.logger.log('[AutoAbsent] Not a working day, skipping')
         return
       }
 

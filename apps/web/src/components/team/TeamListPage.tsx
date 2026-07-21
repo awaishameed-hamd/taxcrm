@@ -500,7 +500,7 @@ export default function TeamListPage() {
                         <td style={{ padding: '6px 14px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
 
-                            {/* Edit — only if current user outranks this user */}
+                            {/* Edit, only if current user outranks this user */}
                             {canManageUser(u) && (
                               <button onClick={() => setEditUserId(u.id)}
                                 title="Edit"

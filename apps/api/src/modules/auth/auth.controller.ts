@@ -52,7 +52,7 @@ export class AuthController {
     return this.authService.me(user.id)
   }
 
-  // Public — no auth required
+  // Public, no auth required
   @Post('accept-invite')
   @HttpCode(HttpStatus.OK)
   acceptInvite(@Body() dto: AcceptInviteDto) {

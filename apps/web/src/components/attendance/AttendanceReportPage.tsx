@@ -301,7 +301,7 @@ function AllTimeDetailModal({ emp, onClose }: { emp: EmpSummary; onClose: () => 
 function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: number; year: number; isPartner?: boolean; onClose: () => void }) {
   const { user: authUser } = useAuth()
   const isAdminOrPartner = authUser?.role === 'ADMIN' || authUser?.role === 'PARTNER'
-  // Managers cannot edit other managers' (or their own) attendance — only ADMIN/PARTNER can
+  // Managers cannot edit other managers' (or their own) attendance, only ADMIN/PARTNER can
   const canEdit   = isAdminOrPartner || (authUser?.role === 'MANAGER' && emp.userRole !== 'MANAGER')
   const canCreate = canEdit
   const [records, setRecords] = useState<any[]>(emp.records)
@@ -346,7 +346,7 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
   function openCreate(dateStr: string) {
     setEditId('NEW')
     setEditDate(dateStr)
-    // Only ever used for gap-filling days with no record (Absent/Not Joined) — default to 10 AM
+    // Only ever used for gap-filling days with no record (Absent/Not Joined), default to 10 AM
     setEditForm({ status: 'PRESENT', loginTime: '10:00', notes: '' })
   }
 
@@ -530,7 +530,7 @@ function DetailModal({ emp, month, year, onClose }: { emp: EmpSummary; month: nu
                       <button key={key} onClick={() => setEditForm(f => ({
                         ...f,
                         status: key,
-                        // Switching to Present/Late from a status with no login time (e.g. Absent, Not Joined) — default to 10 AM
+                        // Switching to Present/Late from a status with no login time (e.g. Absent, Not Joined), default to 10 AM
                         loginTime: (key === 'PRESENT' || key === 'LATE') && !f.loginTime ? '10:00' : f.loginTime,
                       }))} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: '"Aptos", sans-serif', cursor: 'pointer', transition: 'all 0.15s', background: isActive ? activeBg : '#F8FAFC', color: isActive ? activeText : P.textMuted, border: isActive ? `1.5px solid ${activeBg}` : `1.5px solid ${P.border}`, boxShadow: isActive ? `0 2px 8px ${activeBg}40` : 'none' }}>
                         {label}
@@ -807,7 +807,7 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
           {/* Separator */}
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
-          {/* Month + Year — only in monthly mode */}
+          {/* Month + Year, only in monthly mode */}
           {viewMode === 'monthly' && (<>
             <select value={month} onChange={e => setMonth(Number(e.target.value))}
               style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: '"Aptos", sans-serif', background: 'rgba(255,255,255,0.18)', color: '#fff', outline: 'none', appearance: 'none', paddingRight: 24, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}>
@@ -823,7 +823,7 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
             <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
           </>)}
 
-          {/* Opening Balance button — All Time + admin/partner only */}
+          {/* Opening Balance button. All Time + admin/partner only */}
           {viewMode === 'all' && canEditOpening && (
             <button onClick={() => setShowOpening(true)} style={{
               flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,

@@ -6,7 +6,7 @@ import { Role } from '@ca-firm/shared'
 import { InvoicesService } from './invoices.service'
 import { CreateInvoiceDto, UpdateInvoiceDto, UpdateOpeningBalanceDto, ReceivePaymentDto, ApplyPaymentDto, UpdatePaymentDto } from './dto/invoice.dto'
 
-// Billing is Manager-and-above only — Team Leads and Trainees never see it.
+// Billing is Manager-and-above only. Team Leads and Trainees never see it.
 const BILLING_ROLES = [Role.ADMIN, Role.PARTNER, Role.MANAGER]
 
 @Controller('invoices')

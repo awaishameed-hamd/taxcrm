@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'
 
-// Base host without the /api prefix — used for static asset URLs (uploads, etc.)
+// Base host without the /api prefix, used for static asset URLs (uploads, etc.)
 export const FILE_BASE_URL = API_URL.replace(/\/api\/?$/, '')
 
 export const api = axios.create({
@@ -28,7 +28,7 @@ function clearSessionAndRedirect() {
 }
 
 // The access token is short-lived (15 min) by design, but a user who's actively
-// working shouldn't get bounced to the login page just because it expired mid-session —
+// working shouldn't get bounced to the login page just because it expired mid-session ,
 // only real inactivity (handled separately by useIdleLogout) should log them out.
 // So on a 401, silently swap in a fresh access token via the refresh token and
 // retry the original request once. Concurrent 401s share a single in-flight refresh.

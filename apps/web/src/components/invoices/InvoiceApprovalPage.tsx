@@ -275,8 +275,8 @@ export default function InvoiceApprovalPage() {
               return (
                 <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
                   <td style={{ ...td, color: TEAL }}>{r.invoiceNumber}</td>
-                  <td style={td}>{r.client?.businessName ?? r.client?.user?.fullName ?? '—'}</td>
-                  <td style={{ ...td, fontWeight: 400 }}>{r.description ?? '—'}</td>
+                  <td style={td}>{r.client?.businessName ?? r.client?.user?.fullName ?? ''}</td>
+                  <td style={{ ...td, fontWeight: 400 }}>{r.description ?? ''}</td>
                   <td style={td}>
                     <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: km.color, background: km.bg }}>{km.label}</span>
                   </td>
@@ -294,7 +294,7 @@ export default function InvoiceApprovalPage() {
                         style={{ padding: '0 10px', height: 26, borderRadius: 6, border: 'none', background: TEAL, color: '#fff', cursor: priced ? 'pointer' : 'not-allowed', fontSize: 11, fontWeight: 700, fontFamily: F, opacity: (disabled || !priced) ? 0.45 : 1 }}>
                         Send
                       </button>
-                      <button onClick={() => act(r.id, 'mark-retainer')} disabled={disabled} title="Covered by the monthly retainer — don't bill separately"
+                      <button onClick={() => act(r.id, 'mark-retainer')} disabled={disabled} title="Covered by the monthly retainer, don't bill separately"
                         style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B2D8E', opacity: disabled ? 0.5 : 1 }}>
                         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                       </button>

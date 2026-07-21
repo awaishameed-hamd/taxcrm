@@ -20,7 +20,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Token is in sessionStorage (client-side only), so we can't read it in middleware.
-  // We rely on client-side AuthContext to redirect — middleware just ensures the / root redirects.
+  // We rely on client-side AuthContext to redirect, middleware just ensures the / root redirects.
   if (pathname === '/') {
     return NextResponse.redirect(new URL('/login', request.url))
   }

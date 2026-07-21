@@ -204,28 +204,28 @@ export class DashboardService {
       _count: { id: true },
     })
 
-    // ── Active (incomplete) returns by type — for the Active Returns card ─────
+    // ── Active (incomplete) returns by type, for the Active Returns card ─────
     const activeByTypeRaw = await this.prisma.salesTaxTask.groupBy({
       by: ['taskType'],
       where: { status: { not: 'COMPLETED' as any }, ...taxTeamFilter, ...createdFilter },
       _count: { id: true },
     })
 
-    // ── Completed returns by type (respects period) — for the Completed card ──
+    // ── Completed returns by type (respects period), for the Completed card ──
     const completedByTypeRaw = await this.prisma.salesTaxTask.groupBy({
       by: ['taskType'],
       where: { status: 'COMPLETED' as any, ...taxTeamFilter, ...(dateFilter ? { updatedAt: dateFilter } : {}) },
       _count: { id: true },
     })
 
-    // ── Active FBR cases by tax type — for the FBR card breakdown ─────────────
+    // ── Active FBR cases by tax type, for the FBR card breakdown ─────────────
     const fbrByTypeRaw = await this.prisma.fbrCase.groupBy({
       by: ['taxType'],
       where: { currentStage: { not: 'CLOSED' as any }, ...fbrTeamFilter, ...createdFilter },
       _count: { id: true },
     })
 
-    // ── Deadline urgency — live snapshot of active tasks by due-date band ──────
+    // ── Deadline urgency, live snapshot of active tasks by due-date band ──────
     const now      = new Date()
     const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
     const weekEnd  = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7); weekEnd.setHours(23, 59, 59, 999)
@@ -266,14 +266,14 @@ export class DashboardService {
       fbrTypeClosed,
       fbrStageActiveRaw, fbrStageClosedRaw,
     ] = await Promise.all([
-      // Active general tasks (not DONE) — for the new card
+      // Active general tasks (not DONE), for the new card
       this.prisma.task.count({ where: { taxType: 'general', status: { not: 'DONE' as any }, ...genTeamFilter, ...createdFilter } }),
-      // Box 2 — Sales Tax returns by authority
+      // Box 2. Sales Tax returns by authority
       this.prisma.salesTaxTask.groupBy({ by: ['authority'], where: { taskType: 'SALES_TAX', status: { not: 'COMPLETED' as any }, ...taxTeamFilter, ...createdFilter }, _count: { id: true } }),
       this.prisma.salesTaxTask.groupBy({ by: ['authority'], where: { taskType: 'SALES_TAX', status: 'COMPLETED' as any, ...taxTeamFilter, ...completedFilter }, _count: { id: true } }),
-      // Box 3 — Closed FBR cases by tax type (active side = fbrByTypeRaw)
+      // Box 3. Closed FBR cases by tax type (active side = fbrByTypeRaw)
       this.prisma.fbrCase.groupBy({ by: ['taxType'], where: { currentStage: 'CLOSED' as any, ...fbrTeamFilter }, _count: { id: true } }),
-      // Box 4 — FBR cases by stage (active vs closed)
+      // Box 4. FBR cases by stage (active vs closed)
       this.prisma.fbrCase.groupBy({ by: ['currentStage'], where: { currentStage: { not: 'CLOSED' as any }, ...fbrTeamFilter, ...createdFilter }, _count: { id: true } }),
       this.prisma.fbrCase.groupBy({ by: ['currentStage'], where: { currentStage: 'CLOSED' as any, ...fbrTeamFilter }, _count: { id: true } }),
     ])

@@ -230,7 +230,7 @@ export default function LoginPage() {
           padding: '32px 16px', position: 'relative', overflow: 'hidden',
         }}
       >
-        {/* Decorative blobs — same as login */}
+        {/* Decorative blobs, same as login */}
         <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(40px)', opacity: .55, zIndex: 0, width: 340, height: 340, background: 'radial-gradient(circle, #ffffff 0%, rgba(255,255,255,0) 70%)', top: -80, left: -80, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(40px)', opacity: .55, zIndex: 0, width: 420, height: 420, background: 'radial-gradient(circle, #c2ccd2 0%, rgba(194,204,210,0) 70%)', bottom: -120, right: -100, pointerEvents: 'none' }} />
 
@@ -346,7 +346,7 @@ export default function LoginPage() {
         boxShadow:      '0 30px 60px -20px rgba(74,90,99,.35), 0 18px 36px -18px rgba(74,90,99,.25)',
       }}>
 
-        {/* Header — logo + heading, no colored band */}
+        {/* Header, logo + heading, no colored band */}
         <header style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
             <Image src="/logo.png" alt="Asif Associates" width={1536} height={1024} priority

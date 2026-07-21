@@ -14,7 +14,7 @@ const PROFILE_CORE_KEYS = new Set([
   'bank', 'accountTitle', 'bankAccountNo', 'ibanNo',
 ])
 
-// Always read-only for users — manager/admin-managed fields
+// Always read-only for users, manager/admin-managed fields
 const PROFILE_READONLY_KEYS = new Set([
   'dateOfJoining', 'department', 'articlesType', 'employmentType',
 ])
@@ -392,7 +392,7 @@ export default function ProfilePage() {
               disabled={disabled || PROFILE_READONLY_KEYS.has(field.fieldKey)}
               error={err(field.fieldKey)} />
           ))}
-          {/* Computed: Remaining Articles Time — only for CA Trainees */}
+          {/* Computed: Remaining Articles Time, only for CA Trainees */}
           {sectionName === 'Personal Information' && isCaTrainee && (
             <div style={{ gridColumn: 'span 2' }}>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">

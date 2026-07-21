@@ -1296,7 +1296,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
               {/* Separator */}
               <div style={{ width:1, height:22, background:'rgba(255,255,255,0.3)', flexShrink:0, margin:'0 2px' }} />
 
-              {/* Authority dropdown — Sales Tax only */}
+              {/* Authority dropdown. Sales Tax only */}
               {isSalesTaxTab && (
                 <select value={filterAuthority} onChange={e => setFilterAuthority(e.target.value)}
                   style={{ flexShrink:0, padding:'4px 10px', borderRadius:30, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'"Aptos",sans-serif', background: filterAuthority !== 'all' ? NAVY : 'rgba(255,255,255,0.18)', color:'#fff', outline:'none', appearance:'none', paddingRight:24, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 8px center' }}>
@@ -1316,7 +1316,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                 ))}
               </select>
 
-              {/* Status filter — incompleteOnly only */}
+              {/* Status filter, incompleteOnly only */}
               {incompleteOnly && (
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                   style={{ flexShrink:0, padding:'4px 10px', borderRadius:30, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'"Aptos",sans-serif', background: filterStatus !== 'all' ? NAVY : 'rgba(255,255,255,0.18)', color:'#fff', outline:'none', appearance:'none', paddingRight:24, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 8px center' }}>
@@ -1342,7 +1342,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
               {/* Separator */}
               <div style={{ width:1, height:22, background:'rgba(255,255,255,0.3)', flexShrink:0, margin:'0 2px' }} />
 
-              {/* Search — fixed small width */}
+              {/* Search, fixed small width */}
               <div style={{ position:'relative', width:220, flexShrink:0 }}>
                 <svg style={{ position:'absolute', left:9, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -1948,7 +1948,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                   <div style={{ padding:'10px 16px' }}>
                     <div style={{ fontSize:12, fontWeight:700, color:NAVY, fontFamily:F, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.06em' }}>Steps</div>
 
-                    {/* Steps — Sales Tax style */}
+                    {/* Steps. Sales Tax style */}
                     <GenStepList steps={steps} role={role} genStepLoading={genStepLoading} genStepFormVal={genStepFormVal} setGenStepFormVal={setGenStepFormVal} onMarkDone={handleGenMarkStepDone} onUndo={handleGenUndoStep} onDelete={handleGenDeleteStep} onAddStep={() => { setGenAddStepModal(true); setGenStepForm({ title:'', description:'', approvedBy:(role==='manager'||role==='team_lead')?'MANAGER':'TRAINEE' }) }} TEAL={TEAL} NAVY={NAVY} F={F} />
                   </div>
                 </div>
@@ -1959,7 +1959,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
         </div>
       </div>
 
-      {/* Advance modal — Sales Tax FILED: full styled modal */}
+      {/* Advance modal. Sales Tax FILED: full styled modal */}
       {advanceModal && selectedPipe && selectedPipe.status === 'FILED' && selectedPipe.taskType === 'SALES_TAX' && (() => {
         const F = "'Aptos', sans-serif"
         const fmtAcct = (raw: string) => {
@@ -2028,7 +2028,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
         )
       })()}
 
-      {/* Advance modal — Income Tax FILED: full styled modal */}
+      {/* Advance modal. Income Tax FILED: full styled modal */}
       {advanceModal && selectedPipe && selectedPipe.status === 'FILED' && selectedPipe.taskType === 'INCOME_TAX' && (() => {
         const F = "'Aptos', sans-serif"
         const fmtAcct = (raw: string) => { const n = parseFloat(raw.replace(/,/g,'')); return isNaN(n) ? raw : n.toLocaleString('en-US', { minimumFractionDigits:0, maximumFractionDigits:2 }) }
@@ -2086,7 +2086,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
         )
       })()}
 
-      {/* Advance modal — all other steps */}
+      {/* Advance modal, all other steps */}
       {advanceModal && selectedPipe && !(selectedPipe.status === 'FILED' && (selectedPipe.taskType === 'SALES_TAX' || selectedPipe.taskType === 'INCOME_TAX')) && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
           <div style={{ background:'#fff', borderRadius:14, padding:24, width:'100%', maxWidth:560, boxShadow:'0 8px 40px rgba(0,0,0,0.18)', maxHeight:'90vh', overflowY:'auto' }}>
@@ -2109,7 +2109,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                 <label style={{ display:'block', fontSize:11, fontWeight:700, color:P.textLabel, margin:'10px 0 4px', textTransform:'uppercase', letterSpacing:'0.05em', fontFamily:"'Aptos',sans-serif" }}>Fee Invoice Amount</label>
                 <input value={advanceForm.feeInvoiceAmount ?? ''} onChange={e => setAdvanceForm(p => ({...p,feeInvoiceAmount:e.target.value}))} placeholder="0.00" type="number" style={{ width:'100%', boxSizing:'border-box', padding:'9px 12px', borderRadius:8, border:`1px solid ${P.border}`, fontSize:13, fontFamily:"'Aptos',sans-serif", outline:'none' }} />
 
-                {/* Sales Tax Summary fields — only for SALES_TAX tasks */}
+                {/* Sales Tax Summary fields, only for SALES_TAX tasks */}
                 {selectedPipe.taskType === 'SALES_TAX' && (() => {
                   const F = "'Aptos', sans-serif"
                   const numInp = (key: string) => (
@@ -2213,7 +2213,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
 
             {/* Period */}
             <div style={{ display:'flex', gap:10, marginBottom:12 }}>
-              {/* Month — Sales Tax only */}
+              {/* Month. Sales Tax only */}
               {activeTax === 'sales_tax' && (
                 <div style={{ flex:1 }}>
                   <label style={{ display:'block', fontSize:11, fontWeight:700, color:P.textLabel, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em', fontFamily:"'Aptos',sans-serif" }}>Month *</label>
@@ -2244,7 +2244,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
               </div>
             </div>
 
-            {/* Authority + Return Type — Sales Tax only */}
+            {/* Authority + Return Type. Sales Tax only */}
             {activeTax === 'sales_tax' && (
               <div style={{ display:'flex', gap:10, marginBottom:12 }}>
                 <div style={{ flex:1 }}>
@@ -2282,7 +2282,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
         </div>
       )}
 
-      {/* General Task — Add Step modal */}
+      {/* General Task. Add Step modal */}
       {genAddStepModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
           <div style={{ background:'#fff', borderRadius:14, padding:24, width:'100%', maxWidth:420, boxShadow:'0 8px 40px rgba(0,0,0,0.18)' }}>
@@ -2334,7 +2334,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
           <div style={{ background:'#fff', borderRadius:14, padding:24, width:'100%', maxWidth:440, boxShadow:'0 8px 40px rgba(0,0,0,0.18)' }}>
             <h3 style={{ margin:'0 0 16px', fontSize:16, fontWeight:700, color:NAVY }}>Add Custom Step</h3>
 
-            {/* Step selector — shown when opened from header */}
+            {/* Step selector, shown when opened from header */}
             <div style={{ marginBottom:12 }}>
               <label style={{ display:'block', fontSize:11, fontWeight:600, color:'#64748B', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.06em' }}>Insert After Step *</label>
               <StyledSelect

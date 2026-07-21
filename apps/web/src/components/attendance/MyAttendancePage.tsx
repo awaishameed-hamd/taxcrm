@@ -69,7 +69,7 @@ function CalendarView({ calendar, year, month, userName, userRole, summary }: {
 
   return (
     <div>
-      {/* Header bar — matches Attendance Report's calendar header */}
+      {/* Header bar, matches Attendance Report's calendar header */}
       <div style={{ background: '#64748B', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h2 style={{ fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
@@ -153,7 +153,7 @@ function CalendarView({ calendar, year, month, userName, userRole, summary }: {
                 )}
               </div>
 
-              {/* Row 2: login time — exact centre */}
+              {/* Row 2: login time, exact centre */}
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {row?.login_time && (
                   <span style={{ fontSize: 16, fontWeight: 900, color: cs.dayColor, fontFamily: '"Aptos", sans-serif', letterSpacing: '0.05em' }}>
@@ -162,7 +162,7 @@ function CalendarView({ calendar, year, month, userName, userRole, summary }: {
                 )}
               </div>
 
-              {/* Row 3: late minutes — bottom centre */}
+              {/* Row 3: late minutes, bottom centre */}
               <div style={{ display: 'flex', justifyContent: 'center', minHeight: 18 }}>
                 {row?.is_late && (
                   <span style={{

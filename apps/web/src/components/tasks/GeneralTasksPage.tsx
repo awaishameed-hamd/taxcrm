@@ -589,7 +589,7 @@ export function TaskFormModal({
   const fbrYearOk   = !isFbrNotices || !form.fbrTaxYear || (form.fbrTaxYear.length === 4 && Number(form.fbrTaxYear) >= 2000 && Number(form.fbrTaxYear) <= 2099)
   const canSubmit   = !saving && (isPipelineTax || isFbrNotices || !!form.title.trim()) && !!form.clientId && (!canAssignOthers || !!form.assignedToId) && (!!taxType || !!form.taxType) && (isFbrNotices || !!form.dueDate) && fbrOtherOk && fbrYearOk
 
-  // Sales Tax / WHT: the assignee is locked to whichever staff member the client is assigned to —
+  // Sales Tax / WHT: the assignee is locked to whichever staff member the client is assigned to ,
   // never let it be picked manually, so a client's return can't land with the wrong trainee.
   const isClientLockedAssignee = isSalesTax || isWHT
   const selectedClient = clients.find(c => c.id === form.clientId)
@@ -601,7 +601,7 @@ export function TaskFormModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClientLockedAssignee, lockedAssigneeId])
 
-  // Notice sections — loaded when FBR tab is active, re-loaded on taxType change
+  // Notice sections, loaded when FBR tab is active, re-loaded on taxType change
   const [noticeSections, setNoticeSections] = useState<{ value: string; label: string }[]>([{ value: '', label: 'None' }])
   const [loadingSections, setLoadingSections] = useState(false)
   useEffect(() => {
@@ -648,7 +648,7 @@ export function TaskFormModal({
             </div>
           )}
 
-          {/* Income Tax: which kind of task — regular return, or a quarterly advance tax payment */}
+          {/* Income Tax: which kind of task, regular return, or a quarterly advance tax payment */}
           {isIncomeTax && (
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Income Tax Type <span style={{ color: '#D62828' }}>*</span></label>
@@ -668,7 +668,7 @@ export function TaskFormModal({
           {/* Pipeline tax extra fields (Sales Tax / Income Tax / WHT) */}
           {!taxType && isPipelineTax && (
             <>
-              {/* Authority — Sales Tax only */}
+              {/* Authority. Sales Tax only */}
               {isSalesTax && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={labelStyle}>Tax Authority <span style={{ color: '#D62828' }}>*</span></label>
@@ -681,7 +681,7 @@ export function TaskFormModal({
                   />
                 </div>
               )}
-              {/* Return Type — all pipeline types */}
+              {/* Return Type, all pipeline types */}
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Return Type <span style={{ color: '#D62828' }}>*</span></label>
                 <SearchableSelect
@@ -694,7 +694,7 @@ export function TaskFormModal({
               </div>
               {/* Period fields */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-                {/* Month — Sales Tax only */}
+                {/* Month. Sales Tax only */}
                 {isSalesTax && (
                   <div>
                     <label style={labelStyle}>Period Month <span style={{ color: '#D62828' }}>*</span></label>
@@ -705,7 +705,7 @@ export function TaskFormModal({
                     />
                   </div>
                 )}
-                {/* Quarter — WHT only */}
+                {/* Quarter. WHT only */}
                 {isWHT && (
                   <div>
                     <label style={labelStyle}>Quarter <span style={{ color: '#D62828' }}>*</span></label>
@@ -716,7 +716,7 @@ export function TaskFormModal({
                     />
                   </div>
                 )}
-                {/* Quarter — Income Tax's Quarterly Advance Tax only. Stores the first month of the
+                {/* Quarter. Income Tax's Quarterly Advance Tax only. Stores the first month of the
                     quarter (1/4/7/10) so a manual pick lines up with the auto-generated tasks. */}
                 {isAdvanceTax && (
                   <div>
@@ -831,7 +831,7 @@ export function TaskFormModal({
             </>
           )}
 
-          {/* Authority — General Task only */}
+          {/* Authority. General Task only */}
           {!isPipelineTax && !isFbrNotices && (!taxType || taxType === 'general') && (
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Authority</label>
@@ -852,7 +852,7 @@ export function TaskFormModal({
             </div>
           )}
 
-          {/* Title — hidden for FBR notices and pipeline tax types (Sales Tax / Income Tax / WHT) */}
+          {/* Title, hidden for FBR notices and pipeline tax types (Sales Tax / Income Tax / WHT) */}
           {!isFbrNotices && !isPipelineTax && (
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Task Title <span style={{ color: '#D62828' }}>*</span></label>
@@ -862,7 +862,7 @@ export function TaskFormModal({
             </div>
           )}
 
-          {/* Client — required */}
+          {/* Client, required */}
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Client <span style={{ color: '#D62828' }}>*</span></label>
             <SearchableSelect
@@ -895,7 +895,7 @@ export function TaskFormModal({
             </div>
           )}
 
-          {/* Assign to — locked to the client's assigned staff for Sales Tax / WHT, manual otherwise (incl. FBR notices) */}
+          {/* Assign to, locked to the client's assigned staff for Sales Tax / WHT, manual otherwise (incl. FBR notices) */}
           {canAssignOthers && isClientLockedAssignee && (
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Assign To</label>
@@ -905,7 +905,7 @@ export function TaskFormModal({
                 cursor: 'not-allowed',
               }}>
                 {form.clientId
-                  ? (lockedAssigneeName || 'This client has no assigned trainee — assign one on the Clients page first')
+                  ? (lockedAssigneeName || 'This client has no assigned trainee, assign one on the Clients page first')
                   : 'Select a client to see the assignee'}
               </div>
             </div>

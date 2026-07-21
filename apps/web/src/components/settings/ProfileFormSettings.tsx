@@ -815,7 +815,7 @@ function FieldRow({ field, sectionIndex, sectionLength, onChange, onInstantSave,
   )
 }
 
-// ── Main export — Profile Form Settings (admin) ───────────────────────────────
+// ── Main export. Profile Form Settings (admin) ───────────────────────────────
 export default function ProfileFormSettings() {
   const [fields, setFields]             = useState<Record<string, any>[]>([])
   const [sectionOrder, setSectionOrder] = useState<string[]>([])

@@ -38,12 +38,12 @@ export class AuthService {
     await this.saveRefreshToken(user.id, tokens.refreshToken)
 
     // Stamp a baseline "last seen" at login. This is the fallback the chat UI
-    // shows until a real socket disconnect updates it to the true offline time —
+    // shows until a real socket disconnect updates it to the true offline time ,
     // without it, a user who's never had a clean socket disconnect (e.g. server
     // restarted mid-session) would show no "last seen" at all.
     this.prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } }).catch(() => {})
 
-    // Auto-mark attendance (non-blocking — failure should not break login)
+    // Auto-mark attendance (non-blocking, failure should not break login)
     let attendanceInfo = null
     try {
       attendanceInfo = await this.attendance.autoMarkOnLogin(user.id, user.role)
@@ -80,7 +80,7 @@ export class AuthService {
       throw new UnauthorizedException('Account is inactive')
     }
 
-    // Rotate — delete old, issue new
+    // Rotate, delete old, issue new
     await this.prisma.refreshToken.delete({ where: { id: stored.id } })
     const tokens = await this.generateTokens(stored.user.id, stored.user.email, stored.user.role)
     await this.saveRefreshToken(stored.user.id, tokens.refreshToken)

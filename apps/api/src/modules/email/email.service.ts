@@ -6,14 +6,14 @@ import { Resend } from 'resend'
 export class EmailService {
   private resend: Resend | null
   private from: string
-  /** Public site the email pulls its logo from — must be reachable by recipients. */
+  /** Public site the email pulls its logo from, must be reachable by recipients. */
   private appUrl: string
   private logger = new Logger(EmailService.name)
 
   constructor(private config: ConfigService) {
     const apiKey = this.config.get<string>('resend.apiKey')
     this.resend = apiKey ? new Resend(apiKey) : null
-    if (!this.resend) this.logger.warn('RESEND_API_KEY not set — email sending is disabled')
+    if (!this.resend) this.logger.warn('RESEND_API_KEY not set, email sending is disabled')
     const name  = this.config.get('resend.fromName')  ?? 'Asif Associates'
     const email = this.config.get('resend.fromEmail') ?? 'noreply@argroup.cloud'
     this.from   = `${name} <${email}>`
@@ -22,7 +22,7 @@ export class EmailService {
 
   async sendPortalInvite(to: string, fullName: string, inviteUrl: string) {
     if (!this.resend) {
-      this.logger.warn(`Skipped portal invite to ${to} — email is not configured`)
+      this.logger.warn(`Skipped portal invite to ${to}, email is not configured`)
       return
     }
     try {
@@ -55,7 +55,7 @@ export class EmailService {
    * <style> blocks, flexbox and most modern CSS, so anything fancier falls
    * apart in the clients most of these recipients actually use.
    *
-   * Aptos is named first but is not a web font here — mail clients will not
+   * Aptos is named first but is not a web font here, mail clients will not
    * load one. Recipients with Office see Aptos; everyone else falls through
    * the stack to Segoe UI or Helvetica, which look close enough.
    */

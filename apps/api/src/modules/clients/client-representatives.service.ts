@@ -157,7 +157,7 @@ export class ClientRepresentativesService {
   }
 
   /**
-   * Permanently deletes a representative — for records created by mistake.
+   * Permanently deletes a representative, for records created by mistake.
    *
    * Refuses while any client still points at them. It used to quietly unlink
    * those clients first, which meant deleting a representative silently stripped

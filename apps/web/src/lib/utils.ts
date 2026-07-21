@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
-// NOTE: not exported by @ca-firm/shared — the client portal's tax-return tracker
+// NOTE: not exported by @ca-firm/shared, the client portal's tax-return tracker
 // (client dashboard, StatusBadge) predates the SalesTaxTask/FbrCase model and was
 // never rewired to it. Kept locally so the build compiles; the underlying feature
 // still needs to be reconnected to real data.

@@ -15,7 +15,7 @@ import {
   CreateNoticeSectionDto,
 } from './dto/fbr.dto'
 
-// Review/approval steps in the FBR workflow are Manager+ or Partner+ tier decisions —
+// Review/approval steps in the FBR workflow are Manager+ or Partner+ tier decisions ,
 // a Trainee must never be able to complete these themselves, no matter what the client sends.
 const MANAGER_TIER: Role[] = [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD]
 const PARTNER_TIER: Role[] = [Role.ADMIN, Role.PARTNER]
@@ -172,7 +172,7 @@ export class FbrService {
     return withAwaiting
   }
 
-  // â”€â”€ Get single case (unchecked — for internal use after an authorized action) â”€â”€
+  // â”€â”€ Get single case (unchecked, for internal use after an authorized action) â”€â”€
   private async getCaseRaw(id: string) {
     const c = await this.prisma.fbrCase.findUnique({
       where:   { id },
@@ -341,7 +341,7 @@ export class FbrService {
 
   async updateNoticeRound(id: string, dto: UpdateNoticeRoundDto, actorId: string, actorRole: Role) {
     // Manager+ tier: doc-list approval, internal review, and the FBR outcome decision.
-    // Logging the notice as received is a Trainee-tier action — the Trainee is the one who sees the notice.
+    // Logging the notice as received is a Trainee-tier action, the Trainee is the one who sees the notice.
     if (dto.docListApprovedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'approve the document list')
     if (dto.internalReviewedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'mark the internal review done')
     if (dto.outcome !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'record the FBR outcome')
@@ -363,7 +363,7 @@ export class FbrService {
     for (const f of strFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f]
     }
-    // Who actually did each step is always the caller — never trust a client-supplied id
+    // Who actually did each step is always the caller, never trust a client-supplied id
     if (dto.noticeDate          !== undefined) data.noticeLoggedById   = dto.noticeDate          ? actorId : null
     if (dto.docListCreatedAt    !== undefined) data.docListCreatedById = dto.docListCreatedAt     ? actorId : null
     if (dto.docListApprovedAt   !== undefined) data.docListApprovedById = dto.docListApprovedAt   ? actorId : null
@@ -452,7 +452,7 @@ export class FbrService {
     for (const f of strFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f]
     }
-    // Who actually did each step is always the caller — never trust a client-supplied id
+    // Who actually did each step is always the caller, never trust a client-supplied id
     if (dto.groundsPreparedAt !== undefined) data.groundsPreparedById = dto.groundsPreparedAt ? actorId : null
     if (dto.internalReviewedAt !== undefined) data.internalReviewById  = dto.internalReviewedAt ? actorId : null
     if (dto.partnerApprovedAt  !== undefined) data.partnerApprovedById = dto.partnerApprovedAt   ? actorId : null
@@ -528,7 +528,7 @@ export class FbrService {
     for (const f of strFields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f]
     }
-    // Who actually did each step is always the caller — never trust a client-supplied id
+    // Who actually did each step is always the caller, never trust a client-supplied id
     if (dto.reviewedAt !== undefined) data.reviewedById = dto.reviewedAt ? actorId : null
     if (dto.submittedAt !== undefined) data.submittedById = dto.submittedAt ? actorId : null
     if (dto.outcome !== undefined) data.outcomeById = (dto.outcome && dto.outcome !== 'PENDING') ? actorId : null

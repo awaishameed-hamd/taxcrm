@@ -52,7 +52,7 @@ export class PipelineStepsService implements OnModuleInit {
     })
     const nextOrder = (allSteps[allSteps.length - 1]?.displayOrder ?? -1) + 1
 
-    // Find the last fixed (non-custom) step — the new step will appear after it
+    // Find the last fixed (non-custom) step, the new step will appear after it
     const lastFixed = [...allSteps].reverse().find(s => FIXED_STEP_KEYS.includes(s.stepKey))
     const insertAfter = lastFixed?.stepKey ?? 'FILED'
 
@@ -91,7 +91,7 @@ export class PipelineStepsService implements OnModuleInit {
     return config
   }
 
-  // Called by SalesTaxTasksService when creating a new task —
+  // Called by SalesTaxTasksService when creating a new task ,
   // attaches any existing global custom steps to the task
   async seedCustomStepsForTask(taskId: string, taskType: string) {
     const customConfigs = await this.prisma.pipelineStepConfig.findMany({
@@ -131,7 +131,7 @@ export class PipelineStepsService implements OnModuleInit {
   }
 
   async reorder(ids: string[]) {
-    // ids ordered from top to bottom — assign displayOrder by index
+    // ids ordered from top to bottom, assign displayOrder by index
     await Promise.all(
       ids.map((id, i) => this.prisma.pipelineStepConfig.update({ where: { id }, data: { displayOrder: i } }))
     )

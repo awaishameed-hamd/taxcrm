@@ -13,7 +13,7 @@ export class FormFieldsService {
     return formType && ALLOWED_FORM_TYPES.includes(formType) ? formType : 'user'
   }
 
-  // ── Admin management view — all fields for a form type ──────────────────────
+  // ── Admin management view, all fields for a form type ──────────────────────
   async getFields(formType?: string) {
     return this.prisma.formFieldSetting.findMany({
       where:   { formType: this.resolveFormType(formType) },
@@ -21,7 +21,7 @@ export class FormFieldsService {
     })
   }
 
-  // ── Public view — only visible fields, minimal payload ──────────────────────
+  // ── Public view, only visible fields, minimal payload ──────────────────────
   async getPublicFields(formType?: string) {
     return this.prisma.formFieldSetting.findMany({
       where:   { formType: this.resolveFormType(formType), isVisible: true },

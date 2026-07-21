@@ -21,7 +21,7 @@ export class UpdateClientProfileDto {
   @IsOptional() @IsString()     yearEnd?:      string
   @IsOptional()                 extraFields?:  Record<string, any>
 
-  // Monthly retainership contract — only ever sent by Manager+ (the UI hides it below that)
+  // Monthly retainership contract, only ever sent by Manager+ (the UI hides it below that)
   @IsOptional() @IsBoolean()    hasMonthlyRetainer?: boolean
   @IsOptional() @IsNumber() @Min(0) retainerAmount?: number
   @IsOptional() @IsBoolean()    retainerSalesTax?: boolean

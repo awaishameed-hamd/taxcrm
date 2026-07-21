@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { getSocket } from '@/lib/socket'
 
 // Silently re-runs `refetch` on a timer, whenever a socket notification
-// arrives, and whenever the tab regains focus — so pages stay live without
+// arrives, and whenever the tab regains focus, so pages stay live without
 // the user ever needing to manually reload.
 export function useAutoRefresh(refetch: () => void, intervalMs = 20000) {
   const refetchRef = useRef(refetch)

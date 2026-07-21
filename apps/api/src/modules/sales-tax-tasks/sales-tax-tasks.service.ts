@@ -65,7 +65,7 @@ export class SalesTaxTasksService {
     private invoices:       InvoicesService,
   ) {}
 
-  // ── List tasks — role-filtered ──────────────────────────────────────────────
+  // ── List tasks, role-filtered ──────────────────────────────────────────────
 
   async listForTrainee(traineeId: string, status?: string, taskType?: string) {
     return this.prisma.salesTaxTask.findMany({
@@ -124,7 +124,7 @@ export class SalesTaxTasksService {
     if (task.traineeId !== userId)
       throw new ForbiddenException('This task is not assigned to you')
 
-    // CLIENT_REVIEW can also be advanced by manager — handled separately
+    // CLIENT_REVIEW can also be advanced by manager, handled separately
     if (!TRAINEE_STEPS.includes(task.status))
       throw new ForbiddenException('This step requires manager action')
 
@@ -167,7 +167,7 @@ export class SalesTaxTasksService {
     if (task.status !== SalesTaxTaskStatus.CLIENT_REVIEW)
       throw new BadRequestException('Task is not in Client Review stage')
     if (task.traineeId !== userId) {
-      // allow manager too — role check done in controller
+      // allow manager too, role check done in controller
     }
     return this.transition(task, SalesTaxTaskStatus.ANNEXURE_UPLOAD, userId, comment)
   }
@@ -311,7 +311,7 @@ export class SalesTaxTasksService {
   async createSingle(dto: { clientId: string; traineeId: string; periodMonth: number; periodYear: number; dueDate?: string; priority?: string; assignerNote?: string; authority?: string; returnType?: string; taskType?: string }, creatorId: string, creatorRole?: string) {
     const taskType   = dto.taskType   ?? 'SALES_TAX'
     if (taskType === 'SALES_TAX' || taskType === 'WHT') {
-      // Sales Tax / WHT are locked to whichever staff member the client is assigned to —
+      // Sales Tax / WHT are locked to whichever staff member the client is assigned to ,
       // never trust the client-supplied traineeId for these two types.
       const client = await this.prisma.clientProfile.findUnique({ where: { id: dto.clientId }, select: { traineeId: true } })
       if (!client) throw new NotFoundException('Client not found')
@@ -400,7 +400,7 @@ export class SalesTaxTasksService {
       taxWhere = { traineeId: userId, status: { not: SalesTaxTaskStatus.COMPLETED } }
       noticesCount = this.prisma.fbrCase.count({ where: { assignedToId: userId, currentStage: { not: 'CLOSED' } } })
     } else if (view === 'approval') {
-      // Task Approval tab: tasks pending review — the whole team for Team Lead, firm-wide otherwise
+      // Task Approval tab: tasks pending review, the whole team for Team Lead, firm-wide otherwise
       const teamFilter = role === 'TEAM_LEAD' ? { trainee: { teamLeadId: userId } } : {}
       taxWhere = { status: { in: approvalStatuses }, ...teamFilter }
       noticesCount = this.fbrService.listCases(userId, role as StaffRole, undefined, undefined, undefined, 'approval').then(c => c.length)
@@ -415,7 +415,7 @@ export class SalesTaxTasksService {
       this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'INCOME_TAX' } }),
       this.prisma.salesTaxTask.count({ where: { ...taxWhere, taskType: 'WHT'        } }),
       noticesCount,
-      // General Tasks have no approval workflow — this count only means anything for the "my tasks" view
+      // General Tasks have no approval workflow, this count only means anything for the "my tasks" view
       this.prisma.task.count({ where: { assignedToId: userId, status: { not: 'DONE' } } }),
     ])
     return { SALES_TAX: st, INCOME_TAX: it, WHT: wht, NOTICES: notices, GENERAL: general }
@@ -571,7 +571,7 @@ export class SalesTaxTasksService {
 
   async createQuarterlyAdvanceTaxTasks(quarter: number, year: number) {
     // quarter 1=Jan-Mar, 2=Apr-Jun, 3=Jul-Sep, 4=Oct-Dec
-    // We store periodMonth as the first month of the quarter (1, 4, 7, 10) —
+    // We store periodMonth as the first month of the quarter (1, 4, 7, 10) ,
     // the regular annual Income Tax return uses periodMonth 0, so these never collide.
     const periodMonth = (quarter - 1) * 3 + 1
 

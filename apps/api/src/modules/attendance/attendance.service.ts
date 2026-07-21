@@ -10,21 +10,21 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
 
-// Attendance is a firm-staff concept only — Clients (and Representatives) must never appear in it,
+// Attendance is a firm-staff concept only. Clients (and Representatives) must never appear in it,
 // no matter what their attendanceApplicable flag says.
 const INTERNAL_STAFF_ROLES: Role[] = [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE]
 
 // ── Default settings (used when DB has no row) ────────────────────────────────
 export const DEFAULT_SETTINGS = {
   reporting_time:       '09:00',  // earliest time attendance can be marked (attendance window start)
-  login_time:           '10:00',  // official office time — late is calculated relative to this
+  login_time:           '10:00',  // official office time, late is calculated relative to this
   grace_period_minutes: '15',
   cutoff_time:          '18:00',
   auto_mark_on_login:   'true',
   timezone:             'Asia/Karachi',
 }
 
-// ── Settings cache — refreshed every 5 minutes ────────────────────────────────
+// ── Settings cache, refreshed every 5 minutes ────────────────────────────────
 let settingsCache: Record<string, string> | null = null
 let settingsCacheAt = 0
 
@@ -142,7 +142,7 @@ export class AttendanceService {
     const { dateStr, timeStr }  = this.getDateInTimezone(tz)
     const cutoff                = settings.cutoff_time
 
-    // Past cutoff — do not auto-mark
+    // Past cutoff, do not auto-mark
     if (this.minutesDiff(timeStr, cutoff) > 0) return null
 
     // Parse date for DB query
@@ -308,7 +308,7 @@ export class AttendanceService {
     const daysInMonth = new Date(year, month, 0).getDate()
     const today       = new Date().toISOString().split('T')[0]
 
-    // Days before this user even existed aren't "absent" — they hadn't joined yet
+    // Days before this user even existed aren't "absent", they hadn't joined yet
     const joinedUser = await this.prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } })
     const joinDateStr = joinedUser?.createdAt
       ? new Date(joinedUser.createdAt).toISOString().split('T')[0]
@@ -325,7 +325,7 @@ export class AttendanceService {
       const isUpcoming  = dateStr > today
       const isNotJoined = joinDateStr !== null && dateStr < joinDateStr
 
-      // Resolve day type — fall back to calendar (weekend vs weekday) when there's no WorkingDay override
+      // Resolve day type, fall back to calendar (weekend vs weekday) when there's no WorkingDay override
       const isHoliday = wd?.dayType === DayType.HOLIDAY
       const isWeekend = wd ? wd.dayType === DayType.WEEKEND : (dayOfWeek === 0 || dayOfWeek === 6)
 
@@ -339,7 +339,7 @@ export class AttendanceService {
       } else if (isUpcoming) {
         status = 'upcoming'
       } else if (!att) {
-        // A real attendance record always wins over the day-type fallback — this used to be
+        // A real attendance record always wins over the day-type fallback, this used to be
         // skipped entirely when there was no WorkingDay row, showing "Absent" even with a login.
         status = 'absent'
       } else if (att.status === AttendanceStatus.LATE) {
@@ -401,7 +401,7 @@ export class AttendanceService {
       attWhere.userId = { in: [actorId, ...trainees.map(t => t.id)] }
     }
 
-    // Leave approvals are Admin/Partner/Manager only — Team Leads don't approve leaves.
+    // Leave approvals are Admin/Partner/Manager only. Team Leads don't approve leaves.
     // Mirrors the CAN_APPROVE hierarchy in leaves.service.ts (Manager can't approve other Managers' leaves).
     const leaveApprovableRoles: Record<string, Role[]> = {
       [Role.PARTNER]: [Role.TRAINEE, Role.TEAM_LEAD, Role.MANAGER],
@@ -588,7 +588,7 @@ export class AttendanceService {
         d.setUTCHours(h - 5, m, 0, 0)  // PKT→UTC
         data.loginTime = d
 
-        // A login time was just set manually — if the caller didn't also explicitly
+        // A login time was just set manually, if the caller didn't also explicitly
         // override status/lateness, recompute them instead of leaving a stale ABSENT.
         if (dto.status === undefined && dto.isLate === undefined && dto.lateMinutes === undefined) {
           const settings   = await this.getSettings()
@@ -608,7 +608,7 @@ export class AttendanceService {
           data.lateMinutes = isLate ? diffFromLoginTime - graceMins : null
         }
       } else {
-        // Login time cleared — revert to absent unless the caller says otherwise
+        // Login time cleared, revert to absent unless the caller says otherwise
         data.loginTime = null
         if (dto.status === undefined) data.status = AttendanceStatus.ABSENT
       }
@@ -674,7 +674,7 @@ export class AttendanceService {
       const wd        = wdMap.get(dateStr)
       const resolved  = wd?.dayType ?? (dayOfWeek !== 0 && dayOfWeek !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
 
-      // Only mandatory working days get auto-absent — weekends are voluntary
+      // Only mandatory working days get auto-absent, weekends are voluntary
       if (resolved === DayType.WORKING_DAY) {
         const dateObj = new Date(cursor)
         for (const user of users) {
@@ -723,7 +723,7 @@ export class AttendanceService {
         approvalStatus: approve ? 'approved' : 'rejected',
         approvedById:   approverId,
         approvedAt:     new Date(),
-        // Marking absent on reject — manager is overriding the claimed login
+        // Marking absent on reject, manager is overriding the claimed login
         ...(approve ? {} : { status: AttendanceStatus.ABSENT, isLate: false, lateMinutes: null }),
       },
     })

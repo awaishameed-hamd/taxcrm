@@ -8,7 +8,7 @@ export class InvoiceSchedulerService {
 
   constructor(private readonly invoices: InvoicesService) {}
 
-  // Monthly retainer invoices: 1st of every month at 00:20 — after the task
+  // Monthly retainer invoices: 1st of every month at 00:20, after the task
   // auto-creation jobs that run at :05/:10/:15.
   @Cron('20 0 1 * *')
   async handleMonthlyRetainers() {

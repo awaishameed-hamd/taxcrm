@@ -67,7 +67,7 @@ const STATUS_COLOR: Record<string, string> = {
   SUBMISSION_APPROVAL:GOLD, FILED:BRICK, COMPLETED:FOREST, SENT_BACK:'#DC2626',
 }
 
-// Pakistani tax authorities — federal (FBR) + provincial revenue boards
+// Pakistani tax authorities, federal (FBR) + provincial revenue boards
 const AUTHORITY_META: Record<string, { label: string; color: string }> = {
   FBR:  { label: 'FBR',  color: NAVY   },
   PRA:  { label: 'PRA',  color: TEAL   },
@@ -111,7 +111,7 @@ function StatCard({ label, value, hint, breakdown, border, fill, textColor, load
   )
 }
 
-// ── Donut — exact CC CRM VerticalDonut style ──────────────────────────────────
+// ── Donut, exact CC CRM VerticalDonut style ──────────────────────────────────
 function Donut({ data, colors, centerLabel }: { data: { name:string; value:number }[]; colors: string[]; centerLabel: string }) {
   const compact = useCompact()
   const total = data.reduce((s, d) => s + d.value, 0)
@@ -151,7 +151,7 @@ function Donut({ data, colors, centerLabel }: { data: { name:string; value:numbe
   )
 }
 
-// ── Pipeline Funnel — horizontal progress bars (from v1) ──────────────────────
+// ── Pipeline Funnel, horizontal progress bars (from v1) ──────────────────────
 function PipelineFunnel({ data }: { data: { status: string; count: number }[] }) {
   const total = data.reduce((s, d) => s + d.count, 0)
   if (!total) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:148, color:MUTED, fontSize:11, fontFamily:F }}>No pipeline tasks yet</div>
@@ -186,7 +186,7 @@ function PipelineFunnel({ data }: { data: { status: string; count: number }[] })
   )
 }
 
-// ── Pipeline Treemap — CC CRM SaleTypeTreemap style ───────────────────────────
+// ── Pipeline Treemap. CC CRM SaleTypeTreemap style ───────────────────────────
 function PipelineTreemap({ data }: { data: { status: string; count: number }[] }) {
   const filtered = data.filter(d => d.count > 0)
   const total    = filtered.reduce((s, d) => s + d.count, 0)
@@ -207,7 +207,7 @@ function PipelineTreemap({ data }: { data: { status: string; count: number }[] }
   )
 }
 
-// ── Breakdown Box — Active (top) + Completed/Closed (bottom) ──────────────────
+// ── Breakdown Box. Active (top) + Completed/Closed (bottom) ──────────────────
 function BreakdownBox({ title, active, completed, labelFn, colorFn, completedLabel }: {
   title: string
   active: { key: string; count: number }[]
@@ -328,7 +328,7 @@ export default function DashboardPage({ title }: Props) {
 
       {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', minHeight: phone ? undefined : 52, marginBottom: phone ? 12 : 8, flexWrap:'wrap', gap:8 }}>
-        {/* Faster One carries its own forward slant, so no skewX here — stacking the
+        {/* Faster One carries its own forward slant, so no skewX here, stacking the
             two made it lean over far enough to look like a mistake.
             Sized by eye, not by cap height: matching cap height to the sidebar left
             this looking smaller, because Faster One's speed-line slashes cut into
@@ -345,7 +345,7 @@ export default function DashboardPage({ title }: Props) {
 
       {error && <div style={{ background:'#FEE2E2', border:'1px solid #FCA5A5', borderRadius:6, padding:'8px 12px', fontSize:12, color:'#991B1B', marginBottom:10 }}>{error}</div>}
 
-      {/* ── Row 1 — Stat Cards + Deadline bands (flat cards, numbers only) ── */}
+      {/* ── Row 1. Stat Cards + Deadline bands (flat cards, numbers only) ── */}
       <div style={{ display:'grid', gridTemplateColumns:statCols, gap:10, marginBottom:10 }}>
         <StatCard label="RETURNS"           value={stats.activePipeline ?? 0}     border={TEAL}    fill="#E5F3F5" textColor={TEAL}    loading={loading} />
         <StatCard label="NOTICES & APPEALS" value={stats.activeFbr ?? 0}          border={BRICK}   fill="#F5E0D2" textColor={BRICK}   loading={loading} />
@@ -355,7 +355,7 @@ export default function DashboardPage({ title }: Props) {
         <StatCard label="DUE THIS WEEK"     value={deadlines.dueThisWeek ?? 0} border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
       </div>
 
-      {/* ── Row 2 — 4 breakdown boxes (Active top, Completed/Closed bottom) ── */}
+      {/* ── Row 2, 4 breakdown boxes (Active top, Completed/Closed bottom) ── */}
       <div style={{ display:'grid', gridTemplateColumns:boxCols, gap:10, marginBottom:10, alignItems:'stretch' }}>
         <BreakdownBox title="Returns by Type"       active={boxes.returns.active}     completed={boxes.returns.completed}     labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="COMPLETED" />
         <BreakdownBox title="Sales Tax by Authority" active={boxes.salesByAuth.active} completed={boxes.salesByAuth.completed} labelFn={authLabelFn}  colorFn={authColorFn}  completedLabel="COMPLETED" />
@@ -363,7 +363,7 @@ export default function DashboardPage({ title }: Props) {
         <BreakdownBox title="Notices & Appeals by Stage"    active={boxes.fbrByStage.active}  completed={boxes.fbrByStage.completed}  labelFn={stageLabelFn} colorFn={stageColorFn} completedLabel="CLOSED" />
       </div>
 
-      {/* ── Row 3 — Tax Authority + Pipeline Funnel ── */}
+      {/* ── Row 3. Tax Authority + Pipeline Funnel ── */}
       <div style={{ marginBottom:10 }}>
         <div style={cardStyle}>
           <div style={titleStyle}>Returns Status Breakdown</div>
@@ -374,7 +374,7 @@ export default function DashboardPage({ title }: Props) {
         </div>
       </div>
 
-      {/* ── Row 3 — All 3 Donuts ── */}
+      {/* ── Row 3. All 3 Donuts ── */}
       <div style={{ display:'grid', gridTemplateColumns:donutCols, gap:10, marginBottom:10 }}>
         <div style={cardStyle}>
           <div style={titleStyle}>Tasks by Type</div>
@@ -390,7 +390,7 @@ export default function DashboardPage({ title }: Props) {
         </div>
       </div>
 
-      {/* ── Row 4 — Returns Distribution ── */}
+      {/* ── Row 4. Returns Distribution ── */}
       <div style={{ marginBottom:10 }}>
         <div style={cardStyle}>
           <div style={titleStyle}>Returns Distribution</div>

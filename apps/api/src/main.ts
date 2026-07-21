@@ -9,7 +9,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule)
 
-  // CORS — must be registered before static assets so /uploads/* responses get CORS headers too
+  // CORS, must be registered before static assets so /uploads/* responses get CORS headers too
   app.enableCors({
     origin:      process.env.CLIENT_URL ?? 'http://localhost:3000',
     credentials: true,

@@ -1,4 +1,4 @@
-// Exact palette from Call Center CRM — DO NOT CHANGE THESE VALUES
+// Exact palette from Call Center CRM. DO NOT CHANGE THESE VALUES
 export const P = {
   bgMain:    '#EDF0F3',
   bgCard:    '#FFFFFF',

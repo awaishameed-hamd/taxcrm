@@ -35,7 +35,7 @@ export default function AppLayout({
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#EDF0F3' }}>
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} compact={compact} />
 
-      {/* Tap-anywhere-else to dismiss the drawer. Compact only — on desktop the
+      {/* Tap-anywhere-else to dismiss the drawer. Compact only, on desktop the
           sidebar is part of the layout and nothing should dim behind it. */}
       {drawerOpen && (
         <div
@@ -59,7 +59,7 @@ export default function AppLayout({
         minWidth: 0,
         background: '#EDF0F3',
       }}>
-        {/* Re-open button — shown whenever the sidebar is out of view */}
+        {/* Re-open button, shown whenever the sidebar is out of view */}
         {collapsed && (
           <button
             onClick={() => setCollapsed(false)}

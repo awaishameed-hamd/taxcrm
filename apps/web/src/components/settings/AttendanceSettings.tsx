@@ -411,7 +411,7 @@ export default function AttendanceSettings() {
             </div>
           </div>
 
-          {/* Time settings — only when enabled */}
+          {/* Time settings, only when enabled */}
           {isEnabled && (
             <>
               <TimeCard

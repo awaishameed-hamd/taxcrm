@@ -46,7 +46,7 @@ export class PaymentAllocationDto {
 }
 
 // QuickBooks-style "Receive Payment": one payment from a client, spread across
-// however many of their open invoices it settles. `amount` is what actually came in —
+// however many of their open invoices it settles. `amount` is what actually came in ,
 // leaving it above the allocations (or sending none at all) records an advance, and
 // the leftover stays as unapplied credit.
 export class ReceivePaymentDto {

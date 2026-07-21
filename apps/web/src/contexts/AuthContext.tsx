@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set auth state immediately (permissions will load after)
     setState({ user, token: accessToken, isAuthenticated: true, isLoading: false, permissions: {} })
 
-    // Fetch permissions after login — use the token we just got
+    // Fetch permissions after login, use the token we just got
     let perms: Permissions = {}
     try {
       const permsRes = await api.get('/role-permissions/my', {

@@ -172,7 +172,7 @@ export default function AttendanceApprovalPage() {
     } catch { setConfirm(null) } finally { setActing(false) }
   }
 
-  // Approve is a one-click action — no confirmation popup (unlike Mark Absent, which still overrides the logged-in status)
+  // Approve is a one-click action, no confirmation popup (unlike Mark Absent, which still overrides the logged-in status)
   async function approveDirect(id: string) {
     try {
       await api.patch(`/attendance/${id}/approve`)
@@ -299,7 +299,7 @@ export default function AttendanceApprovalPage() {
               style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 28, paddingRight: 8, paddingTop: 4, paddingBottom: 4, borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 12, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: '"Aptos", sans-serif' }} />
           </div>
 
-          {/* Bulk Approve — right corner */}
+          {/* Bulk Approve, right corner */}
           <button
             onClick={() => pendingRecords.length > 0 && setBulkConfirm(true)}
             disabled={pendingRecords.length === 0 || loading}
@@ -561,7 +561,7 @@ export default function AttendanceApprovalPage() {
         </div>
       )}
 
-      {/* Confirm dialog — Mark Absent only; Approve is now a direct one-click action */}
+      {/* Confirm dialog. Mark Absent only; Approve is now a direct one-click action */}
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !acting && setConfirm(null)} />

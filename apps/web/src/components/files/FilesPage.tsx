@@ -114,7 +114,7 @@ function Toolbar({ view, setView, iconSize, setIconSize }: {
         </button>
       </div>
 
-      {/* Settings gear — right side */}
+      {/* Settings gear, right side */}
       <div style={{ marginLeft: 'auto', position: 'relative' }}>
         <button
           title="Settings"

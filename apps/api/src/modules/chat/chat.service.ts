@@ -27,7 +27,7 @@ export class ChatService {
     return { ...u, isOnline: this.presence.isOnline(u.id) }
   }
 
-  // ── Contacts — who the current user is allowed to start a chat with ────────
+  // ── Contacts, who the current user is allowed to start a chat with ────────
 
   async getContacts(userId: string, role: Role) {
     let contacts: any[]
@@ -211,7 +211,7 @@ export class ChatService {
     return conv?.participants ?? []
   }
 
-  // ── Presence — called by the gateway when a user's last socket disconnects ─
+  // ── Presence, called by the gateway when a user's last socket disconnects ─
 
   async updateLastSeen(userId: string): Promise<Date> {
     const lastSeenAt = new Date()
@@ -219,7 +219,7 @@ export class ChatService {
     return lastSeenAt
   }
 
-  // Lightweight total for the sidebar badge — skips last-message/participant lookups
+  // Lightweight total for the sidebar badge, skips last-message/participant lookups
   async getUnreadCount(userId: string) {
     const participations = await this.prisma.conversationParticipant.findMany({
       where:  { userId },
@@ -266,7 +266,7 @@ export class ChatService {
     })
     const userMap = new Map(users.map((u) => [u.id, u]))
 
-    // Unread count per conversation — messages from the other person since I last read
+    // Unread count per conversation, messages from the other person since I last read
     const unreadCounts = await Promise.all(
       conversations.map(async (c) => {
         const me = c.participants.find((p) => p.userId === userId)
