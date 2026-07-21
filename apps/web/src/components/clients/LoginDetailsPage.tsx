@@ -167,7 +167,7 @@ export default function LoginDetailsPage() {
 
   return (
     <div style={{ padding: '20px 24px' }}>
-      <h2 style={{ margin: '0 0 14px', fontSize: 20, fontWeight: 900, color: NAVY, fontFamily: F }}>Login Details</h2>
+      <h2 style={{ margin: '0 0 14px', fontSize: 26, color: '#1E8496', fontFamily: "'Faster One', cursive", display: 'inline-block' }}>Login Details</h2>
 
       {/* Filter bar */}
       <div style={{ marginBottom: 14 }}>
