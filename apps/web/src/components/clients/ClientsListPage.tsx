@@ -427,7 +427,8 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
     // Edit: call API immediately
     setPortalLoading(true)
     try {
-      const { data } = await api.patch(`/clients/${initial.id}/toggle-portal`)
+      const { data: env } = await api.patch(`/clients/${initial.id}/toggle-portal`)
+      const data = env?.data ?? env
       setPortalAccess(data.hasPortalAccess)
       if (!data.hasPortalAccess) setPortalMethod(null)
       else if (!portalMethod) setPortalMethod('invite')
@@ -1017,7 +1018,8 @@ function RepresentativesSection({ canCreate, canEdit, showNewRep, setShowNewRep 
 
   const handleToggleRepPortal = async (r: any) => {
     try {
-      const { data } = await api.patch(`/client-representatives/${r.id}/toggle-portal`)
+      const { data: env } = await api.patch(`/client-representatives/${r.id}/toggle-portal`)
+      const data = env?.data ?? env
       setReps(prev => prev.map(x => x.id === r.id ? { ...x, hasPortalAccess: data.hasPortalAccess } : x))
       setToast({ message: `Portal access ${data.hasPortalAccess ? 'enabled' : 'disabled'} for ${r.fullName}.`, type: 'success' })
     } catch { setToast({ message: 'Failed to update portal access.', type: 'error' }) }
@@ -1227,10 +1229,11 @@ function RepFormModal({ initial, onClose, onSuccess }: { initial?: any; onClose:
     setPortalLoading(true)
     try {
       const body = enabling ? (pwdMode === 'admin' ? { password } : {}) : {}
-      const { data } = await api.patch(`/client-representatives/${initial.id}/toggle-portal`, body)
+      const { data: env } = await api.patch(`/client-representatives/${initial.id}/toggle-portal`, body)
+      const data = env?.data ?? env
       setPortalAccess(data.hasPortalAccess)
       if (!data.hasPortalAccess) { setPwdMode(null); setPassword('') }
-      if (data.inviteSent) setInviteMsg('Portal enabled — invite email sent!')
+      if (data.inviteSent) setInviteMsg('Portal enabled, invite email sent.')
     } catch (err: any) {
       const msg = err?.response?.data?.message
       setApiError(Array.isArray(msg) ? msg.join(', ') : msg ?? 'Failed to toggle portal')
@@ -1493,7 +1496,8 @@ export default function ClientsListPage() {
 
   const handleTogglePortal = async (c: any) => {
     try {
-      const { data } = await api.patch(`/clients/${c.id}/toggle-portal`)
+      const { data: env } = await api.patch(`/clients/${c.id}/toggle-portal`)
+      const data = env?.data ?? env
       setClients(prev => prev.map(cl =>
         cl.id === c.id ? { ...cl, user: { ...cl.user, hasPortalAccess: data.hasPortalAccess } } : cl
       ))
