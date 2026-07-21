@@ -105,11 +105,8 @@ function SetPasswordForm() {
         <header style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
             <Image src="/logo.png" alt="Asif Associates" width={1536} height={1024} priority
-              style={{ width: 150, height: 'auto', filter: 'drop-shadow(0 12px 22px rgba(74,90,99,.3))' }} />
+              style={{ width: 190, height: 'auto', filter: 'drop-shadow(0 12px 22px rgba(74,90,99,.3))' }} />
           </div>
-          <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 32, fontWeight: 700, letterSpacing: '-.02em', color: '#4a5a63', lineHeight: 1.1, margin: '0 0 10px' }}>
-            Set Your Password
-          </h1>
           <p style={{ fontSize: 13, letterSpacing: '.1em', color: '#8a9aa2', fontWeight: 600, margin: 0 }}>
             Create a password for your portal account
           </p>

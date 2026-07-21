@@ -26,15 +26,15 @@ export class EmailService {
       await this.resend.emails.send({
         from:    this.from,
         to,
-        subject: 'You have been invited to the CA Firm Client Portal',
+        subject: 'You have been invited to the Asif Associates Portal',
         html: `
           <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;">
             <div style="background:#132E57;padding:18px 24px;border-radius:8px 8px 0 0;margin:-32px -24px 28px;">
-              <h1 style="color:#F2AC18;margin:0;font-size:22px;letter-spacing:0.04em;">CA Firm CRM</h1>
+              <h1 style="color:#F2AC18;margin:0;font-size:22px;letter-spacing:0.04em;">Asif Associates</h1>
             </div>
             <p style="color:#132E57;font-size:15px;margin:0 0 8px;">Dear <strong>${fullName}</strong>,</p>
             <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 24px;">
-              You have been granted access to the <strong>CA Firm Client Portal</strong>.
+              You have been granted access to the <strong>Asif Associates Portal</strong>.
               Click the button below to set your password and activate your account.
             </p>
             <div style="text-align:center;margin:28px 0;">
