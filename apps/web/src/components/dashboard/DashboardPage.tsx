@@ -320,15 +320,20 @@ export default function DashboardPage({ title }: Props) {
       background:BG, minHeight:'100vh', boxSizing:'border-box', fontFamily:F,
       // The hamburger is pinned top-left on compact screens, so the heading
       // needs to start clear of it instead of underneath it.
-      padding: phone ? '14px 12px 14px 58px' : '14px 18px',
+      // No top padding on desktop: the header row below is its own 52px band, the
+      // same height as the sidebar's brand header, so the two titles line up.
+      padding: phone ? '14px 12px 14px 58px' : '0 18px 14px',
     }}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}`}</style>
 
       {/* ── Header ── */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12, flexWrap:'wrap', gap:8 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', minHeight: phone ? undefined : 52, marginBottom: phone ? 12 : 8, flexWrap:'wrap', gap:8 }}>
         {/* Faster One carries its own forward slant, so no skewX here — stacking the
-            two made it lean over far enough to look like a mistake. */}
-        <div style={{ fontSize: phone ? 26 : 34, color:NAVY, fontFamily:"'Faster One',cursive", display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
+            two made it lean over far enough to look like a mistake.
+            18px is not arbitrary: it puts Faster One's cap height at 12px, which is
+            exactly what Ethnocentric gives at the sidebar's 1.15rem, so the two read
+            as the same size despite being different typefaces. */}
+        <div style={{ fontSize:18, color:NAVY, fontFamily:"'Faster One',cursive", display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
         <div style={{ display:'flex', gap:2, background:WHITE, border:`1px solid ${BORDER}`, borderRadius:8, padding:3 }}>
           {PERIODS.map(p => (
             <button key={p.key} onClick={() => setPeriod(p.key)} style={{ background:period===p.key ? NAVY : 'transparent', color:period===p.key ? '#fff' : SLATE, border:'none', padding:'5px 13px', borderRadius:6, fontSize:11, fontWeight:period===p.key ? 600 : 400, cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.15s', fontFamily:F }}>
