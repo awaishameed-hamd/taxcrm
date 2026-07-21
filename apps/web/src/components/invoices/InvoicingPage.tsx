@@ -33,7 +33,7 @@ const METHOD_LABEL: Record<string, string> = Object.fromEntries(PAYMENT_METHODS.
 const money   = (n: any) => Number(n ?? 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
 
-// What's still owed. Cash isn't the only thing that closes an invoice — a discount or
+// What's still owed. Cash isn't the only thing that closes an invoice. A discount or
 // tax the client withheld at source settles it just the same.
 const balanceOf = (i: any) =>
   Number(i.amount) - Number(i.amountPaid ?? 0) - Number(i.discountTotal ?? 0)
@@ -41,7 +41,7 @@ const balanceOf = (i: any) =>
 
 const iso = (d: Date) => d.toISOString().split('T')[0]
 
-// Date-range presets for the ledger. `null` means unbounded — the account from day one.
+// Date-range presets for the ledger. `null` means unbounded, the account from day one.
 type RangeKey = 'month' | 'year' | 'all' | 'custom'
 const RANGES: { key: RangeKey; label: string }[] = [
   { key: 'month',  label: 'This Month' },
@@ -82,7 +82,7 @@ function StatCard({ label, value, border, fill }: { label: string; value: string
 }
 
 // ─── Receive Payment (QuickBooks-style) ───────────────────────────────────────
-// Renders inline in the right pane, like the Attendance Report calendar — not as an overlay.
+// Renders inline in the right pane, like the Attendance Report calendar, not as an overlay.
 type Adj = { amount: string; discount: string; incomeTaxWithheld: string; salesTaxWithheld: string }
 const blankAdj = (): Adj => ({ amount: '', discount: '', incomeTaxWithheld: '', salesTaxWithheld: '' })
 const adjNum   = (a: Adj | undefined, k: keyof Adj) => Number(a?.[k]) || 0
@@ -93,6 +93,9 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
   const [loading,   setLoading]   = useState(true)
   const [received,  setReceived]  = useState('')
   const [alloc,     setAlloc]     = useState<Record<string, Adj>>({})
+  // Which invoices this payment is being put against, QuickBooks style. All are
+  // ticked on load so the default stays "settle the oldest first".
+  const [selected,  setSelected]  = useState<Record<string, boolean>>({})
   const [method,    setMethod]    = useState('BANK_TRANSFER')
   const [reference, setReference] = useState('')
   const [paidAt,    setPaidAt]    = useState(new Date().toISOString().split('T')[0])
@@ -106,7 +109,11 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
 
   useEffect(() => {
     api.get(`/invoices/open/${client.id}`)
-      .then(({ data }) => setOpen(Array.isArray(data) ? data : data.data ?? []))
+      .then(({ data }) => {
+        const list = Array.isArray(data) ? data : data.data ?? []
+        setOpen(list)
+        setSelected(Object.fromEntries(list.map((i: any) => [i.id, true])))
+      })
       .catch(() => setOpen([]))
       .finally(() => setLoading(false))
   }, [client.id])
@@ -120,14 +127,16 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
   const amountRecv    = Number(received) || 0
   const unapplied     = amountRecv - totalApplied
 
-  // Spread the cash across the oldest invoices first, like QuickBooks does. Any
-  // discount/withholding already typed on a row reduces what cash that row still needs.
-  function autoApply(amountStr: string) {
+  // Spread the cash across the oldest ticked invoices first, like QuickBooks does.
+  // Any discount/withholding already typed on a row reduces what cash that row
+  // still needs. Unticked rows are cleared so they contribute nothing.
+  function autoApply(amountStr: string, sel: Record<string, boolean> = selected) {
     setReceived(amountStr)
     let left = Number(amountStr) || 0
     setAlloc(prev => {
       const next: Record<string, Adj> = {}
       for (const inv of open) {
+        if (!sel[inv.id]) { next[inv.id] = blankAdj(); continue }
         const row     = prev[inv.id] ?? blankAdj()
         const nonCash = adjNum(row, 'discount') + adjNum(row, 'incomeTaxWithheld') + adjNum(row, 'salesTaxWithheld')
         const needs   = Math.max(0, Number(inv.balance) - nonCash)
@@ -137,6 +146,21 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
       }
       return next
     })
+  }
+
+  // Re-spreading after every tick keeps the cash landing on whatever is still
+  // selected, instead of stranding it on a row the user just excluded.
+  function toggleRow(id: string) {
+    const nextSel = { ...selected, [id]: !selected[id] }
+    setSelected(nextSel)
+    autoApply(received, nextSel)
+  }
+
+  function toggleAll() {
+    const allOn   = open.length > 0 && open.every(i => selected[i.id])
+    const nextSel = Object.fromEntries(open.map(i => [i.id, !allOn]))
+    setSelected(nextSel)
+    autoApply(received, nextSel)
   }
 
   function setField(id: string, key: keyof Adj, value: string) {
@@ -160,7 +184,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
     if (amountRecv <= 0) { setError('Enter the amount received'); return }
     if (unapplied < -0.001) { setError('Amount applied to invoices is more than the payment received'); return }
 
-    // Allocations are optional — a payment with none is an advance, and the whole
+    // Allocations are optional. A payment with none is an advance, and the whole
     // amount sits as credit until there's an invoice to put it against. A row counts
     // even with no cash on it, since a discount alone can settle an invoice.
     const allocations = Object.entries(alloc)
@@ -273,6 +297,12 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
               <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 700 }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC' }}>
+                    <th style={{ ...cell, width: 34, textAlign: 'center' }}>
+                      <input type="checkbox" title="Select all"
+                        checked={open.length > 0 && open.every(i => selected[i.id])}
+                        onChange={toggleAll}
+                        style={{ accentColor: TEAL, cursor: 'pointer', width: 15, height: 15 }} />
+                    </th>
                     {[
                       { h: 'Invoice',      w: undefined },
                       { h: 'Open Balance', w: 100 },
@@ -282,7 +312,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
                       { h: 'Sales Tax W/H',  w: 96 },
                       { h: 'Left',         w: 84 },
                     ].map((c, i) => (
-                      <th key={c.h} style={{ ...cell, width: c.w, fontWeight: 900, fontSize: 9.5, letterSpacing: '0.06em', color: '#64748B', textTransform: 'uppercase', textAlign: i >= 1 ? 'right' : 'left' }}>{c.h}</th>
+                      <th key={c.h} style={{ ...cell, width: c.w, fontWeight: 900, fontSize: 9.5, letterSpacing: '0.06em', color: '#64748B', textTransform: 'uppercase', textAlign: i >= 1 ? 'center' : 'left' }}>{c.h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -291,23 +321,28 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
                     const row       = alloc[inv.id]
                     const settled   = adjTotal(row)
                     const remaining = Number(inv.balance) - settled
-                    const numIn: React.CSSProperties = { ...inputStyle, padding: '5px 7px', textAlign: 'right', fontSize: 12, fontWeight: 700 }
+                    const on        = !!selected[inv.id]
+                    const numIn: React.CSSProperties = { ...inputStyle, padding: '5px 7px', textAlign: 'right', fontSize: 12, fontWeight: 700, opacity: on ? 1 : 0.45 }
                     return (
-                      <tr key={inv.id}>
-                        <td style={{ ...cell, fontWeight: 700, color: TEAL }}>
+                      <tr key={inv.id} style={{ background: on ? 'transparent' : '#FAFBFC' }}>
+                        <td style={{ ...cell, textAlign: 'center' }}>
+                          <input type="checkbox" checked={on} onChange={() => toggleRow(inv.id)}
+                            style={{ accentColor: TEAL, cursor: 'pointer', width: 15, height: 15 }} />
+                        </td>
+                        <td style={{ ...cell, fontWeight: 700, color: on ? TEAL : '#94A3B8' }}>
                           {inv.invoiceNumber}
                           <div style={{ fontSize: 10.5, fontWeight: 400, color: '#94A3B8' }}>{fmtDate(inv.issueDate)}</div>
                         </td>
-                        <td style={{ ...cell, textAlign: 'right', fontWeight: 700, color: NAVY }}>{money(inv.balance)}</td>
-                        <td style={cell}><input type="number" min={0} value={row?.amount ?? ''} placeholder="0"
+                        <td style={{ ...cell, textAlign: 'right', fontWeight: 700, color: on ? NAVY : '#94A3B8' }}>{money(inv.balance)}</td>
+                        <td style={cell}><input type="number" min={0} disabled={!on} value={row?.amount ?? ''} placeholder="0"
                           onChange={e => setField(inv.id, 'amount', e.target.value)} style={numIn} /></td>
-                        <td style={cell}><input type="number" min={0} value={row?.discount ?? ''} placeholder="0"
+                        <td style={cell}><input type="number" min={0} disabled={!on} value={row?.discount ?? ''} placeholder="0"
                           onChange={e => setField(inv.id, 'discount', e.target.value)} style={numIn} /></td>
-                        <td style={cell}><input type="number" min={0} value={row?.incomeTaxWithheld ?? ''} placeholder="0"
+                        <td style={cell}><input type="number" min={0} disabled={!on} value={row?.incomeTaxWithheld ?? ''} placeholder="0"
                           onChange={e => setField(inv.id, 'incomeTaxWithheld', e.target.value)} style={numIn} /></td>
-                        <td style={cell}><input type="number" min={0} value={row?.salesTaxWithheld ?? ''} placeholder="0"
+                        <td style={cell}><input type="number" min={0} disabled={!on} value={row?.salesTaxWithheld ?? ''} placeholder="0"
                           onChange={e => setField(inv.id, 'salesTaxWithheld', e.target.value)} style={numIn} /></td>
-                        <td style={{ ...cell, textAlign: 'right', fontWeight: 800, color: Math.abs(remaining) < 0.01 ? '#16a34a' : remaining < 0 ? '#D62828' : '#64748B' }}>
+                        <td style={{ ...cell, textAlign: 'right', fontWeight: 800, color: !on ? '#94A3B8' : Math.abs(remaining) < 0.01 ? '#16a34a' : remaining < 0 ? '#D62828' : '#64748B' }}>
                           {money(remaining)}
                         </td>
                       </tr>
@@ -482,7 +517,7 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
           <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>Loading…</div>
         ) : open.length === 0 ? (
           <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12, border: `1px solid ${P.border}`, borderRadius: 8 }}>
-            No outstanding invoices yet — this credit stays on the account until one is raised.
+            No outstanding invoices yet. This credit stays on the account until one is raised.
           </div>
         ) : (
           <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'hidden' }}>
@@ -675,7 +710,7 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
               </div>
             </div>
 
-            {/* What was put against this invoice — the allocated slice, not the whole payment */}
+            {/* What was put against this invoice, the allocated slice, not the whole payment */}
             {(inv.allocations ?? []).length > 0 && (
               <div style={{ marginTop: 28 }}>
                 <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: '#94A3B8', fontFamily: F, marginBottom: 8 }}>PAYMENTS RECEIVED</div>
@@ -809,7 +844,7 @@ export default function InvoicingPage() {
     color: '#1a1a1a', fontFamily: F, letterSpacing: '0.07em', whiteSpace: 'nowrap',
   }
 
-  // Issued invoices only — pricing, sending and deleting all live in Invoice Approval
+  // Issued invoices only. Pricing, sending and deleting all live in Invoice Approval
   function actions(r: Invoice) {
     return (
       <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
@@ -878,7 +913,7 @@ export default function InvoicingPage() {
                     {c.overdueCount > 0 && (
                       <span title={`${c.overdueCount} overdue`} style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, color: '#fff', background: '#D62828', flexShrink: 0 }}>!</span>
                     )}
-                    {/* Negative means they've paid ahead — show it as credit, not as a minus */}
+                    {/* Negative means they've paid ahead, so show it as credit, not as a minus */}
                     <span title={c.outstanding < 0 ? 'In credit' : 'Outstanding'}
                       style={{ fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap',
                         color:      c.outstanding > 0 ? '#B91C1C' : c.outstanding < 0 ? '#5B21B6' : '#166534',
@@ -1069,12 +1104,12 @@ export default function InvoicingPage() {
                             <td style={{ ...td, color: TEAL }}>{r.invoiceNumber}</td>
                             <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(r.issueDate)}</td>
                             <td style={{ ...td, fontWeight: 400 }}>
-                              {r.description ?? '—'}
+                              {r.description ?? ''}
                               {r.kind === 'RETAINER' && (
                                 <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>RETAINER</span>
                               )}
                             </td>
-                            <td style={{ ...td, fontWeight: 400, color: r.status === 'OVERDUE' ? '#D62828' : '#64748B' }}>{r.dueDate ? fmtDate(r.dueDate) : '—'}</td>
+                            <td style={{ ...td, fontWeight: 400, color: r.status === 'OVERDUE' ? '#D62828' : '#64748B' }}>{r.dueDate ? fmtDate(r.dueDate) : ''}</td>
                             <td style={td}>{money(r.amount)}</td>
                             <td style={{ ...td, color: balance > 0 ? '#D62828' : '#16a34a' }}>{money(balance)}</td>
                             <td style={td}><span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: st.color, background: st.bg }}>{st.label}</span></td>
@@ -1110,7 +1145,7 @@ export default function InvoicingPage() {
                         <tr key={p.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
                           <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(p.paidAt)}</td>
                           <td style={td}>{METHOD_LABEL[p.method] ?? p.method}</td>
-                          <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{p.reference || '—'}</td>
+                          <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{p.reference || ''}</td>
                           <td style={{ ...td, fontWeight: 400 }}>
                             {p.allocations.length === 0 ? (
                               <span style={{ fontSize: 10, fontWeight: 900, padding: '1px 7px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>ADVANCE</span>
