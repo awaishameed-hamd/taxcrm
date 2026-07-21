@@ -524,12 +524,16 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
       if (!isEdit) {
         payload.hasPortalAccess = portalAccess
         if (portalMethod === 'set_password') payload.password = password
-        const { data: created } = await api.post('/clients', payload)
+        const { data: res } = await api.post('/clients', payload)
+        // TransformInterceptor wraps every response as { success, data, timestamp },
+        // so the created record is one level down. Reading it off the envelope left
+        // profileId undefined and the invite was silently never sent.
+        const created = res?.data ?? res
         // Auto-send invite if method is invite
         if (portalAccess && portalMethod === 'invite') {
           const profileId = created?.clientProfile?.id
           if (profileId) {
-            try { await api.post(`/clients/${profileId}/send-invite`) } catch { /* ignore — email config not ready */ }
+            await api.post(`/clients/${profileId}/send-invite`)
           }
         }
       } else {
@@ -1250,9 +1254,12 @@ function RepFormModal({ initial, onClose, onSuccess }: { initial?: any; onClose:
       if (isEdit) {
         await api.put(`/client-representatives/${initial.id}`, { fullName: form.fullName, email: form.email, phone: form.phone || undefined })
       } else {
-        const rep = await api.post('/client-representatives', { fullName: form.fullName, email: form.email, phone: form.phone || undefined })
+        const res = await api.post('/client-representatives', { fullName: form.fullName, email: form.email, phone: form.phone || undefined })
+        // Responses come back wrapped by TransformInterceptor as { success, data, timestamp },
+        // so the record itself is one level down.
+        const createdRep = res.data?.data ?? res.data
         if (portalAccess) {
-          await api.patch(`/client-representatives/${rep.data.id}/toggle-portal`, pwdMode === 'admin' ? { password } : {})
+          await api.patch(`/client-representatives/${createdRep.id}/toggle-portal`, pwdMode === 'admin' ? { password } : {})
         }
       }
       onSuccess()
