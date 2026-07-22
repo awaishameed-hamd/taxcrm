@@ -4,11 +4,14 @@ import { getSocket } from '@/lib/socket'
 // Silently re-runs `refetch` on a timer, whenever a socket notification
 // arrives, and whenever the tab regains focus, so pages stay live without
 // the user ever needing to manually reload.
-// 8s rather than 20s because the socket push cannot be relied on: the API runs
-// two PM2 cluster workers with no shared Socket.IO adapter, so a room only
-// exists on the worker that holds the connection and an event emitted by the
-// other worker is lost. Polling is what actually keeps pages live today.
-export function useAutoRefresh(refetch: () => void, intervalMs = 8000) {
+// The socket push is the fast path and lands in well under a second. Polling is
+// only the safety net for a dropped connection, so 15s is plenty: shortening it
+// would add constant load to buy nothing the socket does not already deliver.
+//
+// This only holds while the API runs as a single process. Under PM2 cluster mode
+// a Socket.IO room lives on one worker, so events emitted by another worker were
+// silently lost and polling was carrying the whole feature.
+export function useAutoRefresh(refetch: () => void, intervalMs = 15000) {
   const refetchRef = useRef(refetch)
   refetchRef.current = refetch
 

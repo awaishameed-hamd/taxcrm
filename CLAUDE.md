@@ -71,7 +71,7 @@ by role).
 Nginx (`/etc/nginx/sites-enabled/argroup.conf`, Certbot TLS) routes:
 `/api/`, `/uploads/`, `/socket.io/` → `127.0.0.1:4000` · `/` → `127.0.0.1:3000`
 
-PM2: `ca-firm-api` (**cluster mode, 2 workers**) and `ca-firm-web` (fork).
+PM2: `ca-firm-api` (**fork mode, 1 process**) and `ca-firm-web` (fork).
 
 ```bash
 ssh argroup-vps "cd /var/www/ca-firm-crm && git pull origin main"
@@ -79,13 +79,21 @@ ssh argroup-vps "cd /var/www/ca-firm-crm/apps/api && npx prisma db push"   # onl
 ssh argroup-vps "cd /var/www/ca-firm-crm/apps/api && npx nest build && cd ../web && npx next build"
 ssh argroup-vps "pm2 restart ca-firm-api ca-firm-web"
 # then verify it actually booted — a bad module wiring only fails at runtime:
-ssh argroup-vps "pm2 logs ca-firm-api --lines 4 --nostream --out | grep -c 'successfully started'"   # expect 2
+ssh argroup-vps "pm2 logs ca-firm-api --lines 4 --nostream --out | grep -c 'successfully started'"   # expect 1
 ```
 
-**Cluster mode has bitten us:** every `@Cron` fires **once per worker**. Any job that does
-check-then-create races itself. Use `createMany({ skipDuplicates: true })`, or catch `P2002`
-and treat it as "the other worker got there first". The auto-absent sweep failed daily for
-weeks because of this.
+**The API runs as a single process on purpose.** It used to be cluster mode with 2 workers,
+which broke two things at once:
+
+- Every `@Cron` fired **once per worker**, so any check-then-create job raced itself. The
+  auto-absent sweep failed daily for weeks because of this.
+- Socket.IO rooms live on the worker holding the connection, and there is no shared adapter,
+  so a notification emitted by the other worker was silently dropped. Roughly half of all
+  real-time updates never arrived, which is why pages seemed to need a manual refresh.
+
+Fork mode fixes both. **Do not put it back into cluster mode** without adding a Socket.IO
+Redis adapter and making the cron jobs leader-elected. The idempotency guards
+(`createMany({ skipDuplicates: true })`, catching `P2002`) are still worth keeping.
 
 **Migrations:** use `npx prisma db push`, **not** `prisma migrate dev` — an old migration
 (`20260625000000_link_returns_to_task_cascade`) breaks the shadow DB. Same on both sides.
