@@ -36,13 +36,17 @@ const btnStyle: React.CSSProperties = {
 
 const bg = 'radial-gradient(1200px 700px at 20% 10%, #f3f6f8 0%, transparent 60%), radial-gradient(900px 600px at 90% 90%, #d9e0e4 0%, transparent 55%), linear-gradient(135deg, #eef1f3 0%, #dde3e7 50%, #cdd5da 100%)'
 
-type Step = 'identify' | 'otp' | 'password' | 'done'
+type Step = 'identify' | 'confirm' | 'otp' | 'password' | 'done'
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
 
   const [step,       setStep]       = useState<Step>('identify')
   const [identifier, setIdentifier] = useState('')
+  // Comes from the database, never typed, so the code cannot go to a mistyped
+  // address. Masked so the address itself is not revealed on screen.
+  const [maskedEmail, setMaskedEmail] = useState('')
+  const [fullName,    setFullName]    = useState('')
   const [otp,        setOtp]        = useState('')
   const [resetToken, setResetToken] = useState('')
   const [password,   setPassword]   = useState('')
@@ -68,16 +72,29 @@ export default function ForgotPasswordPage() {
     return Array.isArray(m) ? m.join(', ') : m ?? fallback
   }
 
-  async function sendCode(e?: React.FormEvent) {
-    e?.preventDefault()
+  async function lookupAccount(e: React.FormEvent) {
+    e.preventDefault()
     setError(''); setNotice('')
     if (!identifier.trim()) { setError('Enter your email or user ID.'); return }
     setLoading(true)
     try {
+      const { data } = await axios.post(`${API}/auth/forgot-password/lookup`, { identifier: identifier.trim() })
+      const d = data?.data ?? data
+      setMaskedEmail(d.maskedEmail)
+      setFullName(d.fullName)
+      setStep('confirm')
+    } catch (err: any) {
+      setError(msgOf(err, 'Could not find that account.'))
+    } finally { setLoading(false) }
+  }
+
+  async function sendCode(e?: React.FormEvent) {
+    e?.preventDefault()
+    setError(''); setNotice('')
+    setLoading(true)
+    try {
       await axios.post(`${API}/auth/forgot-password`, { identifier: identifier.trim() })
-      // The API answers the same way whether or not the account exists, so the
-      // wording here must not imply the account was found.
-      setNotice('If that account exists, a 6 digit code has been sent to its email address.')
+      setNotice(`A 6 digit code has been sent to ${maskedEmail}.`)
       setStep('otp')
       setCooldown(45)
     } catch (err: any) {
@@ -176,7 +193,7 @@ export default function ForgotPasswordPage() {
   if (step === 'identify') {
     return (
       <Shell sub="Reset your password">
-        <form onSubmit={sendCode} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <form onSubmit={lookupAccount} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <div style={labelStyle}>Email or User ID</div>
             <div className="lfield" style={fieldStyle}>
@@ -188,12 +205,48 @@ export default function ForgotPasswordPage() {
                 placeholder="Email or User ID" style={inputStyle} />
             </div>
             <p style={{ fontSize: 11.5, color: '#8a9aa2', margin: '8px 2px 0', lineHeight: 1.5 }}>
-              We will email a 6 digit code to the address on your account.
+              We will email a 6 digit code to the address held on your account.
+            </p>
+          </div>
+          <button type="submit" disabled={loading} className="lbtn"
+            style={{ ...btnStyle, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+            {loading ? 'Checking…' : 'Continue'}
+          </button>
+        </form>
+      </Shell>
+    )
+  }
+
+  if (step === 'confirm') {
+    return (
+      <Shell sub="Confirm your address">
+        <form onSubmit={sendCode} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <div style={labelStyle}>Code will be sent to</div>
+            {/* Read-only on purpose: the address comes from the account record,
+                so there is no way to send the code somewhere it should not go. */}
+            <div style={{ ...fieldStyle, background: '#eef2f4' }}>
+              <svg style={iconStyle} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
+              </svg>
+              <span style={{ ...inputStyle, userSelect: 'none' }}>{maskedEmail}</span>
+              <svg style={{ ...iconStyle, color: '#9fb0b8' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <p style={{ fontSize: 11.5, color: '#8a9aa2', margin: '8px 2px 0', lineHeight: 1.5 }}>
+              {fullName ? `Signed up as ${fullName}. ` : ''}
+              Part of the address is hidden. If this is not your account, go back and check your user ID.
             </p>
           </div>
           <button type="submit" disabled={loading} className="lbtn"
             style={{ ...btnStyle, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
             {loading ? 'Sending…' : 'Send code'}
+          </button>
+          <button type="button" onClick={() => { setStep('identify'); setError('') }}
+            style={{ background: 'none', border: 0, color: '#5d6f78', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+            Use a different account
           </button>
         </form>
       </Shell>

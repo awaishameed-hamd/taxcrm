@@ -62,6 +62,12 @@ export class AuthController {
 
   // ── Password reset, all three steps are public by necessity ──────────────────
 
+  @Post('forgot-password/lookup')
+  @HttpCode(HttpStatus.OK)
+  lookupForReset(@Body() dto: ForgotPasswordDto) {
+    return this.authService.lookupForReset(dto.identifier)
+  }
+
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: ForgotPasswordDto) {

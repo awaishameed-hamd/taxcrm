@@ -119,6 +119,40 @@ export class AuthService {
   // ── Password reset by emailed OTP ────────────────────────────────────────────
 
   /**
+   * Masks an address for display: Manager@asifassociates.com becomes
+   * Man****@****associates.com. Enough for the owner to recognise their own
+   * address, not enough for anyone else to learn it.
+   */
+  private maskEmail(email: string): string {
+    const at = email.lastIndexOf('@')
+    if (at < 1) return '****'
+    const local  = email.slice(0, at)
+    const domain = email.slice(at + 1)
+    const shown  = local.slice(0, Math.min(3, Math.max(1, local.length - 1)))
+    const hide   = Math.min(4, Math.max(1, Math.floor(domain.length / 2)))
+    return `${shown}****@****${domain.slice(hide)}`
+  }
+
+  /**
+   * Step 0. Confirms the account and hands back only a masked address, so the
+   * user picks the right account without ever typing or seeing the email.
+   */
+  async lookupForReset(identifier: string) {
+    const notFound = new BadRequestException('No account found with that email or user ID.')
+
+    const user = await this.findByIdentifier(identifier)
+    if (!user) throw notFound
+    if (!user.isActive) {
+      throw new BadRequestException('That account is inactive. Please contact the firm.')
+    }
+    if (user.email.endsWith('@client.internal')) {
+      throw new BadRequestException('That account has no email address on file. Please contact the firm.')
+    }
+
+    return { maskedEmail: this.maskEmail(user.email), fullName: user.fullName }
+  }
+
+  /**
    * Step 1. Always answers the same way whether or not the account exists, so
    * this endpoint cannot be used to discover who has an account here.
    */
