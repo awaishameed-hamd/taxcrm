@@ -41,6 +41,6 @@ export class ClientRepresentativesController {
   sendInvite(@Param('id') id: string) { return this.svc.sendInvite(id) }
 
   @Delete(':id')
-  @Roles(Role.ADMIN, Role.PARTNER)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   remove(@Param('id') id: string) { return this.svc.remove(id) }
 }

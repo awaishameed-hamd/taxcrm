@@ -1437,7 +1437,7 @@ export default function ClientsListPage() {
   const canCreateRep       = usePermission('representatives_create')
   const canEditRep         = usePermission('representatives_edit')
   // Permanent delete is irreversible, so it matches the API guard: Admin/Partner only.
-  const canDelete          = user?.role === 'ADMIN' || user?.role === 'PARTNER'
+  const canDelete          = user?.role === 'ADMIN' || user?.role === 'PARTNER' || user?.role === 'MANAGER'
   // Legacy canAdd for staff fetching (manager+ can always see trainee list for assignment)
   const canAdd             = user?.role === 'ADMIN' || user?.role === 'PARTNER' || canCreateClient || canEditClient
 
