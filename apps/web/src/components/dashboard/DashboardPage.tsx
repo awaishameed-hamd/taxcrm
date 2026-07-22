@@ -262,6 +262,7 @@ interface Props { title: string; subtitle: string }
 export default function DashboardPage({ title }: Props) {
   const phone   = usePhone()
   const compact = useCompact()
+  const [view, setView] = useState<'charts' | 'summary'>('charts')
   // Six stat cards across a 390px phone leaves ~55px each and the contents
   // collide. Two columns on a phone, three on a tablet, six on desktop.
   const statCols = phone ? 'repeat(2,1fr)' : compact ? 'repeat(3,1fr)' : 'repeat(6,1fr)'
@@ -334,12 +335,27 @@ export default function DashboardPage({ title }: Props) {
             this looking smaller, because Faster One's speed-line slashes cut into
             each glyph and lighten it. 26 reads level with the brand. */}
         <div style={{ fontSize:29, color:TEAL, fontFamily:"'Faster One',cursive", display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+        {/* Charts and Summary are two readings of the same data, so they share the
+            stat cards and the period filter and only swap what sits below. */}
+        <div style={{ display:'flex', gap:2, background:WHITE, border:`1px solid ${BORDER}`, borderRadius:8, padding:3 }}>
+          {([
+            { key: 'charts',  label: 'Charts View'  },
+            { key: 'summary', label: 'Summary View' },
+          ] as const).map(v => (
+            <button key={v.key} onClick={() => setView(v.key)}
+              style={{ background:view===v.key ? TEAL : 'transparent', color:view===v.key ? '#fff' : SLATE, border:'none', padding:'5px 13px', borderRadius:6, fontSize:11, fontWeight:view===v.key ? 600 : 400, cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.15s', fontFamily:F }}>
+              {v.label}
+            </button>
+          ))}
+        </div>
         <div style={{ display:'flex', gap:2, background:WHITE, border:`1px solid ${BORDER}`, borderRadius:8, padding:3 }}>
           {PERIODS.map(p => (
             <button key={p.key} onClick={() => setPeriod(p.key)} style={{ background:period===p.key ? NAVY : 'transparent', color:period===p.key ? '#fff' : SLATE, border:'none', padding:'5px 13px', borderRadius:6, fontSize:11, fontWeight:period===p.key ? 600 : 400, cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.15s', fontFamily:F }}>
               {p.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
 
@@ -355,15 +371,18 @@ export default function DashboardPage({ title }: Props) {
         <StatCard label="DUE THIS WEEK"     value={deadlines.dueThisWeek ?? 0} border={GOLD}    fill="#FEF3C7" textColor={GOLD}    loading={loading} />
       </div>
 
-      {/* ── Row 2, 4 breakdown boxes (Active top, Completed/Closed bottom) ── */}
+      {/* ── Summary view: the breakdown boxes ── */}
+      {view === 'summary' && (
       <div style={{ display:'grid', gridTemplateColumns:boxCols, gap:10, marginBottom:10, alignItems:'stretch' }}>
         <BreakdownBox title="Returns by Type"       active={boxes.returns.active}     completed={boxes.returns.completed}     labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="COMPLETED" />
         <BreakdownBox title="Sales Tax by Authority" active={boxes.salesByAuth.active} completed={boxes.salesByAuth.completed} labelFn={authLabelFn}  colorFn={authColorFn}  completedLabel="COMPLETED" />
         <BreakdownBox title="Notices & Appeals by Tax Type" active={boxes.fbrByType.active}   completed={boxes.fbrByType.completed}   labelFn={typeLabelFn}  colorFn={typeColorFn}  completedLabel="CLOSED" />
         <BreakdownBox title="Notices & Appeals by Stage"    active={boxes.fbrByStage.active}  completed={boxes.fbrByStage.completed}  labelFn={stageLabelFn} colorFn={stageColorFn} completedLabel="CLOSED" />
       </div>
+      )}
 
-      {/* ── Row 3. Tax Authority + Pipeline Funnel ── */}
+      {/* ── Charts view: funnel, donuts and distribution ── */}
+      {view === 'charts' && (<>
       <div style={{ marginBottom:10 }}>
         <div style={cardStyle}>
           <div style={titleStyle}>Returns Status Breakdown</div>
@@ -397,6 +416,7 @@ export default function DashboardPage({ title }: Props) {
           {loading ? <Sk h={148} /> : <PipelineTreemap data={byStatus} />}
         </div>
       </div>
+      </>)}
 
     </div>
   )
