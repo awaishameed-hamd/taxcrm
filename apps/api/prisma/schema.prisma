@@ -101,6 +101,16 @@ model User {
   hasPortalAccess Boolean   @default(false)
   inviteToken     String?   @unique
   inviteTokenExp  DateTime?
+
+  // Password reset by emailed OTP. The code itself is stored hashed, never in
+  // the clear, so a database leak cannot be used to take over accounts.
+  // resetOtpTries caps guessing; resetToken is the single-use ticket handed out
+  // once the OTP checks out, so the new password is set in a separate step.
+  resetOtpHash    String?
+  resetOtpExp     DateTime?
+  resetOtpTries   Int       @default(0)
+  resetToken      String?   @unique
+  resetTokenExp   DateTime?
   avatar          String?
   lastSeenAt      DateTime?
   createdAt       DateTime  @default(now())

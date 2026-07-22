@@ -7,6 +7,7 @@ import { JwtStrategy }   from './strategies/jwt.strategy'
 import { AttendanceModule } from '../attendance/attendance.module'
 import { ProfileModule }    from '../profile/profile.module'
 import { ClientsModule }    from '../clients/clients.module'
+import { EmailModule }      from '../email/email.module'
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ClientsModule }    from '../clients/clients.module'
     AttendanceModule,
     ProfileModule,
     ClientsModule,
+    EmailModule,
   ],
   controllers: [AuthController],
   providers:   [AuthService, JwtStrategy],

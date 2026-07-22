@@ -421,8 +421,7 @@ export default function LoginPage() {
               </span>
               Remember me
             </label>
-            <a href="#" style={{ fontSize: 13, color: '#8a9aa2', textDecoration: 'none', fontStyle: 'italic' }}
-              onClick={e => e.preventDefault()}>
+            <a href="/forgot-password" style={{ fontSize: 13, color: '#8a9aa2', textDecoration: 'none', fontStyle: 'italic' }}>
               Forgot your password?
             </a>
           </div>

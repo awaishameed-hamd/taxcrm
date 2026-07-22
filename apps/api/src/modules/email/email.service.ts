@@ -50,6 +50,34 @@ export class EmailService {
     }
   }
 
+  async sendPasswordResetOtp(to: string, fullName: string, otp: string, minutes: number) {
+    if (!this.resend) {
+      this.logger.warn(`Skipped password reset OTP to ${to}, email is not configured`)
+      return
+    }
+    try {
+      await this.resend.emails.send({
+        from:    this.from,
+        to,
+        subject: `${otp} is your Asif Associates password reset code`,
+        html: this.otpHtml(fullName, otp, minutes),
+        text: [
+          `Dear ${fullName},`,
+          '',
+          `Your password reset code is ${otp}`,
+          '',
+          `The code expires in ${minutes} minutes and can be used once.`,
+          'If you did not ask to reset your password, you can ignore this email and nothing will change.',
+          '',
+          'Asif Associates, Chartered Accountants',
+        ].join('\n'),
+      })
+    } catch (err) {
+      this.logger.error('Failed to send password reset email', err)
+      throw err
+    }
+  }
+
   /**
    * Built with tables and inline styles on purpose: Outlook and Gmail strip
    * <style> blocks, flexbox and most modern CSS, so anything fancier falls
@@ -122,6 +150,71 @@ export class EmailService {
               <td style="padding:22px 40px 32px;">
                 <div style="border-top:1px solid ${BORDER};padding-top:16px;font-family:${FONT};font-size:9pt;line-height:1.6;color:${MUTED};">
                   <p style="margin:0 0 3px;">This link expires in 48 hours. If you did not expect this email, you can ignore it.</p>
+                  <p style="margin:0;color:${NAVY};font-weight:600;">Asif Associates, Chartered Accountants</p>
+                </div>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`
+  }
+
+  /** Same table-based construction as the invite, with the code as the hero. */
+  private otpHtml(fullName: string, otp: string, minutes: number): string {
+    const FONT   = "'Aptos','Segoe UI',Helvetica,Arial,sans-serif"
+    const NAVY   = '#132E57'
+    const TEAL   = '#1E8496'
+    const BODY   = '#44526B'
+    const MUTED  = '#8A97AB'
+    const BORDER = '#E4E8EF'
+    const logoUrl = `${this.appUrl}/logo-email.png`
+
+    return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#F4F6F9;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6F9;padding:32px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FFFFFF;border:1px solid ${BORDER};border-radius:10px;">
+
+            <tr>
+              <td align="center" style="padding:36px 40px 8px;">
+                <img src="${logoUrl}" alt="Asif Associates" width="180"
+                     style="width:180px;max-width:60%;height:auto;display:block;border:0;" />
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:20px 40px 0;font-family:${FONT};font-size:11pt;line-height:1.65;color:${BODY};">
+                <p style="margin:0 0 14px;color:${NAVY};font-size:11pt;">Dear <strong>${fullName}</strong>,</p>
+                <p style="margin:0;">
+                  Use the code below to reset your Asif Associates password.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:24px 40px 4px;">
+                <div style="display:inline-block;background:#F4F8FA;border:1px solid ${BORDER};border-radius:8px;padding:14px 28px;">
+                  <span style="font-family:${FONT};font-size:26pt;font-weight:700;letter-spacing:0.18em;color:${TEAL};">${otp}</span>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:10px 40px 0;font-family:${FONT};font-size:10pt;color:${MUTED};">
+                This code expires in ${minutes} minutes and can be used once.
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:22px 40px 32px;">
+                <div style="border-top:1px solid ${BORDER};padding-top:16px;font-family:${FONT};font-size:9pt;line-height:1.6;color:${MUTED};">
+                  <p style="margin:0 0 3px;">If you did not ask to reset your password you can ignore this email, nothing will change. Never share this code with anyone, including staff of the firm.</p>
                   <p style="margin:0;color:${NAVY};font-weight:600;">Asif Associates, Chartered Accountants</p>
                 </div>
               </td>

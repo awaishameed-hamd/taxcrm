@@ -11,6 +11,7 @@ import { IsString, MinLength } from 'class-validator'
 import { AuthService } from './auth.service'
 import { LoginDto } from './dto/login.dto'
 import { RefreshTokenDto } from './dto/refresh-token.dto'
+import { ForgotPasswordDto, VerifyResetOtpDto, ResetPasswordDto } from './dto/password-reset.dto'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { ClientsService } from '../clients/clients.service'
@@ -57,5 +58,25 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   acceptInvite(@Body() dto: AcceptInviteDto) {
     return this.clientsService.acceptInvite(dto.token, dto.password)
+  }
+
+  // ── Password reset, all three steps are public by necessity ──────────────────
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.identifier)
+  }
+
+  @Post('verify-reset-otp')
+  @HttpCode(HttpStatus.OK)
+  verifyResetOtp(@Body() dto: VerifyResetOtpDto) {
+    return this.authService.verifyResetOtp(dto.identifier, dto.otp)
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.resetToken, dto.password)
   }
 }
