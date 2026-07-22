@@ -200,11 +200,16 @@ export default function GeneralTasksPage({ taxType }: Props) {
       setTasks(prev => prev.filter(t => t.id !== task.id))
       if (selected?.id === task.id) { setSelected(null); setListCollapsed(false) }
       showToast('Deleted')
-    } catch { showToast('Failed to delete', false) }
+    } catch (e: any) {
+      const m = e?.response?.data?.message
+      showToast(Array.isArray(m) ? m.join(', ') : m ?? 'Failed to delete', false)
+    }
   }
 
   const canEdit   = (task: any) => role === 'ADMIN' || role === 'PARTNER' || task.createdBy?.id === user?.id
-  const canDelete = (task: any) => role === 'ADMIN' || role === 'PARTNER' || task.createdBy?.id === user?.id
+  // Mirrors the API: Managers and above can delete any general task, Team Leads
+  // only their own.
+  const canDelete = (task: any) => role === 'ADMIN' || role === 'PARTNER' || role === 'MANAGER' || task.createdBy?.id === user?.id
   const canCreate = true
   const canAssignOthers = role === 'ADMIN' || role === 'PARTNER' || role === 'MANAGER'
 

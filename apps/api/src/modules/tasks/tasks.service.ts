@@ -153,7 +153,11 @@ export class TasksService {
     const task = await this.prisma.task.findUnique({ where: { id: taskId } })
     if (!task) throw new NotFoundException('Task not found')
     if (role === Role.TRAINEE) throw new ForbiddenException('Trainees cannot delete tasks')
-    if ((role === Role.MANAGER || role === Role.TEAM_LEAD) && (task as any).createdById !== userId) throw new ForbiddenException()
+    // Managers and above can clear out any general task. Team Leads stay limited
+    // to their own, and the message says so rather than failing silently.
+    if (role === Role.TEAM_LEAD && (task as any).createdById !== userId) {
+      throw new ForbiddenException('You can only delete general tasks that you created.')
+    }
     await this.prisma.task.delete({ where: { id: taskId } })
     return { success: true }
   }

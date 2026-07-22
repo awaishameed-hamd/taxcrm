@@ -773,7 +773,12 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
       setGenTasks(p => p.filter(t => t.id !== selectedGen.id))
       setSelectedGen(null)
       showToast('Task deleted')
-    } catch { showToast('Failed to delete', false) }
+    } catch (e: any) {
+      // Surface the API's reason. Swallowing it turned a clear permission
+      // message into an unhelpful "Failed to delete".
+      const m = e?.response?.data?.message
+      showToast(Array.isArray(m) ? m.join(', ') : m ?? 'Failed to delete', false)
+    }
     finally { setGenActLoading(false) }
   }
 
