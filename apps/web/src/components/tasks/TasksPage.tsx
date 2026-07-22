@@ -392,11 +392,16 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     if (!isFbrView) { setFbrCases([]); return }
     if (!silent) setFbrLoading(true)
     try {
-      const { data } = await api.get('/fbr/cases', { params: { view: defaultManagerView } })
+      // view=approval narrows the API to cases awaiting a manager or partner.
+      // A closed case awaits nobody, so asking for that view on the Completed
+      // and Incomplete pages returned an empty list every time. Those pages
+      // want every case and do their own filtering by stage.
+      const params = (completedOnly || incompleteOnly) ? {} : { view: defaultManagerView }
+      const { data } = await api.get('/fbr/cases', { params })
       setFbrCases(Array.isArray(data) ? data : data.data ?? [])
     } catch { if (!silent) setFbrCases([]) }
     finally { if (!silent) setFbrLoading(false) }
-  }, [isFbrView, defaultManagerView])
+  }, [isFbrView, defaultManagerView, completedOnly, incompleteOnly])
 
   useEffect(() => { fetchPipeTasks() }, [fetchPipeTasks])
   useEffect(() => { fetchGenTasks()  }, [fetchGenTasks])
