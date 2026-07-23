@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common'
 import { Role } from '@ca-firm/shared'
 import * as bcrypt from 'bcryptjs'
@@ -180,6 +181,69 @@ export class UsersService {
       data:   { isActive: !user.isActive },
       select: USER_SELECT,
     })
+  }
+
+  /**
+   * Permanently deletes a staff user, for accounts created by mistake, as
+   * opposed to toggleActive which only disables login.
+   *
+   * A task belongs to the person performing it, so the only thing that blocks a
+   * delete is a task assigned to this user: their own pipeline tasks as trainee,
+   * or general tasks assigned to them. Tasks they merely created or reviewed for
+   * someone else do not block, since the task is really the assignee's; that
+   * authorship is simply handed to whoever is doing the delete, so a manager can
+   * be removed without disturbing the trainee's work.
+   */
+  async deleteUser(id: string, actorId: string, actorRole: Role) {
+    if (id === actorId) throw new BadRequestException('You cannot delete your own account.')
+
+    const user = await this.prisma.user.findUnique({
+      where:  { id },
+      select: {
+        id: true, fullName: true, userCode: true, role: true,
+        _count: {
+          select: {
+            salesTaxTasks: true,   // pipeline tasks assigned to them as trainee
+            assignedTasks: true,   // general tasks assigned to them
+          },
+        },
+      },
+    })
+    if (!user) throw new NotFoundException('User not found')
+
+    // Same ceiling as creating: you can only delete roles you could create, so
+    // no one deletes a peer or a senior, and Team Leads and Trainees delete no one.
+    if (!this.getCreatableRoles(actorRole).includes(user.role as Role)) {
+      throw new ForbiddenException(`You do not have permission to delete a ${user.role}.`)
+    }
+
+    // Only tasks they are actually performing count. A creator or reviewer can go.
+    const owned = user._count.salesTaxTasks + user._count.assignedTasks
+    if (owned > 0) {
+      throw new BadRequestException(
+        `${user.fullName} still has ${owned} task${owned === 1 ? '' : 's'} assigned to them. ` +
+        `Reassign those tasks first, or disable the account instead.`,
+      )
+    }
+
+    await this.prisma.$transaction(async tx => {
+      // Chat messages have a hard foreign key, and are not work, so clear them.
+      await tx.message.deleteMany({ where: { senderId: id } })
+      await tx.conversationParticipant.deleteMany({ where: { userId: id } })
+      // These are all "who did this" metadata on work that belongs to others, and
+      // have required author fields. Hand them to the person doing the delete so
+      // the underlying task, case or step is untouched.
+      await tx.task.updateMany({ where: { createdById: id }, data: { createdById: actorId } })
+      await tx.salesTaxTaskHistory.updateMany({ where: { actedById: id }, data: { actedById: actorId } })
+      await tx.fbrCase.updateMany({ where: { createdById: id }, data: { createdById: actorId } })
+      await tx.fbrAttachment.updateMany({ where: { uploadedById: id }, data: { uploadedById: actorId } })
+      // The rest release automatically: clients, trainees, recorded payments,
+      // created invoices, reviewed leaves and FBR assignments all null out, while
+      // attendance, notifications, sessions and the user's own leaves cascade away.
+      await tx.user.delete({ where: { id } })
+    })
+
+    return { message: 'User deleted permanently.' }
   }
 
   async updatePassword(id: string, newPassword: string) {

@@ -149,6 +149,10 @@ export default function TeamListPage() {
   const creatableRoles = myRoleIdx >= 0 ? ROLE_HIERARCHY.slice(myRoleIdx + 1) : []
   const canCreate      = creatableRoles.length > 0 && canCreatePerm
   const canManageUser  = (u: TeamUser) => ROLE_HIERARCHY.indexOf(u.role) > myRoleIdx && canEditPerm
+  // Permanent delete: only Admin, Partner and Manager, and only on someone below
+  // them. Mirrors the API guard so no button appears that would just error.
+  const canDeleteUser  = (u: TeamUser) =>
+    canManageUser(u) && ['ADMIN', 'PARTNER', 'MANAGER'].includes(authUser?.role ?? '')
 
   // ── Filter state ──────────────────────────────────────────────────────────
   const [roleFilter,   setRoleFilter]   = useState('')
@@ -186,7 +190,7 @@ export default function TeamListPage() {
   // ── Modal state ───────────────────────────────────────────────────────────
   const [showCreate,   setShowCreate]   = useState(false)
   const [editUserId,   setEditUserId]   = useState<string | null>(null)
-  const [confirmModal, setConfirmModal] = useState<{ user: TeamUser; type: 'disable' | 'enable' } | null>(null)
+  const [confirmModal, setConfirmModal] = useState<{ user: TeamUser; type: 'disable' | 'enable' | 'delete' } | null>(null)
   const [toast,        setToast]        = useState<{ msg: string; ok: boolean } | null>(null)
 
   // ── Toast auto-dismiss ────────────────────────────────────────────────────
@@ -231,6 +235,23 @@ export default function TeamListPage() {
       fetchUsers()
     } catch (err: any) {
       setToast({ msg: err?.response?.data?.message ?? 'Action failed.', ok: false })
+    }
+  }
+
+  // ── Permanent delete ──────────────────────────────────────────────────────
+  async function handleDelete() {
+    if (!confirmModal) return
+    const u = confirmModal.user
+    setConfirmModal(null)
+    try {
+      await api.delete(`/users/${u.id}`)
+      setToast({ msg: `${u.fullName} deleted permanently.`, ok: true })
+      fetchUsers()
+    } catch (err: any) {
+      // The API refuses when the user still has linked work and says which, so
+      // show that reason rather than a generic failure.
+      const m = err?.response?.data?.message
+      setToast({ msg: Array.isArray(m) ? m.join(', ') : m ?? 'Delete failed.', ok: false })
     }
   }
 
@@ -280,13 +301,17 @@ export default function TeamListPage() {
       )}
       {confirmModal && (
         <ConfirmModal
-          title={confirmModal.type === 'disable' ? `Disable "${confirmModal.user.fullName}"?` : `Enable "${confirmModal.user.fullName}"?`}
-          message={confirmModal.type === 'disable'
-            ? 'This user will no longer be able to log in.'
+          title={
+            confirmModal.type === 'delete'  ? `Permanently delete "${confirmModal.user.fullName}"?`
+            : confirmModal.type === 'disable' ? `Disable "${confirmModal.user.fullName}"?`
+            : `Enable "${confirmModal.user.fullName}"?`}
+          message={
+            confirmModal.type === 'delete'  ? 'This removes the account and everything tied to it, and cannot be undone. It is refused only if the user still has a linked task. Any clients or incharge duties will need reassigning afterward.'
+            : confirmModal.type === 'disable' ? 'This user will no longer be able to log in.'
             : 'This user will regain access to the system.'}
-          confirmLabel={confirmModal.type === 'disable' ? 'Disable' : 'Enable'}
-          confirmColor={confirmModal.type === 'disable' ? '#DC2626' : '#16A34A'}
-          onConfirm={handleToggleActive}
+          confirmLabel={confirmModal.type === 'delete' ? 'Delete' : confirmModal.type === 'disable' ? 'Disable' : 'Enable'}
+          confirmColor={confirmModal.type === 'enable' ? '#16A34A' : '#DC2626'}
+          onConfirm={confirmModal.type === 'delete' ? handleDelete : handleToggleActive}
           onCancel={() => setConfirmModal(null)}
         />
       )}
@@ -542,6 +567,23 @@ export default function TeamListPage() {
                                     </svg>
                                   )
                                 }
+                              </button>
+                            )}
+
+                            {/* Permanent delete, Admin/Partner/Manager only */}
+                            {canDeleteUser(u) && (
+                              <button
+                                onClick={() => setConfirmModal({ user: u, type: 'delete' })}
+                                title="Delete permanently"
+                                style={{
+                                  padding: 6, borderRadius: 7, border: 0, cursor: 'pointer',
+                                  background: 'transparent', color: P.textMuted,
+                                }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#FEF2F2'; (e.currentTarget as HTMLElement).style.color = '#B91C1C' }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.textMuted }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                </svg>
                               </button>
                             )}
                           </div>

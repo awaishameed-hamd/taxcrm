@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -75,5 +76,13 @@ export class UsersController {
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
   toggleActive(@Param('id') id: string) {
     return this.usersService.toggleActive(id)
+  }
+
+  // Permanent delete. Irreversible, so the service also enforces the role
+  // hierarchy and refuses users that carry real work.
+  @Delete(':id')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
+  remove(@Param('id') id: string, @CurrentUser() user: { id: string; role: Role }) {
+    return this.usersService.deleteUser(id, user.id, user.role)
   }
 }
