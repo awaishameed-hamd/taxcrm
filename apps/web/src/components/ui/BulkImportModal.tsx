@@ -14,6 +14,18 @@ export interface ImportColumn {
   example?: string   // sample value written into the first data row
   required?: boolean
   width?: number
+  options?: string[] // when set, the column becomes a locked dropdown in Excel
+}
+
+// How many data rows get the dropdown validation applied. Comfortably above a
+// 200-row import while keeping the file small.
+const VALIDATION_ROWS = 600
+
+// A1-style column letter from a 1-based index.
+function colLetter(n: number): string {
+  let s = ''
+  while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26) }
+  return s
 }
 
 interface Props {
@@ -44,19 +56,46 @@ export default function BulkImportModal({ title, sheetName, fileName, columns, e
 
     ws.columns = columns.map(c => ({ header: c.header, key: c.key, width: c.width ?? 20 }))
 
-    // Gold header row, matching the app's table style.
+    // Gold header row, matching the app's table style. Required columns get a *.
     const head = ws.getRow(1)
-    head.font = { bold: true, color: { argb: 'FF132E57' } }
     head.height = 22
-    head.eachCell(cell => {
+    head.eachCell((cell, i) => {
+      const col = columns[i - 1]
+      cell.value = col?.required ? `${col.header} *` : col?.header ?? cell.value
+      cell.font = { bold: true, color: { argb: 'FF132E57' } }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${GOLD}` } }
       cell.alignment = { vertical: 'middle', horizontal: 'left' }
       cell.border = { bottom: { style: 'thin', color: { argb: 'FFBFA23A' } } }
     })
 
-    // One example row so the format is obvious, marked so it is easy to clear.
+    // One example row so the format is obvious.
     ws.addRow(Object.fromEntries(columns.map(c => [c.key, c.example ?? ''])))
     ws.getRow(2).font = { italic: true, color: { argb: 'FF94A3B8' } }
+
+    // Dropdown validation. Option lists live on a hidden sheet and are referenced
+    // by range, which avoids Excel's 255-char limit on inline lists (the staff
+    // list can be long) and keeps the picker clean.
+    const withOpts = columns.map((c, i) => ({ c, i })).filter(x => x.c.options && x.c.options.length)
+    if (withOpts.length) {
+      const lists = wb.addWorksheet('Lists', { state: 'veryHidden' })
+      withOpts.forEach(({ c }, listIdx) => {
+        const letter = colLetter(listIdx + 1)
+        c.options!.forEach((opt, r) => { lists.getCell(`${letter}${r + 1}`).value = opt })
+        const ref = `Lists!$${letter}$1:$${letter}$${c.options!.length}`
+        const colLtr = colLetter(columns.indexOf(c) + 1)
+        for (let row = 2; row <= VALIDATION_ROWS; row++) {
+          ws.getCell(`${colLtr}${row}`).dataValidation = {
+            type: 'list',
+            allowBlank: true,          // blank is always allowed
+            formulae: [ref],
+            showErrorMessage: true,
+            errorStyle: 'stop',        // reject anything not on the list
+            errorTitle: 'Pick from the list',
+            error: `Choose one of the allowed values for "${c.header}".`,
+          }
+        }
+      })
+    }
 
     const buf = await wb.xlsx.writeBuffer()
     const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
@@ -82,7 +121,8 @@ export default function BulkImportModal({ title, sheetName, fileName, columns, e
       const headerRow = ws.getRow(1)
       const colKeyByIndex: Record<number, string> = {}
       headerRow.eachCell((cell, idx) => {
-        const text = String(cell.value ?? '').trim().toLowerCase()
+        // Strip the required-marker asterisk before matching.
+        const text = String(cell.value ?? '').replace(/\*+\s*$/, '').trim().toLowerCase()
         const col = columns.find(c => c.header.toLowerCase() === text)
         if (col) colKeyByIndex[idx] = col.key
       })
@@ -97,7 +137,9 @@ export default function BulkImportModal({ title, sheetName, fileName, columns, e
         let hasValue = false
         Object.entries(colKeyByIndex).forEach(([idx, key]) => {
           const v = row.getCell(Number(idx)).value
-          const val = v && typeof v === 'object' && 'text' in (v as any) ? (v as any).text : v
+          let val: any = v && typeof v === 'object' && 'text' in (v as any) ? (v as any).text : v
+          // A date cell must reach the API as YYYY-MM-DD, not a JS date string.
+          if (val instanceof Date) val = val.toISOString().split('T')[0]
           const s = val === null || val === undefined ? '' : String(val).trim()
           obj[key] = s
           if (s) hasValue = true

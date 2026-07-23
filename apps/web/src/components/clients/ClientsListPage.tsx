@@ -1534,6 +1534,49 @@ export default function ClientsListPage() {
     [fieldConfigs]
   )
 
+  // Import columns built live from the current staff and the visible client form
+  // fields, so the downloaded template mirrors exactly what the form shows and
+  // its dropdowns are always current. Each authority and service is its own
+  // Yes/No column, matching the checkboxes and toggles in the form.
+  const clientImportColumns = useMemo(() => {
+    const SALES_TAX_AUTHORITIES = ['FBR', 'PRA', 'SRB', 'KPRA', 'BRA', 'AJK']
+    const staffOptions = trainees.map((t: any) => `${t.userCode} - ${t.fullName}`)
+
+    const parseOpts = (o: any): string[] | undefined => {
+      if (!o) return undefined
+      if (Array.isArray(o)) return o
+      try { const p = JSON.parse(o); return Array.isArray(p) ? p : undefined } catch { return undefined }
+    }
+
+    const cols: any[] = [
+      { key: 'assignedStaff', header: 'Assigned Staff', required: true, width: 26, options: staffOptions, example: staffOptions[0] ?? '' },
+    ]
+
+    // The visible client form fields, in their configured order. traineeId is the
+    // staff assignment above, so skip it here.
+    visibleConfigs
+      .filter((f: any) => (f.fieldKey ?? f.field_key) !== 'traineeId')
+      .forEach((f: any) => {
+        const key   = f.fieldKey ?? f.field_key
+        const type  = f.fieldType ?? f.field_type
+        const req   = f.isRequired ?? f.is_required ?? false
+        cols.push({
+          key,
+          header:   f.label ?? key,
+          required: !!req || key === 'businessName',
+          width:    22,
+          options:  type === 'select' ? parseOpts(f.options) : undefined,
+        })
+      })
+
+    SALES_TAX_AUTHORITIES.forEach(a =>
+      cols.push({ key: `auth_${a}`, header: `Sales Tax ${a}`, width: 14, options: ['Yes', 'No'], example: 'No' }))
+    cols.push({ key: 'wht',        header: 'Withholding Tax (WHT)',  width: 20, options: ['Yes', 'No'], example: 'No' })
+    cols.push({ key: 'advanceTax', header: 'Quarterly Advance Tax',  width: 20, options: ['Yes', 'No'], example: 'No' })
+    cols.push({ key: 'yearEnd',    header: 'Year End',               width: 14, options: ['JUNE', 'SEPTEMBER', 'DECEMBER'], example: 'JUNE' })
+    return cols
+  }, [trainees, visibleConfigs])
+
   const handleTogglePortal = async (c: any) => {
     try {
       const { data: env } = await api.patch(`/clients/${c.id}/toggle-portal`)
@@ -1704,22 +1747,8 @@ export default function ClientsListPage() {
           sheetName="Clients"
           fileName="clients-import-template"
           endpoint="/clients/bulk"
-          note="Fill one client per row. Business Name and Assigned Staff (their User Code, e.g. T001) are required; everything else is optional. Sales Tax Authorities can be several, separated by commas, e.g. FBR, PRA."
-          columns={[
-            { key: 'businessName',        header: 'Business Name',            example: 'ABC Traders',        required: true, width: 26 },
-            { key: 'fullName',            header: 'Contact Full Name',        example: 'Ali Khan',           width: 22 },
-            { key: 'assignedStaff',       header: 'Assigned Staff (User Code)', example: 'T001',             required: true, width: 22 },
-            { key: 'email',               header: 'Email',                    example: 'ali@abc.com',        width: 22 },
-            { key: 'phone',               header: 'Phone',                    example: '+92 300 1234567',    width: 18 },
-            { key: 'cnic',                header: 'CNIC',                     example: '35201-1234567-1',    width: 18 },
-            { key: 'ntn',                 header: 'NTN',                      example: '1234567',            width: 14 },
-            { key: 'strn',                header: 'STRN',                     example: '3277876500000',      width: 16 },
-            { key: 'businessType',        header: 'Business Type',            example: 'Pvt Ltd',            width: 16 },
-            { key: 'city',                header: 'City',                     example: 'Lahore',             width: 14 },
-            { key: 'province',            header: 'Province',                 example: 'Punjab',             width: 14 },
-            { key: 'address',             header: 'Address',                  example: '12 Mall Road',       width: 24 },
-            { key: 'salesTaxAuthorities', header: 'Sales Tax Authorities',    example: 'FBR, PRA',           width: 20 },
-          ]}
+          note="One client per row. The starred columns are required. Assigned Staff, Business Type, the Sales Tax authorities and Year End are dropdowns, so pick from the list. This template is built from your live staff and form settings each time you download it, so add new staff first and re-download to see them."
+          columns={clientImportColumns}
           onClose={() => setShowImport(false)}
           onDone={() => fetchClients(search || undefined)}
         />

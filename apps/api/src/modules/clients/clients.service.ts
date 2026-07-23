@@ -61,9 +61,25 @@ export class ClientsService {
     const byCode = new Map(staff.map(s => [s.userCode.toUpperCase(), s]))
     const byName = new Map(staff.map(s => [s.fullName.trim().toLowerCase(), s]))
 
-    const str  = (v: any) => (v === null || v === undefined ? '' : String(v).trim())
-    const authorities = (v: any) =>
-      str(v).split(/[,;/|]/).map(a => a.trim().toUpperCase()).filter(Boolean)
+    // The template's staff dropdown reads "T001 - Ali Khan", so accept the whole
+    // string, its leading code, or a plain name/code.
+    const resolveStaff = (raw: string) => {
+      const s = raw.trim()
+      if (!s) return null
+      const whole = byCode.get(s.toUpperCase())
+      if (whole) return whole
+      const token = s.split(/[\s\-|(·]/)[0].trim()
+      if (token && byCode.get(token.toUpperCase())) return byCode.get(token.toUpperCase())!
+      return byName.get(s.toLowerCase()) ?? null
+    }
+
+    const str = (v: any) => (v === null || v === undefined ? '' : String(v).trim())
+    const yes = (v: any) => /^(y|yes|true|1|on)$/i.test(str(v))
+
+    // The native client columns; anything else on a row is a custom form field.
+    const NATIVE = new Set(['fullName', 'email', 'phone', 'cnic', 'dateOfBirth', 'address', 'city', 'province', 'ntn', 'strn', 'businessName', 'businessType'])
+    const AUTHORITIES = ['FBR', 'PRA', 'SRB', 'KPRA', 'BRA', 'AJK']
+    const RESERVED = new Set(['assignedStaff', 'wht', 'advanceTax', 'yearEnd', ...AUTHORITIES.map(a => `auth_${a}`)])
 
     const failed: { row: number; name: string; error: string }[] = []
     let created = 0
@@ -73,29 +89,32 @@ export class ClientsService {
       const excelRow = i + 2   // row 1 is the header
       const name = str(r.businessName) || str(r.fullName)
       try {
-        if (!name) throw new Error('Business Name or Full Name is required')
+        if (!name) throw new Error('Business Name is required')
 
-        const key   = str(r.assignedStaff)
-        if (!key) throw new Error('Assigned Staff (User Code) is required')
-        const match = byCode.get(key.toUpperCase()) ?? byName.get(key.toLowerCase())
-        if (!match)          throw new Error(`Assigned staff "${key}" not found. Use their User Code.`)
-        if (!match.isActive) throw new Error(`Assigned staff "${key}" is inactive.`)
+        const staffRaw = str(r.assignedStaff)
+        if (!staffRaw) throw new Error('Assigned Staff is required')
+        const match = resolveStaff(staffRaw)
+        if (!match)          throw new Error(`Assigned staff "${staffRaw}" not found.`)
+        if (!match.isActive) throw new Error(`Assigned staff "${staffRaw}" is inactive.`)
 
-        await this.create({
-          businessName:        str(r.businessName) || undefined,
-          fullName:            str(r.fullName)     || undefined,
-          email:               str(r.email)        || undefined,
-          phone:               str(r.phone)        || undefined,
-          cnic:                str(r.cnic)         || undefined,
-          ntn:                 str(r.ntn)          || undefined,
-          strn:                str(r.strn)         || undefined,
-          city:                str(r.city)         || undefined,
-          province:            str(r.province)     || undefined,
-          businessType:        str(r.businessType) || undefined,
-          address:             str(r.address)      || undefined,
-          traineeId:           match.id,
-          salesTaxAuthorities: authorities(r.salesTaxAuthorities),
-        })
+        const dto: any = { traineeId: match.id }
+        const extraFields: Record<string, string> = {}
+        for (const [k, v] of Object.entries(r)) {
+          if (k === 'assignedStaff' || RESERVED.has(k)) continue
+          const val = str(v)
+          if (!val) continue
+          if (NATIVE.has(k)) dto[k] = val
+          else extraFields[k] = val
+        }
+        if (Object.keys(extraFields).length) dto.extraFields = extraFields
+
+        dto.salesTaxAuthorities  = AUTHORITIES.filter(a => yes(r[`auth_${a}`]))
+        dto.hasWhtService        = yes(r.wht)
+        dto.hasAdvanceTaxService = yes(r.advanceTax)
+        const ye = str(r.yearEnd).toUpperCase()
+        if (ye) dto.yearEnd = ye
+
+        await this.create(dto)
         created++
       } catch (e: any) {
         failed.push({ row: excelRow, name, error: e?.message ?? 'Failed to create' })
