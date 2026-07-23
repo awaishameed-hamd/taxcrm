@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
+import RefreshButton from './RefreshButton'
 import { useIdleLogout } from '@/hooks/useIdleLogout'
 import { useCompact } from '@/hooks/useMediaQuery'
 
@@ -105,6 +106,9 @@ export default function AppLayout({
 
         {children}
       </main>
+
+      {/* Sits above every page, so one control refreshes whichever is showing. */}
+      <RefreshButton compact={compact} />
     </div>
   )
 }

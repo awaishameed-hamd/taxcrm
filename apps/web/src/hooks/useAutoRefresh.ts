@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { getSocket } from '@/lib/socket'
 
+// The manual refresh button dispatches this. Every mounted useAutoRefresh
+// listens, so one button refetches whatever page is on screen, and only that
+// page, without a full browser reload.
+export const APP_REFRESH_EVENT = 'app:refresh'
+
 // Silently re-runs `refetch` on a timer, whenever a socket notification
 // arrives, and whenever the tab regains focus, so pages stay live without
 // the user ever needing to manually reload.
@@ -27,6 +32,7 @@ export function useAutoRefresh(refetch: () => void, intervalMs = 15000) {
     const onVisible = () => { if (!document.hidden) run() }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', run)
+    window.addEventListener(APP_REFRESH_EVENT, run)
 
     return () => {
       clearInterval(interval)
@@ -34,6 +40,7 @@ export function useAutoRefresh(refetch: () => void, intervalMs = 15000) {
       socket.off('new_message', run)
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', run)
+      window.removeEventListener(APP_REFRESH_EVENT, run)
     }
   }, [intervalMs])
 }
