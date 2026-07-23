@@ -117,8 +117,10 @@ export default function AttendanceApprovalPage() {
       const year  = d.getUTCFullYear()
       const { data } = await api.get('/attendance/report', { params: { month, year } })
       const all: any[] = data.data ?? []
-      // filter to selected date only
-      setRecords(all.filter(r => r.date === date))
+      // Approval is only for people who actually logged in that day (PRESENT or
+      // LATE). Absent rows are system-generated no-shows with nothing to approve,
+      // and they get locked at 6pm on their own, so they do not belong here.
+      setRecords(all.filter(r => r.date === date && (r.status === 'PRESENT' || r.status === 'LATE')))
     } catch { /* ignore */ } finally { if (!silent) setLoading(false) }
   }, [date])
 
