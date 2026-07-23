@@ -37,6 +37,74 @@ export class ClientsService {
     }
   }
 
+  /**
+   * Bulk create from a spreadsheet import. Each row is created through the same
+   * create() path so every side effect (login rows, code generation) stays
+   * consistent. Best effort: a bad row is reported and skipped, never rolled
+   * into the others, so 199 good rows still land when 1 is wrong.
+   *
+   * The sheet names the assigned staff by their User Code (or full name), since
+   * a person filling Excel cannot know internal ids.
+   */
+  async bulkCreateClients(rows: any[]) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new BadRequestException('No rows to import.')
+    }
+    if (rows.length > 1000) {
+      throw new BadRequestException('Please import at most 1000 rows at a time.')
+    }
+
+    const staff = await this.prisma.user.findMany({
+      where:  { role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] } },
+      select: { id: true, userCode: true, fullName: true, isActive: true },
+    })
+    const byCode = new Map(staff.map(s => [s.userCode.toUpperCase(), s]))
+    const byName = new Map(staff.map(s => [s.fullName.trim().toLowerCase(), s]))
+
+    const str  = (v: any) => (v === null || v === undefined ? '' : String(v).trim())
+    const authorities = (v: any) =>
+      str(v).split(/[,;/|]/).map(a => a.trim().toUpperCase()).filter(Boolean)
+
+    const failed: { row: number; name: string; error: string }[] = []
+    let created = 0
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      const excelRow = i + 2   // row 1 is the header
+      const name = str(r.businessName) || str(r.fullName)
+      try {
+        if (!name) throw new Error('Business Name or Full Name is required')
+
+        const key   = str(r.assignedStaff)
+        if (!key) throw new Error('Assigned Staff (User Code) is required')
+        const match = byCode.get(key.toUpperCase()) ?? byName.get(key.toLowerCase())
+        if (!match)          throw new Error(`Assigned staff "${key}" not found. Use their User Code.`)
+        if (!match.isActive) throw new Error(`Assigned staff "${key}" is inactive.`)
+
+        await this.create({
+          businessName:        str(r.businessName) || undefined,
+          fullName:            str(r.fullName)     || undefined,
+          email:               str(r.email)        || undefined,
+          phone:               str(r.phone)        || undefined,
+          cnic:                str(r.cnic)         || undefined,
+          ntn:                 str(r.ntn)          || undefined,
+          strn:                str(r.strn)         || undefined,
+          city:                str(r.city)         || undefined,
+          province:            str(r.province)     || undefined,
+          businessType:        str(r.businessType) || undefined,
+          address:             str(r.address)      || undefined,
+          traineeId:           match.id,
+          salesTaxAuthorities: authorities(r.salesTaxAuthorities),
+        })
+        created++
+      } catch (e: any) {
+        failed.push({ row: excelRow, name, error: e?.message ?? 'Failed to create' })
+      }
+    }
+
+    return { total: rows.length, created, failedCount: failed.length, failed }
+  }
+
   async create(dto: CreateClientDto) {
     const rawPassword = dto.password ?? randomBytes(24).toString('hex')
     const hashed      = await bcrypt.hash(rawPassword, 12)

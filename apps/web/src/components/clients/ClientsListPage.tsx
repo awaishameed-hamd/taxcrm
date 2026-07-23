@@ -5,6 +5,7 @@ import { useAuth, usePermission } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
+import BulkImportModal from '@/components/ui/BulkImportModal'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const NAVY  = '#132E57'
@@ -1451,6 +1452,7 @@ export default function ClientsListPage() {
   const [searchInput,  setSearchInput]  = useState('')
 
   const [showCreate,     setShowCreate]     = useState(false)
+  const [showImport,     setShowImport]     = useState(false)
   const [showNewRep,     setShowNewRep]     = useState(false)
   const [editClient,     setEditClient]     = useState<any | null>(null)
   const [confirmToggle,  setConfirmToggle]  = useState<any | null>(null)
@@ -1665,6 +1667,20 @@ export default function ClientsListPage() {
           </button>
         )}
         {canCreateClient && activeTab === 'clients' && (
+          <button onClick={() => setShowImport(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '10px 16px', borderRadius: 10, border: `1.5px solid ${TEAL}`, cursor: 'pointer',
+              background: '#fff', color: TEAL,
+              fontSize: 13, fontWeight: 700, fontFamily: "'Aptos', sans-serif", letterSpacing: '0.04em',
+            }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+            </svg>
+            Import
+          </button>
+        )}
+        {canCreateClient && activeTab === 'clients' && (
           <button onClick={() => setShowCreate(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
@@ -1681,6 +1697,33 @@ export default function ClientsListPage() {
         )}
         </div>
       </div>
+
+      {showImport && (
+        <BulkImportModal
+          title="Import Clients"
+          sheetName="Clients"
+          fileName="clients-import-template"
+          endpoint="/clients/bulk"
+          note="Fill one client per row. Business Name and Assigned Staff (their User Code, e.g. T001) are required; everything else is optional. Sales Tax Authorities can be several, separated by commas, e.g. FBR, PRA."
+          columns={[
+            { key: 'businessName',        header: 'Business Name',            example: 'ABC Traders',        required: true, width: 26 },
+            { key: 'fullName',            header: 'Contact Full Name',        example: 'Ali Khan',           width: 22 },
+            { key: 'assignedStaff',       header: 'Assigned Staff (User Code)', example: 'T001',             required: true, width: 22 },
+            { key: 'email',               header: 'Email',                    example: 'ali@abc.com',        width: 22 },
+            { key: 'phone',               header: 'Phone',                    example: '+92 300 1234567',    width: 18 },
+            { key: 'cnic',                header: 'CNIC',                     example: '35201-1234567-1',    width: 18 },
+            { key: 'ntn',                 header: 'NTN',                      example: '1234567',            width: 14 },
+            { key: 'strn',                header: 'STRN',                     example: '3277876500000',      width: 16 },
+            { key: 'businessType',        header: 'Business Type',            example: 'Pvt Ltd',            width: 16 },
+            { key: 'city',                header: 'City',                     example: 'Lahore',             width: 14 },
+            { key: 'province',            header: 'Province',                 example: 'Punjab',             width: 14 },
+            { key: 'address',             header: 'Address',                  example: '12 Mall Road',       width: 24 },
+            { key: 'salesTaxAuthorities', header: 'Sales Tax Authorities',    example: 'FBR, PRA',           width: 20 },
+          ]}
+          onClose={() => setShowImport(false)}
+          onDone={() => fetchClients(search || undefined)}
+        />
+      )}
 
       {/* Representatives Tab */}
       {activeTab === 'representatives' && canViewReps && <RepresentativesSection canCreate={canCreateRep} canEdit={canEditRep} canDelete={canDelete} showNewRep={showNewRep} setShowNewRep={setShowNewRep} />}

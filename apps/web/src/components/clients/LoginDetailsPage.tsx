@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
+import BulkImportModal from '@/components/ui/BulkImportModal'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -118,6 +119,7 @@ export default function LoginDetailsPage() {
   const [statusFilter,  setStatusFilter]  = useState<'active' | 'inactive' | 'all'>('active')
   const [editRow,       setEditRow]       = useState<LoginDetail | null>(null)
   const [showAdd,       setShowAdd]       = useState(false)
+  const [showImport,    setShowImport]    = useState(false)
 
   const [toggling,      setToggling]      = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<LoginDetail | null>(null)
@@ -204,12 +206,34 @@ export default function LoginDetailsPage() {
 
           <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#fff', paddingLeft: 4, paddingRight: 4 }}>{visibleRows.length} rows</span>
 
+          <button onClick={() => setShowImport(true)}
+            style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 30, border: '1.5px solid #fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
+            Import
+          </button>
           <button onClick={() => setShowAdd(true)}
             style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: NAVY, color: '#fff' }}>
             + Add
           </button>
         </div>
       </div>
+
+      {showImport && (
+        <BulkImportModal
+          title="Import Login Details"
+          sheetName="Login Details"
+          fileName="login-details-import-template"
+          endpoint="/client-login-details/bulk"
+          note="One authority login per row for a client that already exists. Identify the client by their Client Code (e.g. C-0000001) or exact Business Name. Import the clients first if they are new."
+          columns={[
+            { key: 'client',    header: 'Client (Code or Business Name)', example: 'ABC Traders', required: true, width: 30 },
+            { key: 'authority', header: 'Authority',                     example: 'FBR',         required: true, width: 14 },
+            { key: 'loginId',   header: 'Login ID',                      example: '1234567',     width: 22 },
+            { key: 'password',  header: 'Password',                      example: 'secret123',   width: 22 },
+          ]}
+          onClose={() => setShowImport(false)}
+          onDone={() => fetchRows(search || undefined)}
+        />
+      )}
 
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>

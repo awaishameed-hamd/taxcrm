@@ -25,6 +25,12 @@ export class ClientLoginDetailsController {
     return this.svc.createClientWithLogin(dto)
   }
 
+  // Bulk import from the Excel template, parsed in the browser.
+  @Post('bulk')
+  bulk(@Body() body: { rows: any[] }) {
+    return this.svc.bulkUpsertLogins(body?.rows ?? [])
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateLoginDetailDto) {
     return this.svc.update(id, dto)

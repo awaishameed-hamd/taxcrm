@@ -28,6 +28,14 @@ export class ClientsController {
     return this.clientsService.create(dto)
   }
 
+  // Bulk import from the Excel template. Rows are parsed in the browser, so this
+  // takes a plain array and reports per-row failures.
+  @Post('bulk')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  bulk(@Body() body: { rows: any[] }) {
+    return this.clientsService.bulkCreateClients(body?.rows ?? [])
+  }
+
   @Get('my-profile')
   @Roles(Role.CLIENT)
   myProfile(@CurrentUser() user: { id: string }) {
