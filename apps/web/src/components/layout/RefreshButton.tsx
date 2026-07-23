@@ -8,12 +8,13 @@ import { APP_REFRESH_EVENT } from '@/hooks/useAutoRefresh'
 // page's existing refetch (via APP_REFRESH_EVENT) rather than reloading the
 // browser, so it is near instant and keeps scroll position and filters.
 //
-// Single click refreshes. Dragging is deliberately behind a double click, so
-// the button reads as an ordinary button and never shows a move cursor until
-// you ask for it. Each page remembers where it was left, keyed by pathname.
+// Single click refreshes. To move it, double click and hold on the second
+// press, then drag, all in one motion. A plain hover shows an ordinary pointer,
+// never a move cursor. Each page remembers where it was left, keyed by pathname.
 
 const KEY = (path: string) => `refreshBtnPos:${path}`
 const DRAG_THRESHOLD = 4
+const DOUBLE_MS      = 350   // second press within this counts as a double click
 
 type Pos = { x: number; y: number }
 
@@ -24,15 +25,10 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
 
   const [pos, setPos]           = useState<Pos | null>(null)
   const [spinning, setSpinning] = useState(false)
-  // "armed" = move mode, entered by double click. Only then does it drag.
-  const [armed, setArmed]       = useState(false)
   const [grabbing, setGrabbing] = useState(false)
 
-  const armedRef    = useRef(false)
-  const drag        = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null)
-  const suppressTap = useRef(false)
-
-  const setArmedBoth = (v: boolean) => { armedRef.current = v; setArmed(v) }
+  const lastUp = useRef(0)
+  const drag   = useRef<{ startX: number; startY: number; baseX: number; baseY: number; armed: boolean; moved: boolean } | null>(null)
 
   const clamp = useCallback((p: Pos): Pos => ({
     x: Math.min(Math.max(8, p.x), window.innerWidth  - size - 8),
@@ -44,7 +40,6 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
       const raw = localStorage.getItem(KEY(pathname))
       setPos(raw ? clamp(JSON.parse(raw)) : null)
     } catch { setPos(null) }
-    setArmedBoth(false)
   }, [pathname, clamp])
 
   useEffect(() => {
@@ -56,19 +51,20 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
   const refresh = () => {
     window.dispatchEvent(new Event(APP_REFRESH_EVENT))
     setSpinning(true)
-    setTimeout(() => setSpinning(false), 750)
+    setTimeout(() => setSpinning(false), 700)
   }
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!armedRef.current) return   // not in move mode, let it behave as a button
     const r = e.currentTarget.getBoundingClientRect()
-    drag.current = { startX: e.clientX, startY: e.clientY, baseX: r.left, baseY: r.top, moved: false }
-    e.currentTarget.setPointerCapture(e.pointerId)
+    // The second press of a double click arms dragging for this gesture only.
+    const armed = Date.now() - lastUp.current < DOUBLE_MS
+    drag.current = { startX: e.clientX, startY: e.clientY, baseX: r.left, baseY: r.top, armed, moved: false }
+    if (armed) e.currentTarget.setPointerCapture(e.pointerId)
   }
 
   const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     const d = drag.current
-    if (!d) return
+    if (!d || !d.armed) return   // only the armed (double-press) gesture drags
     const dx = e.clientX - d.startX
     const dy = e.clientY - d.startY
     if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
@@ -80,41 +76,31 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
   const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
     const d = drag.current
     drag.current = null
-    setGrabbing(false)
+    lastUp.current = Date.now()
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* already released */ }
     if (!d) return
-    if (d.moved) {
+    if (d.armed && d.moved) {
+      // Was a drag: save the new spot for this page, no refresh.
+      setGrabbing(false)
       setPos(cur => {
         if (cur) { try { localStorage.setItem(KEY(pathname), JSON.stringify(cur)) } catch { /* quota */ } }
         return cur
       })
+      return
     }
-    // Leaving move mode after a drag (or a stray press) drops the move cursor.
-    setArmedBoth(false)
-    suppressTap.current = true   // the click that follows this pointerup is not a refresh
-  }
-
-  const onClick = () => {
-    if (suppressTap.current) { suppressTap.current = false; return }
-    if (armedRef.current) { setArmedBoth(false); return }   // a click cancels move mode
+    setGrabbing(false)
+    // Any press that did not turn into a drag is a refresh tap.
     refresh()
   }
 
-  // Double click arms move mode. The two clicks refresh twice on the way in,
-  // which is harmless since a refetch is idempotent.
-  const onDoubleClick = () => setArmedBoth(true)
-
   const placement: React.CSSProperties = pos ? { left: pos.x, top: pos.y } : { right: margin, bottom: margin }
-  const cursor = grabbing ? 'grabbing' : armed ? 'grab' : 'pointer'
 
   return (
     <button
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      title={armed ? 'Drag to move, click to keep it here' : 'Refresh (double click to move)'}
+      title="Refresh (double click and hold to move)"
       aria-label="Refresh this page"
       style={{
         position:       'fixed',
@@ -123,10 +109,9 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
         width:          size,
         height:         size,
         borderRadius:   '50%',
-        border:         armed ? '2px solid rgba(242,172,24,0.9)' : 'none',
-        cursor,
-        // Softer than the old hard gradient: a gentle teal with a faint top
-        // highlight, and a diffuse shadow instead of a tight dark one.
+        border:         'none',
+        cursor:         grabbing ? 'grabbing' : 'pointer',
+        // Soft radial teal with a diffuse shadow, not a hard gradient.
         background:     'radial-gradient(120% 120% at 30% 20%, #279AAD 0%, #1E8496 45%, #17707F 100%)',
         color:          '#fff',
         display:        'flex',
@@ -144,27 +129,13 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
       onMouseEnter={e => { if (!grabbing) { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 12px 30px -8px rgba(30,132,150,0.6), 0 2px 6px rgba(19,46,87,0.15)' } }}
       onMouseLeave={e => { if (!grabbing) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 24px -8px rgba(30,132,150,0.5), 0 1px 4px rgba(19,46,87,0.12)' } }}
     >
-      {/* Multi-colour loading ring: a conic gradient masked into a thin circle,
-          so it reads as a colourful spinner string. It rotates while the page
-          refetches and sits still otherwise. */}
-      <span
-        style={{
-          width:         compact ? 26 : 24,
-          height:        compact ? 26 : 24,
-          borderRadius:  '50%',
-          background:    'conic-gradient(from 0deg, #F2AC18, #FF7A59, #FFFFFF, #5AD1E0, #6EE7B7, #F2AC18)',
-          WebkitMask:    'radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px))',
-          mask:          'radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px))',
-          animation:     spinning ? 'spin 0.75s cubic-bezier(.4,.1,.3,1)' : 'none',
-          pointerEvents: 'none',
-          display:       'block',
-        }}
-      />
-      {/* A soft teal core inside the ring keeps it reading as one emblem. */}
-      <span style={{
-        position: 'absolute', width: compact ? 15 : 14, height: compact ? 15 : 14, borderRadius: '50%',
-        background: 'rgba(255,255,255,0.14)', pointerEvents: 'none',
-      }} />
+      <svg width={compact ? 22 : 20} height={compact ? 22 : 20} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"
+        style={{ animation: spinning ? 'spin 0.7s cubic-bezier(.4,.1,.3,1)' : 'none', pointerEvents: 'none' }}>
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </svg>
     </button>
   )
 }
