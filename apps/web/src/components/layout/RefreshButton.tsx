@@ -8,13 +8,12 @@ import { APP_REFRESH_EVENT } from '@/hooks/useAutoRefresh'
 // page's existing refetch (via APP_REFRESH_EVENT) rather than reloading the
 // browser, so it is near instant and keeps scroll position and filters.
 //
-// Single click refreshes. To move it, double click and hold on the second
-// press, then drag, all in one motion. A plain hover shows an ordinary pointer,
-// never a move cursor. Each page remembers where it was left, keyed by pathname.
+// Press and drag to move it; a press that does not move is a refresh tap. The
+// grab cursor only appears once a drag actually starts, so a plain hover or a
+// click stays an ordinary pointer. Each page remembers where it was left.
 
 const KEY = (path: string) => `refreshBtnPos:${path}`
 const DRAG_THRESHOLD = 4
-const DOUBLE_MS      = 350   // second press within this counts as a double click
 
 type Pos = { x: number; y: number }
 
@@ -27,8 +26,7 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
   const [spinning, setSpinning] = useState(false)
   const [grabbing, setGrabbing] = useState(false)
 
-  const lastUp = useRef(0)
-  const drag   = useRef<{ startX: number; startY: number; baseX: number; baseY: number; armed: boolean; moved: boolean } | null>(null)
+  const drag = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null)
 
   const clamp = useCallback((p: Pos): Pos => ({
     x: Math.min(Math.max(8, p.x), window.innerWidth  - size - 8),
@@ -56,17 +54,16 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
-    // The second press of a double click arms dragging for this gesture only.
-    const armed = Date.now() - lastUp.current < DOUBLE_MS
-    drag.current = { startX: e.clientX, startY: e.clientY, baseX: r.left, baseY: r.top, armed, moved: false }
-    if (armed) e.currentTarget.setPointerCapture(e.pointerId)
+    drag.current = { startX: e.clientX, startY: e.clientY, baseX: r.left, baseY: r.top, moved: false }
+    e.currentTarget.setPointerCapture(e.pointerId)
   }
 
   const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     const d = drag.current
-    if (!d || !d.armed) return   // only the armed (double-press) gesture drags
+    if (!d) return
     const dx = e.clientX - d.startX
     const dy = e.clientY - d.startY
+    // No cursor change and no move until the press clearly becomes a drag.
     if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
     d.moved = true
     if (!grabbing) setGrabbing(true)
@@ -76,21 +73,18 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
   const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
     const d = drag.current
     drag.current = null
-    lastUp.current = Date.now()
+    setGrabbing(false)
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* already released */ }
     if (!d) return
-    if (d.armed && d.moved) {
-      // Was a drag: save the new spot for this page, no refresh.
-      setGrabbing(false)
+    if (d.moved) {
+      // Was a drag: remember the new spot for this page, no refresh.
       setPos(cur => {
         if (cur) { try { localStorage.setItem(KEY(pathname), JSON.stringify(cur)) } catch { /* quota */ } }
         return cur
       })
-      return
+    } else {
+      refresh()
     }
-    setGrabbing(false)
-    // Any press that did not turn into a drag is a refresh tap.
-    refresh()
   }
 
   const placement: React.CSSProperties = pos ? { left: pos.x, top: pos.y } : { right: margin, bottom: margin }
@@ -100,7 +94,7 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      title="Refresh (double click and hold to move)"
+      title="Refresh (drag to move)"
       aria-label="Refresh this page"
       style={{
         position:       'fixed',
@@ -110,8 +104,9 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
         height:         size,
         borderRadius:   '50%',
         border:         'none',
+        // Ordinary pointer at rest and on hover; the grab hand only shows once
+        // an actual drag has begun.
         cursor:         grabbing ? 'grabbing' : 'pointer',
-        // Soft radial teal with a diffuse shadow, not a hard gradient.
         background:     'radial-gradient(120% 120% at 30% 20%, #279AAD 0%, #1E8496 45%, #17707F 100%)',
         color:          '#fff',
         display:        'flex',
