@@ -144,17 +144,27 @@ export default function RefreshButton({ compact }: { compact: boolean }) {
       onMouseEnter={e => { if (!grabbing) { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 12px 30px -8px rgba(30,132,150,0.6), 0 2px 6px rgba(19,46,87,0.15)' } }}
       onMouseLeave={e => { if (!grabbing) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 24px -8px rgba(30,132,150,0.5), 0 1px 4px rgba(19,46,87,0.12)' } }}
     >
-      {/* Loading-style ring: a faint full circle with a gold arc riding on it,
-          which spins while the page refetches. */}
-      <svg width={compact ? 24 : 22} height={compact ? 24 : 22} viewBox="0 0 24 24" fill="none"
+      {/* Multi-colour loading ring: a conic gradient masked into a thin circle,
+          so it reads as a colourful spinner string. It rotates while the page
+          refetches and sits still otherwise. */}
+      <span
         style={{
+          width:         compact ? 26 : 24,
+          height:        compact ? 26 : 24,
+          borderRadius:  '50%',
+          background:    'conic-gradient(from 0deg, #F2AC18, #FF7A59, #FFFFFF, #5AD1E0, #6EE7B7, #F2AC18)',
+          WebkitMask:    'radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px))',
+          mask:          'radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px))',
           animation:     spinning ? 'spin 0.75s cubic-bezier(.4,.1,.3,1)' : 'none',
           pointerEvents: 'none',
           display:       'block',
-        }}>
-        <circle cx="12" cy="12" r="8.5" stroke="rgba(255,255,255,0.32)" strokeWidth="2.4" />
-        <path d="M12 3.5 a8.5 8.5 0 0 1 8.5 8.5" stroke="#F2AC18" strokeWidth="2.4" strokeLinecap="round" />
-      </svg>
+        }}
+      />
+      {/* A soft teal core inside the ring keeps it reading as one emblem. */}
+      <span style={{
+        position: 'absolute', width: compact ? 15 : 14, height: compact ? 15 : 14, borderRadius: '50%',
+        background: 'rgba(255,255,255,0.14)', pointerEvents: 'none',
+      }} />
     </button>
   )
 }
