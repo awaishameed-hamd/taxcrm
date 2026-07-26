@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
 import BulkImportModal from '@/components/ui/BulkImportModal'
+import ModalHeader from '@/components/ui/ModalHeader'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -68,10 +69,9 @@ function EditModal({ row, isNew, onClose, onSaved }: {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-        <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 900, color: NAVY, fontFamily: F }}>
-          {isNew ? 'Add Login Detail' : 'Edit Login Detail'}
-        </h3>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+        <ModalHeader title={isNew ? 'Add Login Detail' : 'Edit Login Detail'} onClose={onClose} radius={14} />
+        <div style={{ padding: 24 }}>
 
         {isNew && (
           <div style={{ marginBottom: 14 }}>
@@ -105,6 +105,7 @@ function EditModal({ row, isNew, onClose, onSaved }: {
             style={{ padding: '8px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', background: TEAL, color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: F, opacity: (saving || !canSubmit) ? 0.6 : 1 }}>
             {saving ? 'Saving…' : 'Save'}
           </button>
+        </div>
         </div>
       </div>
     </div>

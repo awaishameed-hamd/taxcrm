@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import api from '@/lib/api'
+import ModalHeader from '@/components/ui/ModalHeader'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -165,10 +166,7 @@ export default function BulkImportModal({ title, sheetName, fileName, columns, e
       <div onClick={e => e.stopPropagation()}
         style={{ width: '100%', maxWidth: 560, background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 24px 60px -12px rgba(19,46,87,0.4)', fontFamily: F, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
 
-        <div style={{ background: TEAL, color: '#fff', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: "'Faster One', cursive", fontSize: 22 }}>{title}</span>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 18 }}>×</button>
-        </div>
+        <ModalHeader title={title} onClose={onClose} radius={14} />
 
         <div style={{ padding: 20, overflowY: 'auto' }}>
           {note && <p style={{ margin: '0 0 14px', fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>{note}</p>}
