@@ -596,16 +596,12 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const [busy, setBusy] = useState(false)
 
   // A generated PDF is the only output with no browser header or footer at all,
-  // so no date and no URL, ever. It is named after the client. The blank plate
-  // lives in the DOM hidden, and is revealed only for the capture, so it appears
-  // on the PDF but not in the on-screen preview.
+  // so no date and no URL, ever. It is named after the client.
   async function handleSavePdf() {
-    const el    = document.getElementById('invoice-print')
-    const blank = document.getElementById('invoice-blank-plate')
+    const el = document.getElementById('invoice-print')
     if (!el) return
     setBusy(true)
     try {
-      if (blank) blank.style.display = 'block'
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import('html2canvas'), import('jspdf'),
       ])
@@ -619,7 +615,7 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
       })
       const pdf    = new jsPDF('p', 'mm', 'a4')
       const pageW = 210, pageH = 297
-      const margin = 12                        // clean, standard document margin in mm
+      const margin = 12                        // equal margin on every side, in mm
       const contentW = pageW - margin * 2
       const contentH = pageH - margin * 2
       const imgH  = (canvas.height * contentW) / canvas.width
@@ -631,9 +627,23 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         if (page > 0) pdf.addPage()
         pdf.addImage(img, 'PNG', margin, margin - page * contentH, contentW, imgH)
       }
+
+      // "This area is intentionally left blank" drawn straight into the PDF, so it
+      // sits at the very bottom of the last page with exactly equal side margins.
+      const boxH = 24
+      const boxY = pageH - margin - boxH
+      pdf.setDrawColor(203, 213, 225)
+      pdf.setFillColor(248, 250, 252)
+      pdf.setLineWidth(0.3)
+      pdf.setLineDashPattern([1, 1], 0)
+      pdf.roundedRect(margin, boxY, contentW, boxH, 3, 3, 'FD')
+      pdf.setLineDashPattern([], 0)
+      pdf.setTextColor(148, 163, 184)
+      pdf.setFontSize(9)
+      pdf.text('This area is intentionally left blank', pageW / 2, boxY + boxH / 2 + 1, { align: 'center' })
+
       pdf.save(`${clientName} ${inv.invoiceNumber}.pdf`.replace(/[\\/:*?"<>|]/g, '-'))
     } finally {
-      if (blank) blank.style.display = 'none'
       setBusy(false)
     }
   }
@@ -775,11 +785,6 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
             )}
           </div>
 
-          {/* Rounded blank plate closing the document. Hidden on screen, revealed
-              only while the PDF is captured, so it appears on the PDF alone. */}
-          <div id="invoice-blank-plate" style={{ display: 'none', margin: '10px 0 0', padding: '26px', borderRadius: 14, border: '1px dashed #CBD5E1', background: '#F8FAFC', textAlign: 'center' }}>
-            <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: F, letterSpacing: '0.06em' }}>This area is intentionally left blank</span>
-          </div>
         </div>
       </div>
     </div>
