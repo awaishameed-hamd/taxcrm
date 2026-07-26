@@ -610,18 +610,21 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         import('html2canvas'), import('jspdf'),
       ])
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-      const pdf   = new jsPDF('p', 'mm', 'a4')
+      const pdf    = new jsPDF('p', 'mm', 'a4')
       const pageW = 210, pageH = 297
-      const imgH  = (canvas.height * pageW) / canvas.width
+      const margin = 25.4                      // MS Word "Normal" margins, 1 inch
+      const contentW = pageW - margin * 2
+      const contentH = pageH - margin * 2
+      const imgH  = (canvas.height * contentW) / canvas.width
       const img   = canvas.toDataURL('image/png')
-      let heightLeft = imgH, position = 0
-      pdf.addImage(img, 'PNG', 0, position, pageW, imgH)
-      heightLeft -= pageH
+      // Lay the invoice inside the margins, sliding it up a content-height each
+      // page if it runs long.
+      let page = 0, heightLeft = imgH
       while (heightLeft > 0) {
-        position -= pageH
-        pdf.addPage()
-        pdf.addImage(img, 'PNG', 0, position, pageW, imgH)
-        heightLeft -= pageH
+        if (page > 0) pdf.addPage()
+        pdf.addImage(img, 'PNG', margin, margin - page * contentH, contentW, imgH)
+        heightLeft -= contentH
+        page++
       }
       pdf.save(`${clientName} ${inv.invoiceNumber}.pdf`.replace(/[\\/:*?"<>|]/g, '-'))
     } finally {
@@ -669,7 +672,9 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
                 </div>
                 <div style={{ display: 'flex', gap: 14, fontSize: 12, fontFamily: F, alignItems: 'center' }}>
                   <span style={{ color: '#94A3B8', minWidth: 74 }}>Status</span>
-                  <span style={{ fontWeight: 800, padding: '2px 10px', borderRadius: 20, fontSize: 11, color: st.color, background: st.bg }}>{st.label}</span>
+                  {/* inline-flex + lineHeight keeps the label centred in the pill,
+                      which the flat span did not do when captured to the PDF. */}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, padding: '3px 12px', borderRadius: 20, fontSize: 11, lineHeight: 1, color: st.color, background: st.bg }}>{st.label}</span>
                 </div>
               </div>
             </div>
