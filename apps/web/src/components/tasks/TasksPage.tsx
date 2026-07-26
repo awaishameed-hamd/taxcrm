@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import FbrCaseDetail from '../fbr/FbrCaseDetail'
 import StyledSelect from '@/components/ui/StyledSelect'
+import PillSelect from '@/components/ui/PillSelect'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -1295,45 +1296,26 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
             <div style={{ display:'flex', alignItems:'center', gap:6, background:TEAL, borderRadius:40, padding:'5px 8px' }}>
 
               {/* Trainee dropdown */}
-              <select value={filterTrainee} onChange={e => setFilterTrainee(e.target.value)}
-                style={{ flexShrink:0, padding:'4px 10px', borderRadius:30, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'"Aptos",sans-serif', background: filterTrainee !== 'all' ? NAVY : 'rgba(255,255,255,0.18)', color:'#fff', outline:'none', appearance:'none', paddingRight:24, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 8px center' }}>
-                <option value="all" style={{ background:NAVY }}>All Trainees</option>
-                {completedTraineeOptions.map(tr => (
-                  <option key={tr.id} value={tr.id} style={{ background:NAVY }}>{tr.name}</option>
-                ))}
-              </select>
+              <PillSelect value={filterTrainee} onChange={setFilterTrainee} dimValue="all"
+                options={[{ value: 'all', label: 'All Trainees' }, ...completedTraineeOptions.map(tr => ({ value: tr.id, label: tr.name }))]} />
 
               {/* Separator */}
               <div style={{ width:1, height:22, background:'rgba(255,255,255,0.3)', flexShrink:0, margin:'0 2px' }} />
 
               {/* Authority dropdown. Sales Tax only */}
               {isSalesTaxTab && (
-                <select value={filterAuthority} onChange={e => setFilterAuthority(e.target.value)}
-                  style={{ flexShrink:0, padding:'4px 10px', borderRadius:30, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'"Aptos",sans-serif', background: filterAuthority !== 'all' ? NAVY : 'rgba(255,255,255,0.18)', color:'#fff', outline:'none', appearance:'none', paddingRight:24, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 8px center' }}>
-                  <option value="all" style={{ background:NAVY }}>All Authorities</option>
-                  {TAX_AUTHORITIES.map(a => (
-                    <option key={a.key} value={a.key} style={{ background:NAVY }}>{a.label}</option>
-                  ))}
-                </select>
+                <PillSelect value={filterAuthority} onChange={setFilterAuthority} dimValue="all"
+                  options={[{ value: 'all', label: 'All Authorities' }, ...TAX_AUTHORITIES.map(a => ({ value: a.key, label: a.label }))]} />
               )}
 
               {/* Return Type dropdown */}
-              <select value={filterReturnType} onChange={e => setFilterReturnType(e.target.value)}
-                style={{ flexShrink:0, padding:'4px 10px', borderRadius:30, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'"Aptos",sans-serif', background: filterReturnType !== 'all' ? NAVY : 'rgba(255,255,255,0.18)', color:'#fff', outline:'none', appearance:'none', paddingRight:24, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 8px center' }}>
-                <option value="all" style={{ background:NAVY }}>All Types</option>
-                {RETURN_TYPES.map(r => (
-                  <option key={r.key} value={r.key} style={{ background:NAVY }}>{r.label}</option>
-                ))}
-              </select>
+              <PillSelect value={filterReturnType} onChange={setFilterReturnType} dimValue="all"
+                options={[{ value: 'all', label: 'All Types' }, ...RETURN_TYPES.map(r => ({ value: r.key, label: r.label }))]} />
 
               {/* Status filter, incompleteOnly only */}
               {incompleteOnly && (
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                  style={{ flexShrink:0, padding:'4px 10px', borderRadius:30, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'"Aptos",sans-serif', background: filterStatus !== 'all' ? NAVY : 'rgba(255,255,255,0.18)', color:'#fff', outline:'none', appearance:'none', paddingRight:24, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 8px center' }}>
-                  <option value="all" style={{ background:NAVY }}>All Status</option>
-                  <option value="todo" style={{ background:NAVY }}>To Do</option>
-                  <option value="inprogress" style={{ background:NAVY }}>In Progress</option>
-                </select>
+                <PillSelect value={filterStatus} onChange={setFilterStatus} dimValue="all"
+                  options={[{ value: 'all', label: 'All Status' }, { value: 'todo', label: 'To Do' }, { value: 'inprogress', label: 'In Progress' }]} />
               )}
 
               {/* Separator */}

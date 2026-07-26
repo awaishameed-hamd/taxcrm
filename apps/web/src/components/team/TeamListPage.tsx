@@ -5,6 +5,7 @@ import { useAuth, usePermission } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import UserProfileModal from './UserProfileModal'
+import PillSelect from '@/components/ui/PillSelect'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -348,21 +349,14 @@ export default function TeamListPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px' }}>
 
           {/* Role dropdown */}
-          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{
-            flexShrink: 0, padding: '4px 10px', borderRadius: 30, border: 'none', cursor: 'pointer',
-            fontSize: 12, fontWeight: 600, fontFamily: '"Aptos", sans-serif',
-            background: roleFilter !== '' ? P.navy : 'rgba(255,255,255,0.18)', color: '#fff',
-            outline: 'none', appearance: 'none', paddingRight: 24,
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center',
-          }}>
-            <option value="" style={{ background: P.navy }}>All Roles</option>
-            {visibleFilterRoles.map(r => (
-              <option key={r} value={r} style={{ background: P.navy }}>
-                {r === 'TEAM_LEAD' ? 'Team Lead' : r.charAt(0) + r.slice(1).toLowerCase()}
-              </option>
-            ))}
-          </select>
+          <PillSelect value={roleFilter} onChange={setRoleFilter} dimValue=""
+            options={[
+              { value: '', label: 'All Roles' },
+              ...visibleFilterRoles.map(r => ({
+                value: r,
+                label: r === 'TEAM_LEAD' ? 'Team Lead' : r.charAt(0) + r.slice(1).toLowerCase(),
+              })),
+            ]} />
 
           {/* Separator */}
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />

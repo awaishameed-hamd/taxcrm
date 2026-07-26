@@ -5,6 +5,7 @@ import type ExcelJS from 'exceljs'
 import { P } from '@/lib/palette'
 import api from '@/lib/api'
 import StyledSelect from '@/components/ui/StyledSelect'
+import PillSelect from '@/components/ui/PillSelect'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const NAVY = '#132E57'
@@ -1093,21 +1094,14 @@ export default function TaxSummaryPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: TEAL, borderRadius: 40, padding: '5px 8px' }}>
 
                       {/* Authority */}
-                      <select value={authority} onChange={e => setAuthority(e.target.value)}
-                        style={{ flexShrink:0, padding:'4px 10px', borderRadius:30, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'"Aptos",sans-serif', background: authority !== 'all' ? NAVY : 'rgba(255,255,255,0.18)', color:'#fff', outline:'none', appearance:'none', paddingRight:24, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 8px center' }}>
-                        <option value="all" style={{ background: NAVY }}>All Authorities</option>
-                        {AUTHORITIES.map(a => <option key={a} value={a} style={{ background: NAVY }}>{a}</option>)}
-                      </select>
+                      <PillSelect value={authority} onChange={setAuthority} dimValue="all"
+                        options={[{ value: 'all', label: 'All Authorities' }, ...AUTHORITIES.map((a: string) => ({ value: a, label: a }))]} />
 
                       <div style={{ width:1, height:22, background:'rgba(255,255,255,0.3)', flexShrink:0, margin:'0 2px' }} />
 
                       {/* Return Type */}
-                      <select value={returnType} onChange={e => setReturnType(e.target.value)}
-                        style={{ flexShrink:0, padding:'4px 10px', borderRadius:30, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'"Aptos",sans-serif', background: returnType !== 'all' ? NAVY : 'rgba(255,255,255,0.18)', color:'#fff', outline:'none', appearance:'none', paddingRight:24, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 8px center' }}>
-                        <option value="all" style={{ background: NAVY }}>All Types</option>
-                        <option value="ORIGINAL" style={{ background: NAVY }}>Original</option>
-                        <option value="REVISED"  style={{ background: NAVY }}>Revised</option>
-                      </select>
+                      <PillSelect value={returnType} onChange={setReturnType} dimValue="all"
+                        options={[{ value: 'all', label: 'All Types' }, { value: 'ORIGINAL', label: 'Original' }, { value: 'REVISED', label: 'Revised' }]} />
 
                       <div style={{ width:1, height:22, background:'rgba(255,255,255,0.3)', flexShrink:0, margin:'0 2px' }} />
 

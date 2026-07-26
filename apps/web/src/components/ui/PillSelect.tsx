@@ -6,11 +6,14 @@ const TEAL = '#1E8496'
 
 // A dropdown whose trigger is a navy pill, to sit inside the teal filter bars
 // next to the Active/Inactive pills. The open list matches StyledSelect.
-export default function PillSelect({ value, onChange, options, minWidth = 150 }: {
+export default function PillSelect({ value, onChange, options, minWidth = 150, dimValue }: {
   value: string
   onChange: (v: string) => void
   options: { value: string; label: string }[]
   minWidth?: number
+  // When the current value equals this (e.g. the "all" default), the pill dims
+  // to translucent, so an applied filter reads as navy and an unset one does not.
+  dimValue?: string
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -29,7 +32,8 @@ export default function PillSelect({ value, onChange, options, minWidth = 150 }:
         style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 40,
           border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-          fontFamily: "'Aptos', sans-serif", background: NAVY, color: '#fff', whiteSpace: 'nowrap',
+          fontFamily: "'Aptos', sans-serif", color: '#fff', whiteSpace: 'nowrap',
+          background: dimValue !== undefined && value === dimValue ? 'rgba(255,255,255,0.18)' : NAVY,
         }}>
         {sel?.label}
         <svg width={11} height={11} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
