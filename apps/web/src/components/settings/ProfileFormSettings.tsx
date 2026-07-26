@@ -534,12 +534,13 @@ function EditFieldModal({ field, sections, onSave, onClose }: {
 
 // ── Edit Options Modal ────────────────────────────────────────────────────────
 function EditOptionsModal({ field, onSave, onClose }: {
-  field: Record<string, any>; onSave: (opts: string[]) => void; onClose: () => void
+  field: Record<string, any>; onSave: (opts: string[]) => Promise<void> | void; onClose: () => void
 }) {
   const [options, setOptions] = useState<string[]>([...(field.options || [])])
   const [newOption, setNewOption] = useState('')
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [editVal, setEditVal] = useState('')
+  const [saving, setSaving]   = useState(false)
 
   const addOption    = () => { if (!newOption.trim()) return; setOptions(o => [...o, newOption.trim()]); setNewOption('') }
   const removeOption = (i: number) => setOptions(o => o.filter((_, idx) => idx !== i))
@@ -548,6 +549,14 @@ function EditOptionsModal({ field, onSave, onClose }: {
     if (!editVal.trim()) return
     setOptions(o => o.map((opt, i) => i === editIdx ? editVal.trim() : opt))
     setEditIdx(null)
+  }
+  const handleSave = async () => {
+    // Fold a half-typed option in the box into the list so it is not lost.
+    const pending = newOption.trim()
+    const finalOpts = pending ? [...options, pending] : options
+    setSaving(true)
+    try { await onSave(finalOpts) }
+    finally { setSaving(false) }
   }
 
   return (
@@ -598,11 +607,11 @@ function EditOptionsModal({ field, onSave, onClose }: {
           </div>
         </div>
         <div className="px-5 pb-5 flex gap-3 justify-end border-t border-gray-100 pt-4">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold"
+          <button onClick={onClose} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold"
             style={{ border: '1px solid #CBD5E1', color: '#64748B' }}>Cancel</button>
-          <button onClick={() => onSave(options)} className="px-5 py-2 rounded-lg text-sm font-bold text-white"
-            style={{ background: `linear-gradient(90deg, ${NAVY}, ${TEAL})`, fontFamily: "'Aptos', sans-serif", letterSpacing: '0.05em' }}>
-            Save Options
+          <button onClick={handleSave} disabled={saving} className="px-5 py-2 rounded-lg text-sm font-bold text-white"
+            style={{ background: `linear-gradient(90deg, ${NAVY}, ${TEAL})`, opacity: saving ? 0.65 : 1, fontFamily: "'Aptos', sans-serif", letterSpacing: '0.05em' }}>
+            {saving ? 'Saving…' : 'Save Options'}
           </button>
         </div>
       </div>
@@ -1132,7 +1141,19 @@ export default function ProfileFormSettings() {
       {editOptionsModal && (
         <EditOptionsModal
           field={editOptionsModal}
-          onSave={opts => { updateField(getKey(editOptionsModal), { options: opts }); setEditOptionsModal(null) }}
+          onSave={async opts => {
+            const key = getKey(editOptionsModal)
+            try {
+              // Persist straight away so the option shows up on the profile form,
+              // rather than waiting for a separate Save All click.
+              await handleInstantSave(key, { options: opts })
+              updateField(key, { options: opts })
+              setToast({ type: 'success', message: 'Options saved.' })
+              setEditOptionsModal(null)
+            } catch {
+              setToast({ type: 'error', message: 'Failed to save options.' })
+            }
+          }}
           onClose={() => setEditOptionsModal(null)}
         />
       )}
