@@ -601,10 +601,11 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         </div>
 
         <div id="invoice-print" style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
-          <div style={{ background: NAVY, color: '#fff', padding: '28px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '0.06em', fontFamily: F }}>ASIF ASSOCIATES</div>
-              <div style={{ fontSize: 11, opacity: 0.75, marginTop: 3, fontFamily: F, letterSpacing: '0.05em' }}>Chartered Accountants &amp; Tax Consultants</div>
+          <div style={{ background: NAVY, color: '#fff', padding: '24px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Logo sits in a white plate so it reads on the navy band whatever
+                the logo's own background is. */}
+            <div style={{ background: '#fff', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
+              <img src="/logo-email.png" alt="Asif Associates" style={{ height: 46, display: 'block' }} />
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '0.1em', fontFamily: F, opacity: 0.95 }}>INVOICE</div>
