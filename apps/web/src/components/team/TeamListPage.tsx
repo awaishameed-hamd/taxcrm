@@ -495,7 +495,12 @@ export default function TeamListPage() {
 
                         {visibleCols.includes('teamLead') && (
                           <td style={{ padding: '6px 14px', color: P.textMuted, fontSize: 12 }}>
-                            {u.teamLead?.fullName ?? ''}
+                            {/* Only trainees report to a team lead, so everyone
+                                above them shows Not Applicable instead of blank. */}
+                            {u.teamLead?.fullName
+                              ?? (u.role === 'TRAINEE'
+                                ? ''
+                                : <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Not Applicable</span>)}
                           </td>
                         )}
 
