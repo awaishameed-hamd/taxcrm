@@ -610,11 +610,28 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
 }
 
 // ─── Invoice view / print ─────────────────────────────────────────────────────
-function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
+function InvoiceView({ inv, onClose, onDeleted, onEdit }: { inv: Invoice; onClose: () => void; onDeleted?: () => void; onEdit?: (inv: Invoice) => void }) {
   const balance = balanceOf(inv)
   const st = STATUS_META[inv.status] ?? STATUS_META.DRAFT
   const clientName = inv.client?.businessName ?? inv.client?.user?.fullName ?? 'Client'
   const [busy, setBusy] = useState(false)
+  // Two-step delete: the first click arms it, the second confirms.
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [delBusy,    setDelBusy]    = useState(false)
+  const [delError,   setDelError]   = useState('')
+
+  async function handleDelete() {
+    setDelBusy(true); setDelError('')
+    try {
+      await api.delete(`/invoices/${inv.id}`)
+      onDeleted?.()
+    } catch (e: any) {
+      setDelError(e?.response?.data?.message ?? 'Could not delete this invoice.')
+      setConfirmDel(false)
+    } finally {
+      setDelBusy(false)
+    }
+  }
 
   // Drawn natively with jsPDF, coordinate by coordinate, so margins are exactly
   // equal, the status pill is truly centred, and nothing depends on a screenshot.
@@ -763,7 +780,19 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
       <div style={{ width: '100%', maxWidth: 780 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          {confirmDel ? (
+            // Second step: the actual confirmation.
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, padding: '6px 8px 6px 14px', marginRight: 'auto' }}>
+              <span style={{ fontSize: 13, color: '#B91C1C', fontWeight: 600, fontFamily: F }}>Permanently delete this invoice?</span>
+              <button onClick={handleDelete} disabled={delBusy} style={{ ...btn('#DC2626'), opacity: delBusy ? 0.6 : 1 }}>{delBusy ? 'Deleting…' : 'Yes, delete'}</button>
+              <button onClick={() => setConfirmDel(false)} disabled={delBusy} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Keep it</button>
+            </div>
+          ) : (
+            <button onClick={() => { setDelError(''); setConfirmDel(true) }} style={{ ...btn('#fff', '#B91C1C'), border: '1px solid #FCA5A5', marginRight: 'auto' }}>Delete</button>
+          )}
+          {delError && <span style={{ fontSize: 12, color: '#B91C1C', marginRight: 'auto', fontFamily: F }}>{delError}</span>}
+          {onEdit && <button onClick={() => onEdit(inv)} style={{ ...btn('#fff', NAVY), border: `1px solid ${P.border}` }}>Edit</button>}
           <button onClick={handleSavePdf} disabled={busy} style={{ ...btn(NAVY), opacity: busy ? 0.6 : 1 }}>{busy ? 'Preparing…' : 'Download PDF'}</button>
           <button onClick={onClose} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Close</button>
         </div>
@@ -1356,7 +1385,7 @@ export default function InvoicingPage() {
         </div>
       </div>
 
-      {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} />}
+      {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} onDeleted={() => { setViewInv(null); refresh() }} />}
       {openBal   && <OpeningBalanceModal client={openBal.client} mode={openBal.mode} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
 
       {/* Right-click menu on a client */}
