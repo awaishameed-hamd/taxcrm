@@ -33,6 +33,27 @@ const METHOD_LABEL: Record<string, string> = Object.fromEntries(PAYMENT_METHODS.
 const money   = (n: any) => Number(n ?? 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
 
+const hexToRgb = (hex: string): [number, number, number] => {
+  const h = hex.replace('#', '')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
+
+// Loads an image and returns it as a data URL with its pixel size, for jsPDF.
+function loadImage(url: string): Promise<{ dataUrl: string; w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const c = document.createElement('canvas')
+      c.width = img.naturalWidth; c.height = img.naturalHeight
+      c.getContext('2d')!.drawImage(img, 0, 0)
+      resolve({ dataUrl: c.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight })
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
 // Due date, defaulting to a week after the issue date when none is stored, so an
 // invoice always shows one. It stays editable in Invoice Approval.
 const dueOf = (i: any): string | null => {
@@ -595,52 +616,143 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const clientName = inv.client?.businessName ?? inv.client?.user?.fullName ?? 'Client'
   const [busy, setBusy] = useState(false)
 
-  // A generated PDF is the only output with no browser header or footer at all,
-  // so no date and no URL, ever. It is named after the client.
+  // Drawn natively with jsPDF, coordinate by coordinate, so margins are exactly
+  // equal, the status pill is truly centred, and nothing depends on a screenshot.
   async function handleSavePdf() {
-    const el = document.getElementById('invoice-print')
-    if (!el) return
     setBusy(true)
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'), import('jspdf'),
-      ])
-      // Pin the capture to the element's real width. Without this html2canvas
-      // renders the clone as a narrow column, which blew the height up to dozens
-      // of pages.
-      const width = el.offsetWidth || 780
-      const canvas = await html2canvas(el, {
-        scale: 2, useCORS: true, backgroundColor: '#ffffff',
-        width, windowWidth: width, scrollX: 0, scrollY: -window.scrollY,
-      })
-      const pdf    = new jsPDF('p', 'mm', 'a4')
-      const pageW = 210, pageH = 297
-      const margin = 12                        // equal margin on every side, in mm
-      const contentW = pageW - margin * 2
-      const contentH = pageH - margin * 2
-      const imgH  = (canvas.height * contentW) / canvas.width
-      const img   = canvas.toDataURL('image/png')
-      // Slide the invoice up a content-height each page. Capped so a bad capture
-      // can never produce a runaway document.
-      const pages = Math.min(10, Math.max(1, Math.ceil(imgH / contentH - 0.02)))
-      for (let page = 0; page < pages; page++) {
-        if (page > 0) pdf.addPage()
-        pdf.addImage(img, 'PNG', margin, margin - page * contentH, contentW, imgH)
+      const { default: jsPDF } = await import('jspdf')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pageW = 210, pageH = 297, margin = 14
+      const left = margin, right = pageW - margin, contentW = pageW - margin * 2
+
+      const NAVY: [number, number, number]  = [19, 46, 87]
+      const GREY: [number, number, number]  = [100, 116, 139]
+      const MUTED: [number, number, number] = [148, 163, 184]
+      const GREEN: [number, number, number] = [22, 163, 74]
+      const RED: [number, number, number]   = [214, 40, 40]
+
+      // ── Header band ──
+      const headerH = 30
+      pdf.setFillColor(233, 237, 243)
+      pdf.roundedRect(left, margin, contentW, headerH, 4, 4, 'F')
+      try {
+        const logo = await loadImage('/logo-email.png')
+        const logoH = 17, logoW = logoH * (logo.w / logo.h)
+        pdf.addImage(logo.dataUrl, 'PNG', left + 8, margin + (headerH - logoH) / 2, logoW, logoH)
+      } catch { /* logo optional */ }
+      pdf.setTextColor(...NAVY); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(22)
+      pdf.text('INVOICE', right - 8, margin + 15, { align: 'right' })
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(...GREY)
+      pdf.text(inv.invoiceNumber, right - 8, margin + 22, { align: 'right' })
+
+      // ── Bill To (left) ──
+      let y = margin + headerH + 12
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(...MUTED)
+      pdf.text('BILL TO', left, y)
+      pdf.setFontSize(13); pdf.setTextColor(...NAVY)
+      pdf.text(clientName, left, y + 6)
+      let ly = y + 11
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(...GREY)
+      if (inv.client?.ntn)     { pdf.text(`NTN: ${inv.client.ntn}`, left, ly);   ly += 4.5 }
+      if (inv.client?.strn)    { pdf.text(`STRN: ${inv.client.strn}`, left, ly); ly += 4.5 }
+      if (inv.client?.address) {
+        const lines = pdf.splitTextToSize(String(inv.client.address), contentW / 2 - 4)
+        pdf.text(lines, left, ly); ly += lines.length * 4.5
       }
 
-      // "This area is intentionally left blank" drawn straight into the PDF, so it
-      // sits at the very bottom of the last page with exactly equal side margins.
-      const boxH = 24
-      const boxY = pageH - margin - boxH
-      pdf.setDrawColor(203, 213, 225)
-      pdf.setFillColor(248, 250, 252)
-      pdf.setLineWidth(0.3)
-      pdf.setLineDashPattern([1, 1], 0)
-      pdf.roundedRect(margin, boxY, contentW, boxH, 3, 3, 'FD')
-      pdf.setLineDashPattern([], 0)
-      pdf.setTextColor(148, 163, 184)
-      pdf.setFontSize(9)
-      pdf.text('This area is intentionally left blank', pageW / 2, boxY + boxH / 2 + 1, { align: 'center' })
+      // ── Dates + status (right) ──
+      const rLabelX = right - 58
+      let dy = y
+      const dateRow = (label: string, val: string) => {
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(...MUTED)
+        pdf.text(label, rLabelX, dy)
+        pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...NAVY)
+        pdf.text(val, right, dy, { align: 'right' })
+        dy += 7
+      }
+      dateRow('Issue Date', fmtDate(inv.issueDate))
+      dateRow('Due Date', fmtDate(dueOf(inv)))
+      // Status pill, drawn and centred by hand.
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(...MUTED)
+      pdf.text('Status', rLabelX, dy)
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9)
+      const pillTxt = st.label
+      const pw = pdf.getTextWidth(pillTxt) + 8, ph = 6.2
+      const px = right - pw, py = dy - 4.4
+      pdf.setFillColor(...hexToRgb(st.bg)); pdf.roundedRect(px, py, pw, ph, 3, 3, 'F')
+      pdf.setTextColor(...hexToRgb(st.color))
+      pdf.text(pillTxt, px + pw / 2, py + ph / 2, { align: 'center', baseline: 'middle' })
+      dy += 7
+
+      y = Math.max(ly, dy) + 4
+      pdf.setDrawColor(226, 232, 240); pdf.setLineWidth(0.3); pdf.line(left, y, right, y)
+      y += 9
+
+      // ── Line item header + row ──
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(...NAVY)
+      pdf.text('DESCRIPTION', left, y)
+      pdf.text('AMOUNT (PKR)', right, y, { align: 'right' })
+      y += 2.5; pdf.setDrawColor(...NAVY); pdf.setLineWidth(0.5); pdf.line(left, y, right, y); y += 7
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(51, 65, 85)
+      pdf.text(inv.description ?? 'Professional services', left, y)
+      pdf.setFont('helvetica', 'bold'); pdf.setTextColor(...NAVY)
+      pdf.text(money(inv.amount), right, y, { align: 'right' })
+      y += 12
+
+      // ── Totals (right column) ──
+      const tLabelX = right - 62
+      const totRow = (label: string, val: string, o: { bold?: boolean; green?: boolean; big?: boolean } = {}) => {
+        pdf.setFont('helvetica', o.bold ? 'bold' : 'normal'); pdf.setFontSize(o.big ? 11 : 9.5)
+        pdf.setTextColor(...(o.green ? GREEN : o.bold ? NAVY : GREY))
+        pdf.text(label, tLabelX, y)
+        pdf.setTextColor(...(o.green ? GREEN : NAVY))
+        pdf.text(val, right, y, { align: 'right' })
+        y += 6.5
+      }
+      totRow('Professional Fee', money(inv.subtotal))
+      if (Number(inv.salesTax) > 0)    totRow('Sales Tax', money(inv.salesTax))
+      if (Number(inv.outOfPocket) > 0) totRow('Out of Pocket', money(inv.outOfPocket))
+      pdf.setDrawColor(226, 232, 240); pdf.line(tLabelX, y - 2.5, right, y - 2.5)
+      totRow('Total', money(inv.amount), { bold: true })
+      if (Number(inv.amountPaid) > 0)         totRow('Paid', `- ${money(inv.amountPaid)}`, { green: true })
+      if (Number(inv.discountTotal) > 0)      totRow('Discount', `- ${money(inv.discountTotal)}`, { green: true })
+      if (Number(inv.incomeTaxWithheld) > 0)  totRow('Income Tax Withheld', `- ${money(inv.incomeTaxWithheld)}`, { green: true })
+      if (Number(inv.salesTaxWithheld) > 0)   totRow('Sales Tax Withheld', `- ${money(inv.salesTaxWithheld)}`, { green: true })
+      pdf.setDrawColor(226, 232, 240); pdf.line(tLabelX, y - 1.5, right, y - 1.5); y += 2.5
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12); pdf.setTextColor(...NAVY)
+      pdf.text('Balance Due', tLabelX, y)
+      pdf.setTextColor(...(balance > 0 ? RED : GREEN))
+      pdf.text(`PKR ${money(balance)}`, right, y, { align: 'right' })
+      y += 12
+
+      // ── Payments received ──
+      const allocs = inv.allocations ?? []
+      if (allocs.length > 0) {
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(...MUTED)
+        pdf.text('PAYMENTS RECEIVED', left, y); y += 6
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9)
+        for (const a of allocs) {
+          pdf.setTextColor(...GREY)
+          pdf.text(fmtDate(a.payment?.paidAt), left, y)
+          pdf.text(METHOD_LABEL[a.payment?.method] ?? a.payment?.method ?? '', left + 42, y)
+          pdf.setTextColor(...GREEN); pdf.text(money(a.amount), right, y, { align: 'right' })
+          y += 5.5
+        }
+        y += 4
+      }
+
+      // ── Blank plate filling the rest of the page down to the bottom margin ──
+      const boxTop = y + 4
+      const boxBottom = pageH - margin
+      if (boxBottom - boxTop > 18) {
+        pdf.setDrawColor(203, 213, 225); pdf.setFillColor(248, 250, 252); pdf.setLineWidth(0.3)
+        pdf.setLineDashPattern([1, 1], 0)
+        pdf.roundedRect(left, boxTop, contentW, boxBottom - boxTop, 3, 3, 'FD')
+        pdf.setLineDashPattern([], 0)
+        pdf.setTextColor(...MUTED); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9)
+        pdf.text('This area is intentionally left blank', pageW / 2, (boxTop + boxBottom) / 2, { align: 'center', baseline: 'middle' })
+      }
 
       pdf.save(`${clientName} ${inv.invoiceNumber}.pdf`.replace(/[\\/:*?"<>|]/g, '-'))
     } finally {
