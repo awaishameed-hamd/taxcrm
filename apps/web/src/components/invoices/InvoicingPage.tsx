@@ -593,12 +593,44 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const balance = balanceOf(inv)
   const st = STATUS_META[inv.status] ?? STATUS_META.DRAFT
   const clientName = inv.client?.businessName ?? inv.client?.user?.fullName ?? 'Client'
+  const [downloading, setDownloading] = useState(false)
 
-  // Naming the document by the client makes the saved PDF use that name, and
-  // with a zero page margin the browser adds no header or footer of its own.
+  // Real PDF generation, so the file has no browser header or footer at all (no
+  // page title, no URL) and is named after the client. The browser Print button
+  // is kept separately for anyone who wants a physical print.
+  async function handleDownload() {
+    const el = document.getElementById('invoice-print')
+    if (!el) return
+    setDownloading(true)
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'), import('jspdf'),
+      ])
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const pdf  = new jsPDF('p', 'mm', 'a4')
+      const pageW = 210, pageH = 297
+      const imgH  = (canvas.height * pageW) / canvas.width
+      const img   = canvas.toDataURL('image/png')
+      // Slice across pages if the invoice runs taller than one A4 sheet.
+      let heightLeft = imgH
+      let position = 0
+      pdf.addImage(img, 'PNG', 0, position, pageW, imgH)
+      heightLeft -= pageH
+      while (heightLeft > 0) {
+        position -= pageH
+        pdf.addPage()
+        pdf.addImage(img, 'PNG', 0, position, pageW, imgH)
+        heightLeft -= pageH
+      }
+      pdf.save(`${clientName} ${inv.invoiceNumber}.pdf`.replace(/[\\/:*?"<>|]/g, '-'))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   function handlePrint() {
     const prev = document.title
-    document.title = `${clientName} - ${inv.invoiceNumber}`
+    document.title = `${clientName} ${inv.invoiceNumber}`
     const restore = () => { document.title = prev; window.removeEventListener('afterprint', restore) }
     window.addEventListener('afterprint', restore)
     window.print()
@@ -608,17 +640,18 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
       <style>{`
         @media print {
-          @page { size: A4; margin: 0; }
+          @page { size: A4; margin: 12mm; }
           body * { visibility: hidden !important; }
           #invoice-print, #invoice-print * { visibility: visible !important; }
-          #invoice-print { position: absolute !important; left: 0; top: 0; width: 100%; padding: 14mm; box-shadow: none !important; border-radius: 0 !important; }
+          #invoice-print { position: absolute !important; left: 0; top: 0; width: 100%; box-shadow: none !important; border-radius: 0 !important; }
           .no-print { display: none !important; }
         }
       `}</style>
 
       <div style={{ width: '100%', maxWidth: 780 }}>
         <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
-          <button onClick={handlePrint} style={btn(NAVY)}>Download / Print</button>
+          <button onClick={handleDownload} disabled={downloading} style={{ ...btn(NAVY), opacity: downloading ? 0.6 : 1 }}>{downloading ? 'Preparing…' : 'Download PDF'}</button>
+          <button onClick={handlePrint} style={{ ...btn('#fff', NAVY), border: `1px solid ${P.border}` }}>Print</button>
           <button onClick={onClose} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Close</button>
         </div>
 
