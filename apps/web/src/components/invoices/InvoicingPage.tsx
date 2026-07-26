@@ -609,22 +609,27 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import('html2canvas'), import('jspdf'),
       ])
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      // Pin the capture to the element's real width. Without this html2canvas
+      // renders the clone as a narrow column, which blew the height up to dozens
+      // of pages.
+      const width = el.offsetWidth || 780
+      const canvas = await html2canvas(el, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff',
+        width, windowWidth: width, scrollX: 0, scrollY: -window.scrollY,
+      })
       const pdf    = new jsPDF('p', 'mm', 'a4')
       const pageW = 210, pageH = 297
-      const margin = 25.4                      // MS Word "Normal" margins, 1 inch
+      const margin = 25.4                      // MS Word "Normal" A4 margins, 1 inch
       const contentW = pageW - margin * 2
       const contentH = pageH - margin * 2
       const imgH  = (canvas.height * contentW) / canvas.width
       const img   = canvas.toDataURL('image/png')
-      // Lay the invoice inside the margins, sliding it up a content-height each
-      // page if it runs long.
-      let page = 0, heightLeft = imgH
-      while (heightLeft > 0) {
+      // Slide the invoice up a content-height each page. Capped so a bad capture
+      // can never produce a runaway document.
+      const pages = Math.min(10, Math.max(1, Math.ceil(imgH / contentH - 0.02)))
+      for (let page = 0; page < pages; page++) {
         if (page > 0) pdf.addPage()
         pdf.addImage(img, 'PNG', margin, margin - page * contentH, contentW, imgH)
-        heightLeft -= contentH
-        page++
       }
       pdf.save(`${clientName} ${inv.invoiceNumber}.pdf`.replace(/[\\/:*?"<>|]/g, '-'))
     } finally {
