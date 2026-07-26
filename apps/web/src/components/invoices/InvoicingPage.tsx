@@ -592,29 +592,40 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
 function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const balance = balanceOf(inv)
   const st = STATUS_META[inv.status] ?? STATUS_META.DRAFT
+  const clientName = inv.client?.businessName ?? inv.client?.user?.fullName ?? 'Client'
+
+  // Naming the document by the client makes the saved PDF use that name, and
+  // with a zero page margin the browser adds no header or footer of its own.
+  function handlePrint() {
+    const prev = document.title
+    document.title = `${clientName} - ${inv.invoiceNumber}`
+    const restore = () => { document.title = prev; window.removeEventListener('afterprint', restore) }
+    window.addEventListener('afterprint', restore)
+    window.print()
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
       <style>{`
         @media print {
-          @page { size: A4; margin: 14mm; }
+          @page { size: A4; margin: 0; }
           body * { visibility: hidden !important; }
           #invoice-print, #invoice-print * { visibility: visible !important; }
-          #invoice-print { position: absolute !important; left: 0; top: 0; width: 100%; box-shadow: none !important; border-radius: 0 !important; }
+          #invoice-print { position: absolute !important; left: 0; top: 0; width: 100%; padding: 14mm; box-shadow: none !important; border-radius: 0 !important; }
           .no-print { display: none !important; }
         }
       `}</style>
 
       <div style={{ width: '100%', maxWidth: 780 }}>
         <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
-          <button onClick={() => window.print()} style={btn(NAVY)}>Download / Print</button>
+          <button onClick={handlePrint} style={btn(NAVY)}>Download / Print</button>
           <button onClick={onClose} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Close</button>
         </div>
 
         <div id="invoice-print" style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
           {/* Soft grey header band, like the profile section headers. */}
-          <div style={{ background: 'linear-gradient(90deg, #E4E9F0, #EDF0F5)', color: NAVY, padding: '16px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <img src="/logo-email.png" alt="Asif Associates" style={{ height: 44, display: 'block' }} />
+          <div style={{ background: 'linear-gradient(90deg, #E4E9F0, #EDF0F5)', color: NAVY, padding: '18px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <img src="/logo-email.png" alt="Asif Associates" style={{ height: 68, display: 'block' }} />
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '0.1em', fontFamily: F, color: NAVY }}>INVOICE</div>
               <div style={{ fontSize: 12, marginTop: 3, fontFamily: F, color: '#64748B' }}>{inv.invoiceNumber}</div>
