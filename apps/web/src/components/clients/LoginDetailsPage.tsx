@@ -6,6 +6,7 @@ import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
 import BulkImportModal from '@/components/ui/BulkImportModal'
 import ModalHeader from '@/components/ui/ModalHeader'
+import PillSelect from '@/components/ui/PillSelect'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -216,13 +217,11 @@ export default function LoginDetailsPage() {
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
           {/* Authority filter */}
-          <div style={{ flexShrink: 0, width: 150 }}>
-            <StyledSelect
-              value={authorityFilter}
-              onChange={setAuthorityFilter}
-              options={[{ value: '', label: 'All Authorities' }, ...SALES_TAX_AUTHORITIES.map(a => ({ value: a, label: a }))]}
-            />
-          </div>
+          <PillSelect
+            value={authorityFilter}
+            onChange={setAuthorityFilter}
+            options={[{ value: '', label: 'All Authorities' }, ...SALES_TAX_AUTHORITIES.map(a => ({ value: a, label: a }))]}
+          />
 
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
