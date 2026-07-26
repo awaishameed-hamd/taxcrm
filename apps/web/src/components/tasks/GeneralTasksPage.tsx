@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAuth } from '@/contexts/AuthContext'
 import StyledSelect from '@/components/ui/StyledSelect'
+import ModalHeader from '@/components/ui/ModalHeader'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -626,10 +627,7 @@ export function TaskFormModal({
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
 
-        <div style={{ background: '#7EC8D0', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496', letterSpacing: '0.06em' }}>{title}</span>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.35)', border: 'none', borderRadius: 7, cursor: 'pointer', color: NAVY, fontSize: 20, lineHeight: 1, fontWeight: 700, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-        </div>
+        <ModalHeader title={title} onClose={onClose} radius={16} />
 
         <div style={{ padding: '20px 20px 0', overflowY: 'auto', flex: 1 }}>
 
