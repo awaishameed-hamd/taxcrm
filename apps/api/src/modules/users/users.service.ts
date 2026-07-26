@@ -83,10 +83,13 @@ export class UsersService {
       ]
     }
 
+    // Oldest first by user code (M001 before M002). Within a single role this is
+    // exactly what the team list and the assignment dropdowns want; the team list
+    // layers role hierarchy on top of it.
     return this.prisma.user.findMany({
       where,
       select:  USER_SELECT,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { userCode: 'asc' },
     })
   }
 

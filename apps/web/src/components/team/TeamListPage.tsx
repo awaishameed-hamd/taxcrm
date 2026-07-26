@@ -210,8 +210,11 @@ export default function TeamListPage() {
       const { data } = await api.get('/users', { params })
       const list = Array.isArray(data) ? data : (data?.data ?? [])
       const filtered = list.filter((u: TeamUser) => u.role !== 'CLIENT')
+      // Hierarchy first (Admin, Partner, Manager, Team Lead, Trainee), then
+      // oldest first within each role by user code (M001 before M002).
       filtered.sort((a: TeamUser, b: TeamUser) =>
-        ROLE_HIERARCHY.indexOf(a.role) - ROLE_HIERARCHY.indexOf(b.role)
+        (ROLE_HIERARCHY.indexOf(a.role) - ROLE_HIERARCHY.indexOf(b.role)) ||
+        String(a.userCode ?? '').localeCompare(String(b.userCode ?? ''), undefined, { numeric: true })
       )
       setUsers(filtered)
     } catch {
