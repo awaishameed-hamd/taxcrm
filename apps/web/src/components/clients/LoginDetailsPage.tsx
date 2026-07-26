@@ -118,6 +118,8 @@ export default function LoginDetailsPage() {
   const [searchInput,   setSearchInput]   = useState('')
   const [search,        setSearch]        = useState('')
   const [statusFilter,  setStatusFilter]  = useState<'active' | 'inactive' | 'all'>('active')
+  const [authorityFilter, setAuthorityFilter] = useState('')
+  const [clientOptions, setClientOptions] = useState<string[]>([])
   const [editRow,       setEditRow]       = useState<LoginDetail | null>(null)
   const [showAdd,       setShowAdd]       = useState(false)
   const [showImport,    setShowImport]    = useState(false)
@@ -137,6 +139,24 @@ export default function LoginDetailsPage() {
   useAutoRefresh(() => fetchRows(search || undefined, true))
 
   useEffect(() => { fetchRows() }, [fetchRows])
+
+  // Active clients for the import dropdown, refreshed on the same cycle so a
+  // newly added client appears and a deactivated one drops off.
+  const loadClientOptions = useCallback(() => {
+    api.get('/clients')
+      .then(({ data }) => {
+        const list = Array.isArray(data) ? data : data.data ?? []
+        const opts = list
+          .filter((c: any) => c.user?.isActive !== false)
+          // Business name or code only, since those are what the import resolves.
+          .map((c: any) => c.businessName || c.user?.userCode)
+          .filter(Boolean)
+        setClientOptions(Array.from(new Set(opts)) as string[])
+      })
+      .catch(() => {})
+  }, [])
+  useEffect(() => { loadClientOptions() }, [loadClientOptions])
+  useAutoRefresh(loadClientOptions)
 
   async function toggleClientActive(r: LoginDetail) {
     setToggling(r.id)
@@ -159,6 +179,7 @@ export default function LoginDetailsPage() {
   }
 
   const visibleRows = rows.filter(r => {
+    if (authorityFilter && r.authority !== authorityFilter) return false
     const active = r.client?.user?.isActive !== false
     if (statusFilter === 'active')   return active
     if (statusFilter === 'inactive') return !active
@@ -194,6 +215,17 @@ export default function LoginDetailsPage() {
           {/* Separator */}
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
+          {/* Authority filter */}
+          <div style={{ flexShrink: 0, width: 150 }}>
+            <StyledSelect
+              value={authorityFilter}
+              onChange={setAuthorityFilter}
+              options={[{ value: '', label: 'All Authorities' }, ...SALES_TAX_AUTHORITIES.map(a => ({ value: a, label: a }))]}
+            />
+          </div>
+
+          <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
+
           <div style={{ position: 'relative', flex: 1, minWidth: 160, maxWidth: 260 }}>
             <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -224,12 +256,12 @@ export default function LoginDetailsPage() {
           sheetName="Login Details"
           fileName="login-details-import-template"
           endpoint="/client-login-details/bulk"
-          note="One authority login per row for a client that already exists. Identify the client by their Client Code (e.g. C-0000001) or exact Business Name. Import the clients first if they are new."
+          note="One authority login per row. Pick the client and authority from the dropdowns. The client list is your current active clients, so add a client first if it is new."
           columns={[
-            { key: 'client',    header: 'Client (Code or Business Name)', example: 'ABC Traders', required: true, width: 30 },
-            { key: 'authority', header: 'Authority',                     example: 'FBR',         required: true, width: 14 },
-            { key: 'loginId',   header: 'Login ID',                      example: '1234567',     width: 22 },
-            { key: 'password',  header: 'Password',                      example: 'secret123',   width: 22 },
+            { key: 'client',    header: 'Client',    example: clientOptions[0] ?? '', required: true, width: 30, options: clientOptions },
+            { key: 'authority', header: 'Authority', example: 'FBR',                  required: true, width: 14, options: SALES_TAX_AUTHORITIES },
+            { key: 'loginId',   header: 'Login ID',  example: '1234567',              width: 22 },
+            { key: 'password',  header: 'Password',  example: 'secret123',            width: 22 },
           ]}
           onClose={() => setShowImport(false)}
           onDone={() => fetchRows(search || undefined)}
