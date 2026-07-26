@@ -1540,7 +1540,13 @@ export default function ClientsListPage() {
   // Yes/No column, matching the checkboxes and toggles in the form.
   const clientImportColumns = useMemo(() => {
     const SALES_TAX_AUTHORITIES = ['FBR', 'PRA', 'SRB', 'KPRA', 'BRA', 'AJK']
-    const staffOptions = trainees.map((t: any) => `${t.userCode} - ${t.fullName}`)
+    // Names only, active staff only. Deduped so the dropdown is clean.
+    const staffOptions = Array.from(new Set(
+      trainees
+        .filter((t: any) => t.isActive !== false)
+        .map((t: any) => t.fullName)
+        .filter(Boolean),
+    ))
 
     const parseOpts = (o: any): string[] | undefined => {
       if (!o) return undefined

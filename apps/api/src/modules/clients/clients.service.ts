@@ -59,18 +59,27 @@ export class ClientsService {
       select: { id: true, userCode: true, fullName: true, isActive: true },
     })
     const byCode = new Map(staff.map(s => [s.userCode.toUpperCase(), s]))
-    const byName = new Map(staff.map(s => [s.fullName.trim().toLowerCase(), s]))
+    // A multimap, since two people can share a name and we must not guess.
+    const byName = new Map<string, typeof staff>()
+    for (const s of staff) {
+      const k = s.fullName.trim().toLowerCase()
+      byName.set(k, [...(byName.get(k) ?? []), s])
+    }
 
-    // The template's staff dropdown reads "T001 - Ali Khan", so accept the whole
-    // string, its leading code, or a plain name/code.
-    const resolveStaff = (raw: string) => {
+    // The template's staff dropdown is the person's name. A code still works as a
+    // fallback. If a name is shared by more than one staff member, refuse rather
+    // than assign the wrong one.
+    const resolveStaff = (raw: string): (typeof staff)[number] | null => {
       const s = raw.trim()
       if (!s) return null
-      const whole = byCode.get(s.toUpperCase())
-      if (whole) return whole
+      const byWholeCode = byCode.get(s.toUpperCase())
+      if (byWholeCode) return byWholeCode
+      const named = byName.get(s.toLowerCase()) ?? []
+      if (named.length > 1) throw new Error(`More than one staff member is named "${s}". Rename one, or use their user code.`)
+      if (named.length === 1) return named[0]
       const token = s.split(/[\s\-|(·]/)[0].trim()
       if (token && byCode.get(token.toUpperCase())) return byCode.get(token.toUpperCase())!
-      return byName.get(s.toLowerCase()) ?? null
+      return null
     }
 
     const str = (v: any) => (v === null || v === undefined ? '' : String(v).trim())
