@@ -195,7 +195,7 @@ export default function LoginDetailsPage() {
       {/* 52px band, same height as the sidebar brand header, so "Login Details"
           sits level with ASIF ASSOCIATES. */}
       <div style={{ display: 'flex', alignItems: 'center', minHeight: 52, marginBottom: 8 }}>
-        <h2 style={{ margin: 0, fontSize: 26, color: '#1E8496', fontFamily: "'Faster One', cursive", display: 'inline-block', lineHeight: 1.15 }}>Login Details</h2>
+        <h2 style={{ margin: 0, fontSize: 26, color: '#1E8496', fontFamily: "'Faster One', cursive", textTransform: 'uppercase', display: 'inline-block', lineHeight: 1.15 }}>Login Details</h2>
       </div>
 
       {/* Filter bar */}

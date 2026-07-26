@@ -766,7 +766,7 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
 
       {/* Header */}
       <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
+        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
           Attendance Report
         </h1>
         <button onClick={() => exportExcel(summaries, month, year, viewMode)} disabled={loading || summaries.length === 0}

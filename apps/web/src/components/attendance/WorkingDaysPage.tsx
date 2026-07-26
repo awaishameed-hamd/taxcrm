@@ -149,7 +149,7 @@ export default function WorkingDaysPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, marginBottom: 8 }}>
         <div>
-          <h1 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496', margin: 0 }}>
+          <h1 style={{ fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496', margin: 0 }}>
             Working Days
           </h1>
         </div>

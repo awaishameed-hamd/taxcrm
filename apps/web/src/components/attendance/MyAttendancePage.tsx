@@ -284,7 +284,7 @@ export default function MyAttendancePage() {
 
       {/* Header */}
       <div style={{ height: 52, display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-        <h1 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, display: 'inline-block', color: '#1E8496', margin: 0 }}>
+        <h1 style={{ fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496', margin: 0 }}>
           My Attendance
         </h1>
       </div>

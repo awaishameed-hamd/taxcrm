@@ -334,7 +334,7 @@ export default function DashboardPage({ title }: Props) {
             Sized by eye, not by cap height: matching cap height to the sidebar left
             this looking smaller, because Faster One's speed-line slashes cut into
             each glyph and lighten it. 26 reads level with the brand. */}
-        <div style={{ fontSize:29, color:TEAL, fontFamily:"'Faster One',cursive", display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
+        <div style={{ fontSize:29, color:TEAL, fontFamily:"'Faster One',cursive", textTransform: 'uppercase', display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
         {/* Charts and Summary are two readings of the same data, so they share the
             stat cards and the period filter and only swap what sits below. */}

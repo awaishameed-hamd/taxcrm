@@ -1680,7 +1680,7 @@ export default function ClientsListPage() {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 52, marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontFamily: "'Faster One', cursive", fontSize: 26, color: '#1E8496', margin: 0, display: 'inline-block' }}>
+        <h1 style={{ fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, color: '#1E8496', margin: 0, display: 'inline-block' }}>
           {activeTab === 'clients' ? 'Clients' : 'Client Representatives'}
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
