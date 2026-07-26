@@ -610,6 +610,107 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
 }
 
 // ─── Invoice view / print ─────────────────────────────────────────────────────
+// Create a manual invoice, or edit an existing one. clientId is required for
+// create; when `inv` is passed it edits that invoice instead.
+function InvoiceFormModal({ clientId, clientName, inv, onClose, onSaved }: {
+  clientId: string; clientName: string; inv?: Invoice | null; onClose: () => void; onSaved: () => void
+}) {
+  const isEdit = !!inv
+  const [description, setDescription] = useState(inv?.description ?? '')
+  const [subtotal,    setSubtotal]    = useState(inv?.subtotal    != null ? String(Number(inv.subtotal))    : '')
+  const [salesTax,    setSalesTax]    = useState(inv?.salesTax    != null ? String(Number(inv.salesTax))    : '')
+  const [outOfPocket, setOutOfPocket] = useState(inv?.outOfPocket != null ? String(Number(inv.outOfPocket)) : '')
+  const [dueDate,     setDueDate]     = useState(() => {
+    if (inv?.dueDate) return inv.dueDate.split('T')[0]
+    const d = new Date(inv?.issueDate ?? Date.now()); d.setDate(d.getDate() + 7)
+    return d.toISOString().split('T')[0]
+  })
+  const [notes,  setNotes]  = useState(inv?.notes ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState('')
+
+  const nSub = Number(subtotal) || 0, nTax = Number(salesTax) || 0, nOop = Number(outOfPocket) || 0
+  const total = nSub + nTax + nOop
+
+  async function save() {
+    if (!isEdit && total <= 0) { setError('Enter an amount for the invoice'); return }
+    if (!description.trim())   { setError('Add a description'); return }
+    setSaving(true); setError('')
+    try {
+      const body = { subtotal: nSub, salesTax: nTax, outOfPocket: nOop, description: description.trim(), dueDate: dueDate || undefined, notes: notes.trim() || undefined }
+      if (isEdit) {
+        await api.patch(`/invoices/${inv!.id}`, body)
+      } else {
+        // New manual invoices are sent straight away so they land in the client's
+        // ledger and can be paid, rather than sitting as a hidden draft.
+        const { data } = await api.post('/invoices', { clientId, ...body })
+        const created = data?.data ?? data
+        await api.post(`/invoices/${created.id}/send`)
+      }
+      onSaved()
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? 'Could not save the invoice')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 470, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+        <div style={{ background: '#7EC8D0', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontFamily: "'Ethnocentric Rg', sans-serif", fontSize: 14, fontWeight: 300, letterSpacing: '0.04em', color: NAVY, margin: 0 }}>
+            {isEdit ? `Edit ${inv!.invoiceNumber}` : 'New Invoice'}
+          </h2>
+          <span style={{ fontSize: 12, color: NAVY, fontWeight: 700, fontFamily: F }}>{clientName}</span>
+        </div>
+
+        <div style={{ padding: 20 }}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Description <span style={{ color: '#ef4444' }}>*</span></label>
+            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What is being billed" style={inputStyle} autoFocus />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Professional Fee</label>
+            <input type="number" min={0} value={subtotal} onChange={e => setSubtotal(e.target.value)} placeholder="0" style={inputStyle} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+            <div>
+              <label style={labelStyle}>Sales Tax</label>
+              <input type="number" min={0} value={salesTax} onChange={e => setSalesTax(e.target.value)} placeholder="0" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Out of Pocket</label>
+              <input type="number" min={0} value={outOfPocket} onChange={e => setOutOfPocket(e.target.value)} placeholder="0" style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={{ background: '#F8FAFC', border: `1px solid ${P.border}`, borderRadius: 8, padding: '9px 14px', marginBottom: 14, display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#64748B', fontFamily: F }}>Invoice Total</span>
+            <span style={{ fontSize: 14, fontWeight: 900, color: NAVY, fontFamily: F }}>{money(total)}</span>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Due Date</label>
+            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none' }} />
+          </div>
+
+          {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '0 0 12px' }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
+            <button onClick={save} disabled={saving} style={{ ...btn(TEAL), opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create & Send'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function InvoiceView({ inv, onClose, onDeleted, onEdit }: { inv: Invoice; onClose: () => void; onDeleted?: () => void; onEdit?: (inv: Invoice) => void }) {
   const balance = balanceOf(inv)
   const st = STATUS_META[inv.status] ?? STATUS_META.DRAFT
@@ -984,6 +1085,8 @@ export default function InvoicingPage() {
   const [customTo,   setCustomTo]   = useState('')
 
   const [viewInv,    setViewInv]    = useState<Invoice | null>(null)
+  const [editInv,    setEditInv]    = useState<Invoice | null>(null)
+  const [showNewInvoice, setShowNewInvoice] = useState(false)
   const [payClient,  setPayClient]  = useState<any>(null)
   const [applyPay,   setApplyPay]   = useState<any>(null)
   const [openBal,    setOpenBal]    = useState<{ client: any; mode: 'add' | 'edit' } | null>(null)
@@ -1220,6 +1323,10 @@ export default function InvoicingPage() {
                   </span>
                 )}
 
+                <button onClick={() => setShowNewInvoice(true)}
+                  style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 30, border: `1px solid ${TEAL}`, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: '#fff', color: TEAL }}>
+                  New Invoice
+                </button>
                 <button onClick={() => setPayClient(selectedClient ?? ledger.client)}
                   style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: '#16a34a', color: '#fff' }}>
                   Receive Payment
@@ -1385,7 +1492,16 @@ export default function InvoicingPage() {
         </div>
       </div>
 
-      {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} onDeleted={() => { setViewInv(null); refresh() }} />}
+      {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} onDeleted={() => { setViewInv(null); refresh() }} onEdit={i => { setViewInv(null); setEditInv(i) }} />}
+      {editInv   && <InvoiceFormModal clientId={editInv.clientId} clientName={editInv.client?.businessName ?? editInv.client?.user?.fullName ?? 'Client'} inv={editInv} onClose={() => setEditInv(null)} onSaved={() => { setEditInv(null); refresh() }} />}
+      {showNewInvoice && (selectedClient ?? ledger?.client) && (
+        <InvoiceFormModal
+          clientId={(selectedClient ?? ledger?.client)?.id}
+          clientName={(selectedClient ?? ledger?.client)?.businessName ?? (selectedClient ?? ledger?.client)?.user?.fullName ?? 'Client'}
+          onClose={() => setShowNewInvoice(false)}
+          onSaved={() => { setShowNewInvoice(false); refresh() }}
+        />
+      )}
       {openBal   && <OpeningBalanceModal client={openBal.client} mode={openBal.mode} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
 
       {/* Right-click menu on a client */}

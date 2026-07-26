@@ -33,6 +33,7 @@ export class UpdatePaymentDto {
 
 export class UpdateOpeningBalanceDto {
   @IsNumber() openingBalance: number
+  @IsOptional() @IsString() date?: string
 }
 
 // One slice of a received payment, applied against a single open invoice.

@@ -75,7 +75,7 @@ export class InvoicesController {
 
   @Patch('opening-balance/:clientId')
   openingBalance(@Param('clientId') clientId: string, @Body() dto: UpdateOpeningBalanceDto) {
-    return this.svc.setOpeningBalance(clientId, dto.openingBalance)
+    return this.svc.setOpeningBalance(clientId, dto.openingBalance, dto.date)
   }
 
   @Post('generate-retainers')

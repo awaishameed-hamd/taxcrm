@@ -291,8 +291,11 @@ model ClientProfile {
   retainerIncomeTax           Boolean  @default(false)
   retainerWht                 Boolean  @default(false)
 
-  // Balance carried in from before the firm started using this system
-  openingBalance Decimal @default(0) @db.Decimal(12, 2)
+  // Balance carried in from before the firm started using this system. Kept as the
+  // form's stored value and mirrored into an OPENING-kind invoice so it settles
+  // through Receive Payment like any other invoice.
+  openingBalance     Decimal   @default(0) @db.Decimal(12, 2)
+  openingBalanceDate DateTime?
 
   // Assigned representative
   representativeId String?
@@ -326,6 +329,7 @@ enum InvoiceKind {
   TASK      // auto-drafted when a task completes
   RETAINER  // monthly retainership fee
   MANUAL    // created by hand
+  OPENING   // the client's opening balance, carried as an invoice so it can be paid
 }
 
 enum InvoiceStatus {

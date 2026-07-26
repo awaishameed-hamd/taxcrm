@@ -281,8 +281,10 @@ export class InvoicesService {
     }
     txns.sort((a, b) => a.date.localeCompare(b.date))
 
-    // Anything before the window rolls into the brought-forward balance
-    let openingBalance = Number(client.openingBalance)
+    // The opening balance is now carried as an OPENING invoice in the timeline,
+    // so the brought-forward starts at zero and only rolls up pre-window movements
+    // (which include that invoice when it predates the window).
+    let openingBalance = 0
     const inPeriod: Txn[] = []
     for (const t of txns) {
       const d = new Date(t.date)
@@ -344,13 +346,46 @@ export class InvoicesService {
     }))
   }
 
-  async setOpeningBalance(clientId: string, openingBalance: number) {
+  // Stores the opening balance on the client and mirrors it into a single
+  // OPENING-kind invoice, so it appears in the ledger and settles through Receive
+  // Payment. The ledger reads the invoice, not the field, so nothing double counts.
+  async setOpeningBalance(clientId: string, openingBalance: number, date?: string) {
     const client = await this.prisma.clientProfile.findUnique({ where: { id: clientId }, select: { id: true } })
     if (!client) throw new NotFoundException('Client not found')
+
+    const amount    = Math.max(0, Number(openingBalance) || 0)
+    const issueDate = date ? new Date(date) : new Date()
+    const existing  = await this.prisma.invoice.findFirst({ where: { clientId, kind: InvoiceKind.OPENING } })
+
+    if (amount > 0) {
+      if (existing) {
+        await this.prisma.invoice.update({
+          where: { id: existing.id },
+          data: {
+            subtotal: amount, salesTax: 0, outOfPocket: 0, amount, issueDate,
+            status: this.deriveStatus(amount, Number(existing.amountPaid), null),
+          },
+        })
+      } else {
+        await this.prisma.invoice.create({
+          data: {
+            invoiceNumber: await this.nextInvoiceNumber(),
+            clientId, kind: InvoiceKind.OPENING, status: InvoiceStatus.SENT,
+            subtotal: amount, amount, description: 'Opening Balance',
+            issueDate, sentAt: new Date(),
+          },
+        })
+      }
+    } else if (existing) {
+      // Clearing it: drop the invoice only if nothing was paid against it.
+      const allocs = await this.prisma.paymentAllocation.count({ where: { invoiceId: existing.id } })
+      if (allocs === 0) await this.prisma.invoice.delete({ where: { id: existing.id } })
+    }
+
     return this.prisma.clientProfile.update({
       where:  { id: clientId },
-      data:   { openingBalance },
-      select: { id: true, openingBalance: true },
+      data:   { openingBalance: amount, openingBalanceDate: date ? new Date(date) : null },
+      select: { id: true, openingBalance: true, openingBalanceDate: true },
     })
   }
 

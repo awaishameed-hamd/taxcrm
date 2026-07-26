@@ -391,6 +391,10 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
   const [hasAdvanceTaxService, setHasAdvanceTaxService] = useState<boolean>(initial?.hasAdvanceTaxService ?? false)
   const [yearEnd,             setYearEnd]             = useState<string>(initial?.yearEnd ?? 'JUNE')
 
+  // Opening balance, carried into the ledger as an invoice. Manager and above.
+  const [openingBalance,     setOpeningBalance]     = useState<string>(initial?.openingBalance != null && Number(initial.openingBalance) > 0 ? String(Number(initial.openingBalance)) : '')
+  const [openingBalanceDate, setOpeningBalanceDate] = useState<string>(initial?.openingBalanceDate ? String(initial.openingBalanceDate).split('T')[0] : new Date().toISOString().split('T')[0])
+
   // Monthly retainership contract. Manager and above only
   const [hasMonthlyRetainer,  setHasMonthlyRetainer]  = useState<boolean>(initial?.hasMonthlyRetainer ?? false)
   const [retainerAmount,      setRetainerAmount]      = useState<string>(initial?.retainerAmount != null ? String(initial.retainerAmount) : '')
@@ -527,6 +531,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
       // so it must not depend on that field's admin-configurable visibility toggle.
       payload.traineeId           = form.traineeId
 
+      let profileId: string | undefined
       if (!isEdit) {
         payload.hasPortalAccess = portalAccess
         if (portalMethod === 'set_password') payload.password = password
@@ -535,18 +540,26 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
         // so the created record is one level down. Reading it off the envelope left
         // profileId undefined and the invite was silently never sent.
         const created = res?.data ?? res
+        profileId = created?.clientProfile?.id
         // Auto-send invite if method is invite
-        if (portalAccess && portalMethod === 'invite') {
-          const profileId = created?.clientProfile?.id
-          if (profileId) {
-            await api.post(`/clients/${profileId}/send-invite`)
-          }
+        if (portalAccess && portalMethod === 'invite' && profileId) {
+          await api.post(`/clients/${profileId}/send-invite`)
         }
       } else {
         if (portalMethod === 'set_password' && password) payload.password = password
         await api.put(`/clients/${initial.id}`, payload)
+        profileId = initial.id
         // Send invite if method chosen is invite in edit mode
         if (portalAccess && portalMethod === 'invite') await handleSendInviteModal()
+      }
+
+      // Opening balance is stored via its own endpoint, which mirrors it into an
+      // OPENING invoice on the client's ledger.
+      if (canManageBilling && profileId) {
+        await api.patch(`/invoices/opening-balance/${profileId}`, {
+          openingBalance: Number(openingBalance) || 0,
+          date: openingBalanceDate || undefined,
+        })
       }
 
       onSuccess()
@@ -781,6 +794,33 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
               </span>
             </div>
           </div>
+
+          {/* Opening Balance. Manager and above only. Carried into the ledger as
+              an invoice, not shown on the client list. */}
+          {canManageBilling && (
+            <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
+              <div style={{ padding: '10px 18px', borderBottom: `1px solid ${P.border}`, background: '#F1F5F9' }}>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif" }}>
+                  Opening Balance
+                </span>
+              </div>
+              <div style={{ padding: '12px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5C5C5C', marginBottom: 4, fontFamily: "'Aptos', sans-serif" }}>Opening Balance</label>
+                  <input type="number" min={0} value={openingBalance} onChange={e => setOpeningBalance(e.target.value)} placeholder="0"
+                    style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${P.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, fontFamily: "'Aptos', sans-serif", color: NAVY, outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5C5C5C', marginBottom: 4, fontFamily: "'Aptos', sans-serif" }}>Date of Opening Balance</label>
+                  <input type="date" value={openingBalanceDate} onChange={e => setOpeningBalanceDate(e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${P.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, fontFamily: "'Aptos', sans-serif", color: NAVY, outline: 'none' }} />
+                </div>
+              </div>
+              <div style={{ padding: '0 18px 12px' }}>
+                <p style={{ margin: 0, fontSize: 11, color: '#94A3B8', fontFamily: "'Aptos', sans-serif" }}>Shows in the client ledger as an invoice you can receive payment against.</p>
+              </div>
+            </div>
+          )}
 
           {/* Billing. Manager and above only */}
           {canManageBilling && (
