@@ -1038,18 +1038,19 @@ export default function InvoicingPage() {
                 <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
                   <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
                     <colgroup>
-                      <col style={{ width: '14%' }} /><col style={{ width: '12%' }} /><col style={{ width: '13%' }} />
-                      <col style={{ width: '27%' }} /><col style={{ width: '12%' }} /><col style={{ width: '11%' }} /><col style={{ width: '11%' }} />
+                      <col style={{ width: '13%' }} /><col style={{ width: '10%' }} /><col style={{ width: '12%' }} />
+                      <col style={{ width: '24%' }} /><col style={{ width: '11%' }} /><col style={{ width: '10%' }} /><col style={{ width: '11%' }} /><col style={{ width: 54 }} />
                     </colgroup>
                     <thead>
                       <tr style={{ background: '#F2AC18' }}>
                         {['Date', 'Type', 'Reference', 'Description'].map(l => <th key={l} style={th}>{l}</th>)}
                         {['Charge', 'Payment', 'Balance'].map(l => <th key={l} style={{ ...th, textAlign: 'right' }}>{l}</th>)}
+                        <th style={th} />
                       </tr>
                     </thead>
                     <tbody>
                       {ledger.timeline.length === 0 ? (
-                        <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>
+                        <tr><td colSpan={8} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>
                           Nothing billed to this client yet. Drafts appear under the Invoices tab.
                         </td></tr>
                       ) : ledger.timeline.map((t: any, idx: number) => {
@@ -1062,6 +1063,9 @@ export default function InvoicingPage() {
                               : t.type === 'OPENING'
                                 ? { label: 'Opening', color: '#5C5C5C', bg: '#F1F5F9' }
                                 : { label: 'Invoice', color: '#1E40AF', bg: '#DBEAFE' }
+                        // Match this ledger line to a full invoice so the invoice
+                        // rows can open the printable document.
+                        const invMatch = ledger.invoices?.find((i: Invoice) => i.invoiceNumber === t.ref)
                         return (
                           <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
                             <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(t.date)}</td>
@@ -1073,6 +1077,14 @@ export default function InvoicingPage() {
                             <td style={{ ...td, textAlign: 'right' }}>{t.charge ? money(t.charge) : ''}</td>
                             <td style={{ ...td, textAlign: 'right', color: '#16a34a' }}>{t.credit ? money(t.credit) : ''}</td>
                             <td style={{ ...td, textAlign: 'right', color: t.balance > 0 ? '#D62828' : '#16a34a' }}>{money(t.balance)}</td>
+                            <td style={{ ...td, overflow: 'visible', textAlign: 'right' }}>
+                              {invMatch && (
+                                <button onClick={() => setViewInv(invMatch)} title="View / Print invoice"
+                                  style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
+                                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         )
                       })}
