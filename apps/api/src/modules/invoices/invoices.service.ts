@@ -266,9 +266,11 @@ export class InvoicesService {
         }
         const withheld = Number(a.incomeTaxWithheld) + Number(a.salesTaxWithheld)
         if (withheld > 0) {
+          // The amount is already in the Payment column, so keep the description
+          // to the kind of withholding only.
           const bits = [
-            Number(a.incomeTaxWithheld) > 0 ? `income tax ${a.incomeTaxWithheld}` : null,
-            Number(a.salesTaxWithheld)  > 0 ? `sales tax ${a.salesTaxWithheld}`   : null,
+            Number(a.incomeTaxWithheld) > 0 ? 'income tax' : null,
+            Number(a.salesTaxWithheld)  > 0 ? 'sales tax'  : null,
           ].filter(Boolean).join(', ')
           txns.push({
             date: p.paidAt.toISOString(), type: 'WITHHOLDING', ref: a.invoice.invoiceNumber,

@@ -33,6 +33,16 @@ const METHOD_LABEL: Record<string, string> = Object.fromEntries(PAYMENT_METHODS.
 const money   = (n: any) => Number(n ?? 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
 
+// Due date, defaulting to a week after the issue date when none is stored, so an
+// invoice always shows one. It stays editable in Invoice Approval.
+const dueOf = (i: any): string | null => {
+  if (i.dueDate) return i.dueDate
+  if (!i.issueDate) return null
+  const d = new Date(i.issueDate)
+  d.setDate(d.getDate() + 7)
+  return d.toISOString()
+}
+
 // What's still owed. Cash isn't the only thing that closes an invoice. A discount or
 // tax the client withheld at source settles it just the same.
 const balanceOf = (i: any) =>
@@ -587,6 +597,7 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
       <style>{`
         @media print {
+          @page { size: A4; margin: 14mm; }
           body * { visibility: hidden !important; }
           #invoice-print, #invoice-print * { visibility: visible !important; }
           #invoice-print { position: absolute !important; left: 0; top: 0; width: 100%; box-shadow: none !important; border-radius: 0 !important; }
@@ -601,15 +612,12 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         </div>
 
         <div id="invoice-print" style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
-          <div style={{ background: NAVY, color: '#fff', padding: '24px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            {/* Logo sits in a white plate so it reads on the navy band whatever
-                the logo's own background is. */}
-            <div style={{ background: '#fff', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
-              <img src="/logo-email.png" alt="Asif Associates" style={{ height: 46, display: 'block' }} />
-            </div>
+          {/* Soft grey header band, like the profile section headers. */}
+          <div style={{ background: 'linear-gradient(90deg, #E4E9F0, #EDF0F5)', color: NAVY, padding: '16px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <img src="/logo-email.png" alt="Asif Associates" style={{ height: 44, display: 'block' }} />
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '0.1em', fontFamily: F, opacity: 0.95 }}>INVOICE</div>
-              <div style={{ fontSize: 12, marginTop: 4, fontFamily: F, opacity: 0.8 }}>{inv.invoiceNumber}</div>
+              <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '0.1em', fontFamily: F, color: NAVY }}>INVOICE</div>
+              <div style={{ fontSize: 12, marginTop: 3, fontFamily: F, color: '#64748B' }}>{inv.invoiceNumber}</div>
             </div>
           </div>
 
@@ -627,12 +635,11 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
                   <span style={{ color: '#94A3B8', minWidth: 74 }}>Issue Date</span>
                   <span style={{ fontWeight: 700, color: NAVY }}>{fmtDate(inv.issueDate)}</span>
                 </div>
-                {inv.dueDate && (
-                  <div style={{ display: 'flex', gap: 14, fontSize: 12, fontFamily: F }}>
-                    <span style={{ color: '#94A3B8', minWidth: 74 }}>Due Date</span>
-                    <span style={{ fontWeight: 700, color: NAVY }}>{fmtDate(inv.dueDate)}</span>
-                  </div>
-                )}
+                <div style={{ display: 'flex', gap: 14, fontSize: 12, fontFamily: F }}>
+                  <span style={{ color: '#94A3B8', minWidth: 74 }}>Due Date</span>
+                  {/* Falls back to a week after the issue date when none was set. */}
+                  <span style={{ fontWeight: 700, color: NAVY }}>{fmtDate(dueOf(inv))}</span>
+                </div>
                 <div style={{ display: 'flex', gap: 14, fontSize: 12, fontFamily: F, alignItems: 'center' }}>
                   <span style={{ color: '#94A3B8', minWidth: 74 }}>Status</span>
                   <span style={{ fontWeight: 800, padding: '2px 10px', borderRadius: 20, fontSize: 11, color: st.color, background: st.bg }}>{st.label}</span>
@@ -729,10 +736,6 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
                 </table>
               </div>
             )}
-          </div>
-
-          <div style={{ padding: '16px 36px 24px', borderTop: `1px solid ${P.border}`, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: F }}>Thank you for your business.</div>
           </div>
         </div>
       </div>
@@ -1122,7 +1125,7 @@ export default function InvoicingPage() {
                                 <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>RETAINER</span>
                               )}
                             </td>
-                            <td style={{ ...td, fontWeight: 400, color: r.status === 'OVERDUE' ? '#D62828' : '#64748B' }}>{r.dueDate ? fmtDate(r.dueDate) : ''}</td>
+                            <td style={{ ...td, fontWeight: 400, color: r.status === 'OVERDUE' ? '#D62828' : '#64748B' }}>{fmtDate(dueOf(r))}</td>
                             <td style={td}>{money(r.amount)}</td>
                             <td style={{ ...td, color: balance > 0 ? '#D62828' : '#16a34a' }}>{money(balance)}</td>
                             <td style={td}><span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: st.color, background: st.bg }}>{st.label}</span></td>

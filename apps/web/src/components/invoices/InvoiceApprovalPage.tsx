@@ -52,7 +52,13 @@ function PriceModal({ inv, onClose, onSaved }: { inv: any; onClose: () => void; 
   const [salesTax,    setSalesTax]    = useState(inv.salesTax    != null ? String(Number(inv.salesTax))    : '')
   const [outOfPocket, setOutOfPocket] = useState(inv.outOfPocket != null ? String(Number(inv.outOfPocket)) : '')
   const [description, setDescription] = useState(inv.description ?? '')
-  const [dueDate,     setDueDate]     = useState(inv.dueDate ? inv.dueDate.split('T')[0] : '')
+  // Default a new draft's due date to a week out; the manager can change it.
+  const [dueDate,     setDueDate]     = useState(() => {
+    if (inv.dueDate) return inv.dueDate.split('T')[0]
+    const d = new Date(inv.issueDate ?? Date.now())
+    d.setDate(d.getDate() + 7)
+    return d.toISOString().split('T')[0]
+  })
   const [notes,       setNotes]       = useState(inv.notes ?? '')
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState('')

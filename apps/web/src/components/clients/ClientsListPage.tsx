@@ -366,6 +366,9 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
       // extra field
       vals[key] = (initial?.extraFields as any)?.[key] ?? ''
     })
+    // Address is not one of the configurable form fields; it is a fixed field
+    // kept for the invoice, so seed it directly from the client record.
+    vals.address = initial?.address ?? ''
     return vals
   }
 
@@ -508,6 +511,7 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
       payload.hasWhtService       = hasWhtService
       payload.hasAdvanceTaxService = hasAdvanceTaxService
       payload.yearEnd             = yearEnd
+      payload.address             = form.address?.trim() || undefined
       payload.representativeId    = representativeId || null
 
       // Billing contract, only Manager+ can see or change this, so never send it otherwise
@@ -607,6 +611,24 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
                 />
               )
             })}
+          </div>
+
+          {/* Address, kept for the invoice. Not shown in the client list. */}
+          <div style={{ marginTop: 16, borderRadius: 10, background: '#F8FAFC', border: `1px solid ${P.border}` }}>
+            <div style={{ padding: '10px 18px', borderBottom: `1px solid ${P.border}`, background: '#F1F5F9' }}>
+              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif" }}>
+                Address
+              </span>
+            </div>
+            <div style={{ padding: '12px 18px' }}>
+              <textarea
+                value={form.address ?? ''}
+                onChange={e => handleChange('address', e.target.value)}
+                placeholder="Client address (appears on their invoices)"
+                rows={2}
+                style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${P.border}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, fontFamily: "'Aptos', sans-serif", color: NAVY, resize: 'vertical', outline: 'none' }}
+              />
+            </div>
           </div>
 
           {/* Assign Firm Representative */}
