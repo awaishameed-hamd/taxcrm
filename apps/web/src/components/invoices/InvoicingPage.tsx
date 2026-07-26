@@ -593,34 +593,48 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const balance = balanceOf(inv)
   const st = STATUS_META[inv.status] ?? STATUS_META.DRAFT
   const clientName = inv.client?.businessName ?? inv.client?.user?.fullName ?? 'Client'
+  const [busy, setBusy] = useState(false)
 
-  function handlePrint() {
-    // Blank the tab title while printing so the browser's header shows no title.
-    // The date on the left and the URL in the footer are added by the browser
-    // itself and cannot be removed by the page, only by unticking "Headers and
-    // footers" in the print dialog once (the browser then remembers it).
-    const prev = document.title
-    document.title = ''
-    const restore = () => { document.title = prev; window.removeEventListener('afterprint', restore) }
-    window.addEventListener('afterprint', restore)
-    window.print()
+  // A generated PDF is the only output with no browser header or footer at all,
+  // so no date and no URL, ever. It is named after the client. The blank plate
+  // lives in the DOM hidden, and is revealed only for the capture, so it appears
+  // on the PDF but not in the on-screen preview.
+  async function handleSavePdf() {
+    const el    = document.getElementById('invoice-print')
+    const blank = document.getElementById('invoice-blank-plate')
+    if (!el) return
+    setBusy(true)
+    try {
+      if (blank) blank.style.display = 'block'
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'), import('jspdf'),
+      ])
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const pdf   = new jsPDF('p', 'mm', 'a4')
+      const pageW = 210, pageH = 297
+      const imgH  = (canvas.height * pageW) / canvas.width
+      const img   = canvas.toDataURL('image/png')
+      let heightLeft = imgH, position = 0
+      pdf.addImage(img, 'PNG', 0, position, pageW, imgH)
+      heightLeft -= pageH
+      while (heightLeft > 0) {
+        position -= pageH
+        pdf.addPage()
+        pdf.addImage(img, 'PNG', 0, position, pageW, imgH)
+        heightLeft -= pageH
+      }
+      pdf.save(`${clientName} ${inv.invoiceNumber}.pdf`.replace(/[\\/:*?"<>|]/g, '-'))
+    } finally {
+      if (blank) blank.style.display = 'none'
+      setBusy(false)
+    }
   }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, overflowY: 'auto' }}>
-      <style>{`
-        @media print {
-          @page { size: A4; margin: 12mm; }
-          body * { visibility: hidden !important; }
-          #invoice-print, #invoice-print * { visibility: visible !important; }
-          #invoice-print { position: absolute !important; left: 0; top: 0; width: 100%; box-shadow: none !important; border-radius: 0 !important; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
-
       <div style={{ width: '100%', maxWidth: 780 }}>
-        <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
-          <button onClick={handlePrint} style={btn(NAVY)}>Print</button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
+          <button onClick={handleSavePdf} disabled={busy} style={{ ...btn(NAVY), opacity: busy ? 0.6 : 1 }}>{busy ? 'Preparing…' : 'Download PDF'}</button>
           <button onClick={onClose} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Close</button>
         </div>
 
@@ -751,8 +765,9 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
             )}
           </div>
 
-          {/* Rounded blank plate closing the document. */}
-          <div style={{ margin: '4px 0 0', padding: '26px', borderRadius: 14, border: '1px dashed #CBD5E1', background: '#F8FAFC', textAlign: 'center' }}>
+          {/* Rounded blank plate closing the document. Hidden on screen, revealed
+              only while the PDF is captured, so it appears on the PDF alone. */}
+          <div id="invoice-blank-plate" style={{ display: 'none', margin: '10px 0 0', padding: '26px', borderRadius: 14, border: '1px dashed #CBD5E1', background: '#F8FAFC', textAlign: 'center' }}>
             <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: F, letterSpacing: '0.06em' }}>This area is intentionally left blank</span>
           </div>
         </div>
