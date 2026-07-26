@@ -619,7 +619,7 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
       })
       const pdf    = new jsPDF('p', 'mm', 'a4')
       const pageW = 210, pageH = 297
-      const margin = 25.4                      // MS Word "Normal" A4 margins, 1 inch
+      const margin = 12                        // clean, standard document margin in mm
       const contentW = pageW - margin * 2
       const contentH = pageH - margin * 2
       const imgH  = (canvas.height * contentW) / canvas.width
