@@ -593,44 +593,14 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const balance = balanceOf(inv)
   const st = STATUS_META[inv.status] ?? STATUS_META.DRAFT
   const clientName = inv.client?.businessName ?? inv.client?.user?.fullName ?? 'Client'
-  const [downloading, setDownloading] = useState(false)
-
-  // Real PDF generation, so the file has no browser header or footer at all (no
-  // page title, no URL) and is named after the client. The browser Print button
-  // is kept separately for anyone who wants a physical print.
-  async function handleDownload() {
-    const el = document.getElementById('invoice-print')
-    if (!el) return
-    setDownloading(true)
-    try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'), import('jspdf'),
-      ])
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-      const pdf  = new jsPDF('p', 'mm', 'a4')
-      const pageW = 210, pageH = 297
-      const imgH  = (canvas.height * pageW) / canvas.width
-      const img   = canvas.toDataURL('image/png')
-      // Slice across pages if the invoice runs taller than one A4 sheet.
-      let heightLeft = imgH
-      let position = 0
-      pdf.addImage(img, 'PNG', 0, position, pageW, imgH)
-      heightLeft -= pageH
-      while (heightLeft > 0) {
-        position -= pageH
-        pdf.addPage()
-        pdf.addImage(img, 'PNG', 0, position, pageW, imgH)
-        heightLeft -= pageH
-      }
-      pdf.save(`${clientName} ${inv.invoiceNumber}.pdf`.replace(/[\\/:*?"<>|]/g, '-'))
-    } finally {
-      setDownloading(false)
-    }
-  }
 
   function handlePrint() {
+    // Blank the tab title while printing so the browser's header shows no title.
+    // The date on the left and the URL in the footer are added by the browser
+    // itself and cannot be removed by the page, only by unticking "Headers and
+    // footers" in the print dialog once (the browser then remembers it).
     const prev = document.title
-    document.title = `${clientName} ${inv.invoiceNumber}`
+    document.title = ''
     const restore = () => { document.title = prev; window.removeEventListener('afterprint', restore) }
     window.addEventListener('afterprint', restore)
     window.print()
@@ -650,14 +620,13 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
 
       <div style={{ width: '100%', maxWidth: 780 }}>
         <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
-          <button onClick={handleDownload} disabled={downloading} style={{ ...btn(NAVY), opacity: downloading ? 0.6 : 1 }}>{downloading ? 'Preparing…' : 'Download PDF'}</button>
-          <button onClick={handlePrint} style={{ ...btn('#fff', NAVY), border: `1px solid ${P.border}` }}>Print</button>
+          <button onClick={handlePrint} style={btn(NAVY)}>Print</button>
           <button onClick={onClose} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Close</button>
         </div>
 
-        <div id="invoice-print" style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
-          {/* Soft grey header band, like the profile section headers. */}
-          <div style={{ background: 'linear-gradient(90deg, #E4E9F0, #EDF0F5)', color: NAVY, padding: '18px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div id="invoice-print" style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.2)', padding: 16 }}>
+          {/* Soft grey header band, like the profile section headers, as a rounded plate. */}
+          <div style={{ background: 'linear-gradient(90deg, #E4E9F0, #EDF0F5)', color: NAVY, padding: '18px 28px', borderRadius: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <img src="/logo-email.png" alt="Asif Associates" style={{ height: 68, display: 'block' }} />
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '0.1em', fontFamily: F, color: NAVY }}>INVOICE</div>
@@ -780,6 +749,11 @@ function InvoiceView({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
                 </table>
               </div>
             )}
+          </div>
+
+          {/* Rounded blank plate closing the document. */}
+          <div style={{ margin: '4px 0 0', padding: '26px', borderRadius: 14, border: '1px dashed #CBD5E1', background: '#F8FAFC', textAlign: 'center' }}>
+            <span style={{ fontSize: 11, color: '#94A3B8', fontFamily: F, letterSpacing: '0.06em' }}>This area is intentionally left blank</span>
           </div>
         </div>
       </div>
