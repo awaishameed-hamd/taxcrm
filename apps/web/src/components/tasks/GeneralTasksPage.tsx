@@ -754,7 +754,7 @@ export function TaskFormModal({
                   onChange={val => setForm((f: any) => ({ ...f, fbrEntryPoint: val }))}
                   options={[
                     { value: 'FRESH_NOTICE',         label: 'Fresh Notice' },
-                    { value: 'FURTHER_NOTICE_ONLY',  label: 'Further Notice Only' },
+                    { value: 'FURTHER_NOTICE_ONLY',  label: 'Further Notice' },
                     { value: 'DIRECT_APPEAL',         label: 'Direct Appeal' },
                     { value: 'HEARING_ONLY',          label: 'Hearing Only' },
                   ]}

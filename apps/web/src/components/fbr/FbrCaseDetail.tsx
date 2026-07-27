@@ -15,6 +15,14 @@ const F      = "'Aptos',sans-serif"
 const MANAGER_TIER = ['ADMIN', 'PARTNER', 'MANAGER', 'TEAM_LEAD']
 const PARTNER_TIER = ['ADMIN', 'PARTNER']
 
+// Local YYYY-MM-DD (not UTC), so "max today" is correct in Pakistan time and a
+// notice date can never be set in the future.
+function todayStr() {
+  const d = new Date()
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 10)
+}
+
 function WaitingFor({ label }: { label: string }) {
   return (
     <span style={{ fontSize: 11, fontWeight: 600, color: '#92400E', background: '#FEF3C7', padding: '2px 8px', borderRadius: 4, flexShrink: 0, fontFamily: F }}>
@@ -415,7 +423,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
                 <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'flex-end' }}>
                   <div>
                     <label style={{ display:'block', fontSize:10, fontWeight:600, color:'#64748B', marginBottom:3, textTransform:'uppercase', letterSpacing:'0.06em', fontFamily:F }}>Date of Notice</label>
-                    <input type="date" value={noticeDateInput} onChange={e => setNoticeDateInput(e.target.value)} style={{ padding:'6px 10px', borderRadius:6, border:`1.5px solid ${TEAL}`, fontSize:12, fontFamily:F, outline:'none' }} />
+                    <input type="date" value={noticeDateInput} max={todayStr()} onChange={e => { const v = e.target.value; if (!v || v <= todayStr()) setNoticeDateInput(v) }} style={{ padding:'6px 10px', borderRadius:6, border:`1.5px solid ${TEAL}`, fontSize:12, fontFamily:F, outline:'none' }} />
                   </div>
                   <div>
                     <label style={{ display:'block', fontSize:10, fontWeight:600, color:'#64748B', marginBottom:3, textTransform:'uppercase', letterSpacing:'0.06em', fontFamily:F }}>Due Date</label>
