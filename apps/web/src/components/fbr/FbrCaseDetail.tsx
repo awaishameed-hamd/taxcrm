@@ -23,6 +23,15 @@ function todayStr() {
   return d.toISOString().slice(0, 10)
 }
 
+// Readable label for the submission method. BOTH means it was filed on IRIS and
+// a manual copy submitted at the same time.
+function fmtSubmission(m?: string | null) {
+  if (m === 'BOTH')   return 'IRIS + Manual'
+  if (m === 'MANUAL') return 'Manual'
+  if (m === 'IRIS')   return 'IRIS'
+  return ''
+}
+
 function WaitingFor({ label }: { label: string }) {
   return (
     <span style={{ fontSize: 11, fontWeight: 600, color: '#92400E', background: '#FEF3C7', padding: '2px 8px', borderRadius: 4, flexShrink: 0, fontFamily: F }}>
@@ -379,8 +388,8 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
     { key:'approve', label:'Document List Reviewed and Approved',                role:'Manager', done: !!r.docListApprovedAt,       doneDate: r.docListApprovedAt,  undoField: { docListApprovedAt: null }, actorId: r.docListApprovedById },
     { key:'draft',   label:'Documents Collected and Draft Reply Prepared',       role:'Trainee', done: !!r.draftPreparedAt,         doneDate: r.draftPreparedAt,    undoField: { draftPreparedAt: null }, actorId: r.draftPreparedById },
     { key:'review',  label:'Internal Review and Comments Incorporated',          role:'Manager', done: !!r.internalReviewedAt,      doneDate: r.internalReviewedAt, undoField: { internalReviewedAt: null }, actorId: r.internalReviewById },
-    { key:'partner', label:'Final Approval by Sir Asif',                         role:'Partner', done: !!r.partnerApprovedAt,       doneDate: r.partnerApprovedAt,  undoField: { partnerApprovedAt: null }, actorId: r.partnerApprovedById },
-    { key:'submit',  label:`Submitted to FBR${r.submissionMethod ? ` (${r.submissionMethod})` : ''}`, role:'Trainee', done: !!r.submittedAt, doneDate: r.submittedAt, undoField: { submittedAt: null, submissionMethod: null }, actorId: r.submittedById },
+    { key:'partner', label:'Final Approval by Partner',                         role:'Partner', done: !!r.partnerApprovedAt,       doneDate: r.partnerApprovedAt,  undoField: { partnerApprovedAt: null }, actorId: r.partnerApprovedById },
+    { key:'submit',  label:`Submitted to FBR${r.submissionMethod ? ` (${fmtSubmission(r.submissionMethod)})` : ''}`, role:'Trainee', done: !!r.submittedAt, doneDate: r.submittedAt, undoField: { submittedAt: null, submissionMethod: null }, actorId: r.submittedById },
   ]
 
   const curIdx    = steps.findIndex(s => !s.done)
@@ -452,12 +461,13 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
                 ? <><Btn label="Mark Reviewed" color={GREEN} onClick={() => markDone('internalReviewedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('review')} /></>
                 : <WaitingFor label="Manager" />)}
               {isActive && step.key==='partner'   && (canPartnerAct
-                ? <><Btn label="Approved by Sir Asif" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('partner')} /></>
+                ? <><Btn label="Approved by Partner" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('partner')} /></>
                 : <WaitingFor label="Partner" />)}
               {isActive && step.key==='submit'    && (
                 <>
-                  <Btn label="Submitted on IRIS"   onClick={() => markDone('submittedAt', { submissionMethod:'IRIS' })}   disabled={loading} />
-                  <Btn label="Submitted Manually"  color={PURPLE} onClick={() => markDone('submittedAt', { submissionMethod:'MANUAL' })} disabled={loading} />
+                  <Btn label="Submitted on IRIS"        onClick={() => markDone('submittedAt', { submissionMethod:'IRIS' })}   disabled={loading} />
+                  <Btn label="Submitted Manually"       color={PURPLE} onClick={() => markDone('submittedAt', { submissionMethod:'MANUAL' })} disabled={loading} />
+                  <Btn label="Submitted on IRIS + Manually" color={NAVY} onClick={() => markDone('submittedAt', { submissionMethod:'BOTH' })} disabled={loading} />
                 </>
               )}
             </StepCard>
@@ -580,8 +590,8 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
     ...(a.isLate ? [{ key:'cond', label:'Condonation of Delay Application Filed',      role:'Trainee' as const, done: !!a.condonationFiled, doneDate: null, undoField: { condonationFiled: false }, actorId: a.condonationFiledById }] : []),
     { key:'grounds', label:'Fee Challan Prepared and Grounds of Appeal Drafted',        role:'Trainee', done: !!a.groundsPreparedAt,   doneDate: a.groundsPreparedAt, undoField: { groundsPreparedAt: null }, actorId: a.groundsPreparedById },
     { key:'review',  label:'Internal Review by Senior',                                 role:'Manager', done: !!a.internalReviewedAt,  doneDate: a.internalReviewedAt, undoField: { internalReviewedAt: null }, actorId: a.internalReviewById },
-    { key:'partner', label:'Final Approval by Sir Asif',                                role:'Partner', done: !!a.partnerApprovedAt,   doneDate: a.partnerApprovedAt,  undoField: { partnerApprovedAt: null }, actorId: a.partnerApprovedById },
-    { key:'submit',  label:`Appeal Submitted${a.submissionMethod ? ` (${a.submissionMethod})` : ''}`, role:'Trainee', done: !!a.submittedAt, doneDate: a.submittedAt, undoField: { submittedAt: null, submissionMethod: null }, actorId: a.submittedById },
+    { key:'partner', label:'Final Approval by Partner',                                role:'Partner', done: !!a.partnerApprovedAt,   doneDate: a.partnerApprovedAt,  undoField: { partnerApprovedAt: null }, actorId: a.partnerApprovedById },
+    { key:'submit',  label:`Appeal Submitted${a.submissionMethod ? ` (${fmtSubmission(a.submissionMethod)})` : ''}`, role:'Trainee', done: !!a.submittedAt, doneDate: a.submittedAt, undoField: { submittedAt: null, submissionMethod: null }, actorId: a.submittedById },
     { key:'hearing', label:'Hearing Date Scheduled',                                    role:'Manager', done: (a.hearings?.length ?? 0) > 0, doneDate: a.hearings?.[0]?.scheduledDate, actorId: a.hearings?.[0]?.createdById },
   ]
 
@@ -626,12 +636,13 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
                 ? <><Btn label="Mark Reviewed" color={GREEN} onClick={() => markDone('internalReviewedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('review')} /></>
                 : <WaitingFor label="Manager" />)}
               {isActive && step.key==='partner' && (canPartnerAct
-                ? <><Btn label="Approved by Sir Asif" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('partner')} /></>
+                ? <><Btn label="Approved by Partner" color={WARN} onClick={() => markDone('partnerApprovedAt')} disabled={loading} /><SendBackButton onClick={() => setSendBackStep('partner')} /></>
                 : <WaitingFor label="Partner" />)}
               {isActive && step.key==='submit'  && (
                 <>
-                  <Btn label="Submitted on IRIS"  onClick={() => markDone('submittedAt', { submissionMethod:'IRIS' })}   disabled={loading} />
-                  <Btn label="Submitted Manually" color={PURPLE} onClick={() => markDone('submittedAt', { submissionMethod:'MANUAL' })} disabled={loading} />
+                  <Btn label="Submitted on IRIS"        onClick={() => markDone('submittedAt', { submissionMethod:'IRIS' })}   disabled={loading} />
+                  <Btn label="Submitted Manually"       color={PURPLE} onClick={() => markDone('submittedAt', { submissionMethod:'MANUAL' })} disabled={loading} />
+                  <Btn label="Submitted on IRIS + Manually" color={NAVY} onClick={() => markDone('submittedAt', { submissionMethod:'BOTH' })} disabled={loading} />
                 </>
               )}
               {isActive && step.key==='hearing' && (
@@ -756,7 +767,7 @@ function StayFlow({ stay: s, onReload, actors }: { stay: any; onReload: () => vo
   const steps: S[] = [
     { key:'recv',   label:'Recovery Notice Received from Client',       role:'Manager', done: true,            doneDate: s.triggeredAt ?? s.createdAt },
     { key:'review', label:'Stay Application Prepared and Reviewed',     role:'Manager', done: !!s.reviewedAt,  doneDate: s.reviewedAt,  undoField: { reviewedAt: null }, actorId: s.reviewedById },
-    { key:'submit', label:`Application Submitted${s.submissionMethod ? ` (${s.submissionMethod})` : ''}`, role:'Trainee', done: !!s.submittedAt, doneDate: s.submittedAt, undoField: { submittedAt: null }, actorId: s.submittedById },
+    { key:'submit', label:`Application Submitted${s.submissionMethod ? ` (${fmtSubmission(s.submissionMethod)})` : ''}`, role:'Trainee', done: !!s.submittedAt, doneDate: s.submittedAt, undoField: { submittedAt: null }, actorId: s.submittedById },
   ]
 
   const curIdx    = steps.findIndex(st => !st.done)
@@ -799,6 +810,7 @@ function StayFlow({ stay: s, onReload, actors }: { stay: any; onReload: () => vo
                 <>
                   <Btn label="Submitted (IRIS)"   onClick={() => markDone({ submittedAt: new Date().toISOString(), submissionMethod:'IRIS' })}   disabled={loading} />
                   <Btn label="Submitted (Manual)" color={PURPLE} onClick={() => markDone({ submittedAt: new Date().toISOString(), submissionMethod:'MANUAL' })} disabled={loading} />
+                  <Btn label="Submitted (IRIS + Manual)" color={NAVY} onClick={() => markDone({ submittedAt: new Date().toISOString(), submissionMethod:'BOTH' })} disabled={loading} />
                 </>
               )}
             </StepCard>

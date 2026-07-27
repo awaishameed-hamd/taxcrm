@@ -1034,6 +1034,7 @@ enum FbrCaseStage {
 enum FbrSubmissionMethod {
   IRIS
   MANUAL
+  BOTH   // filed on IRIS and a physical/manual copy at the same time
 }
 
 enum FbrNoticeOutcome {
