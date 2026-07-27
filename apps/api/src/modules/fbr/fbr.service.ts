@@ -93,7 +93,7 @@ export class FbrService {
       if (!stay) return null
       if (!stay.reviewedAt) return 'MANAGER'
       if (!stay.submittedAt) return 'TRAINEE'
-      if (stay.outcome === 'PENDING') return 'MANAGER'
+      if (stay.outcome === 'PENDING') return 'TRAINEE'
       return null
     }
 
@@ -106,7 +106,7 @@ export class FbrService {
       if (!a.partnerApprovedAt) return 'PARTNER'
       if (!a.submittedAt) return 'TRAINEE'
       if ((a.hearings?.length ?? 0) === 0) return 'MANAGER'
-      if (a.outcome === 'PENDING') return 'MANAGER'
+      if (a.outcome === 'PENDING') return 'TRAINEE'
       return null
     }
 
@@ -121,7 +121,7 @@ export class FbrService {
     if (!r.internalReviewedAt) return 'MANAGER'
     if (!r.partnerApprovedAt) return 'PARTNER'
     if (!r.submittedAt) return 'TRAINEE'
-    if (r.outcome === 'PENDING') return 'MANAGER'
+    if (r.outcome === 'PENDING') return 'TRAINEE'
     return null
   }
 
@@ -344,7 +344,8 @@ export class FbrService {
     // Logging the notice as received is a Trainee-tier action, the Trainee is the one who sees the notice.
     if (dto.docListApprovedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'approve the document list')
     if (dto.internalReviewedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'mark the internal review done')
-    if (dto.outcome !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'record the FBR outcome')
+    // Recording the FBR outcome is done by whoever handles the case, not a
+    // manager approval, so it carries no tier gate.
     // Partner+ tier: final sign-off
     if (dto.partnerApprovedAt !== undefined) assertRoleTier(actorRole, PARTNER_TIER, 'give final approval')
 
@@ -433,7 +434,8 @@ export class FbrService {
   async updateAppeal(id: string, dto: UpdateAppealDto, actorId: string, actorRole: Role) {
     // Manager+ tier: internal review and the appeal outcome decision
     if (dto.internalReviewedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'mark the appeal internal review done')
-    if (dto.outcome !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'record the appeal outcome')
+    // Recording the appeal outcome is done by whoever handles the case, not a
+    // manager approval, so it carries no tier gate.
     // Partner+ tier: final sign-off
     if (dto.partnerApprovedAt !== undefined) assertRoleTier(actorRole, PARTNER_TIER, 'give final approval on the appeal')
 
@@ -515,9 +517,9 @@ export class FbrService {
   }
 
   async updateStay(id: string, dto: UpdateStayDto, actorId: string, actorRole: Role) {
-    // Manager+ tier: reviewing the stay application and deciding its outcome
+    // Manager+ tier: reviewing the stay application. Recording its outcome is
+    // done by whoever handles the case, so that step carries no tier gate.
     if (dto.reviewedAt !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'mark the stay application reviewed')
-    if (dto.outcome    !== undefined) assertRoleTier(actorRole, MANAGER_TIER, 'record the stay application outcome')
 
     const data: any = {}
     const dateFields = ['reviewedAt', 'submittedAt', 'hearingDate', 'decidedAt']

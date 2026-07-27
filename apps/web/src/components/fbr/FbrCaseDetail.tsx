@@ -478,13 +478,11 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
 
       <StepArrow done={allDone} />
       {allDone && isPending && (
-        canManagerAct ? (
-          <OutcomeStep question="What was the FBR outcome?">
-            <Btn label="Reply Accepted"        color={GREEN}   onClick={() => patch({ outcome:'ACCEPTED' })}       disabled={loading} />
-            <Btn label="Further Notice Issued" color="#1E40AF" onClick={() => patch({ outcome:'FURTHER_NOTICE' })} disabled={loading} />
-            <Btn label="Order Against Client"  color={DANGER}  onClick={() => patch({ outcome:'ORDER_AGAINST' })}  disabled={loading} />
-          </OutcomeStep>
-        ) : <WaitingFor label="Manager" />
+        <OutcomeStep question="What was the FBR outcome?">
+          <Btn label="Reply Accepted"        color={GREEN}   onClick={() => patch({ outcome:'ACCEPTED' })}       disabled={loading} />
+          <Btn label="Further Notice Issued" color="#1E40AF" onClick={() => patch({ outcome:'FURTHER_NOTICE' })} disabled={loading} />
+          <Btn label="Order Against Client"  color={DANGER}  onClick={() => patch({ outcome:'ORDER_AGAINST' })}  disabled={loading} />
+        </OutcomeStep>
       )}
       {!isPending && (
         <ResultCard
@@ -684,12 +682,10 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
 
       <StepArrow done={allDone} />
       {allDone && isPending && (
-        canManagerAct ? (
-          <OutcomeStep question="What was the appeal order?">
-            <Btn label="Decided in Favour of Client" color={GREEN}  onClick={() => patch({ outcome:'IN_FAVOR', orderDate: new Date().toISOString() })} disabled={loading} />
-            <Btn label="Order Against Client"         color={DANGER} onClick={() => patch({ outcome:'AGAINST',  orderDate: new Date().toISOString() })} disabled={loading} />
-          </OutcomeStep>
-        ) : <WaitingFor label="Manager" />
+        <OutcomeStep question="What was the appeal order?">
+          <Btn label="Decided in Favour of Client" color={GREEN}  onClick={() => patch({ outcome:'IN_FAVOR', orderDate: new Date().toISOString() })} disabled={loading} />
+          <Btn label="Order Against Client"         color={DANGER} onClick={() => patch({ outcome:'AGAINST',  orderDate: new Date().toISOString() })} disabled={loading} />
+        </OutcomeStep>
       )}
       {!isPending && (
         <ResultCard
@@ -821,12 +817,10 @@ function StayFlow({ stay: s, onReload, actors }: { stay: any; onReload: () => vo
 
       <StepArrow done={allDone} />
       {allDone && isPending && (
-        canManagerAct ? (
-          <OutcomeStep question="What was the outcome of the Stay Application?">
-            <Btn label="Stay Granted"  color={GREEN}  onClick={() => patch({ outcome:'GRANTED',  decidedAt: new Date().toISOString() })} disabled={loading} />
-            <Btn label="Stay Rejected" color={DANGER} onClick={() => patch({ outcome:'REJECTED', decidedAt: new Date().toISOString() })} disabled={loading} />
-          </OutcomeStep>
-        ) : <WaitingFor label="Manager" />
+        <OutcomeStep question="What was the outcome of the Stay Application?">
+          <Btn label="Stay Granted"  color={GREEN}  onClick={() => patch({ outcome:'GRANTED',  decidedAt: new Date().toISOString() })} disabled={loading} />
+          <Btn label="Stay Rejected" color={DANGER} onClick={() => patch({ outcome:'REJECTED', decidedAt: new Date().toISOString() })} disabled={loading} />
+        </OutcomeStep>
       )}
       {!isPending && (
         <ResultCard
