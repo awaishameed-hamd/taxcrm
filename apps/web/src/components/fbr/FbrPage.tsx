@@ -270,16 +270,23 @@ export default function FbrPage() {
   }
 
   useEffect(() => { loadCases() }, [filterClient, filterStage, filterTax])
-  useAutoRefresh(() => loadCases(true))
 
-  // Load case detail
-  useEffect(() => {
+  // Load the open case detail. A silent refetch keeps the step timeline live,
+  // for example step 8 unlocking after the Partner approves step 7, without a
+  // manual reload and without disturbing any half-filled input in the pane.
+  const loadDetail = (silent = false) => {
     if (!selectedCase) { setCaseDetail(null); return }
-    setLoadingDetail(true)
+    if (!silent) setLoadingDetail(true)
     api.get(`/fbr/cases/${selectedCase}`).then(r => {
       setCaseDetail(r.data?.data ?? r.data ?? null)
-    }).catch(() => {}).finally(() => setLoadingDetail(false))
-  }, [selectedCase])
+    }).catch(() => {}).finally(() => { if (!silent) setLoadingDetail(false) })
+  }
+
+  useEffect(() => { loadDetail() }, [selectedCase])
+
+  // The case list and the open detail both stay live: 10s poll, plus socket
+  // pushes and tab focus via useAutoRefresh.
+  useAutoRefresh(() => { loadCases(true); loadDetail(true) })
 
   const filteredClients = clients.filter(c => {
     const name = (c.businessName || c.user.fullName).toLowerCase()

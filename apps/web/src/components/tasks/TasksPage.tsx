@@ -413,6 +413,14 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
     fetchPipeTasks(true)
     fetchGenTasks(true)
     fetchFbrCases(true)
+    // Keep the open FBR case detail live too, so a step unlocks on its own
+    // (for example step 8 after the Partner approves step 7) without a reload.
+    if (selectedFbr?.id) {
+      api.get(`/fbr/cases/${selectedFbr.id}`).then(r => {
+        const d = r.data?.data ?? r.data
+        if (d) setSelectedFbr(d)
+      }).catch(() => {})
+    }
     api.get('/sales-tax-tasks/summary-counts', { params: { view: defaultManagerView } }).then(r => {
       const d = r.data?.data ?? r.data
       setTabCounts(prev => ({ ...prev, sales_tax: d.SALES_TAX ?? 0, income_tax: d.INCOME_TAX ?? 0, wht: d.WHT ?? 0, notices: d.NOTICES ?? 0 }))
