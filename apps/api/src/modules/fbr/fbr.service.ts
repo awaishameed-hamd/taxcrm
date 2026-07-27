@@ -382,11 +382,27 @@ export class FbrService {
       where: { id }, data, include: { attachments: true },
     })
 
-    // If outcome is ORDER_AGAINST â†’ move case to APPEAL stage if no appeal yet
-    if (dto.outcome === 'ORDER_AGAINST') {
-      const existing = await this.prisma.fbrAppeal.findUnique({ where: { caseId: round.caseId } })
-      if (!existing) {
-        await this.prisma.fbrAppeal.create({ data: { caseId: round.caseId, appealType: 'CIR_APPEALS' } })
+    // Filing an appeal after "Order Against" is now an explicit choice on the
+    // case (Client Filed Appeal), so the outcome no longer auto-creates one.
+
+    // Changing this round's outcome to anything other than "further notice",
+    // including undoing it back to pending, orphans the empty next round that a
+    // further notice had spawned. Drop later rounds that have no work yet, so an
+    // undo or a switch to Accepted / Order Against does not leave Round N+1
+    // hanging with no basis.
+    if (dto.outcome !== undefined && dto.outcome !== 'FURTHER_NOTICE') {
+      const later = await this.prisma.fbrNoticeRound.findMany({
+        where:   { caseId: round.caseId, roundNumber: { gt: round.roundNumber } },
+        include: { attachments: { select: { id: true } } },
+      })
+      const emptyIds = later
+        .filter(lr =>
+          lr.outcome === 'PENDING' && !lr.noticeDate && !lr.docListCreatedAt &&
+          !lr.draftPreparedAt && !lr.submittedAt && lr.attachments.length === 0,
+        )
+        .map(lr => lr.id)
+      if (emptyIds.length) {
+        await this.prisma.fbrNoticeRound.deleteMany({ where: { id: { in: emptyIds } } })
       }
     }
 

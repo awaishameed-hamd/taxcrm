@@ -307,8 +307,9 @@ function Btn({ label, color = TEAL, onClick, disabled = false }: { label: string
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTICE ROUND FLOW
 // ─────────────────────────────────────────────────────────────────────────────
-function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurther, actors }: {
+function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurther, onGoToAppeal, hasAppeal, actors }: {
   round: any; caseCreatedAt: string; onReload: () => void; isLast: boolean; onAddFurther?: () => void
+  onGoToAppeal?: () => void; hasAppeal?: boolean
   actors: Record<string, { id: string; fullName: string; role: string }>
 }) {
   const { user } = useAuth()
@@ -497,7 +498,12 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
           {r.outcome==='ORDER_AGAINST' && (
             r.challanPaid
               ? <span style={{ fontSize:12, color:GREEN, fontWeight:600, fontFamily:F }}>Tax Demand Paid</span>
-              : <Btn label="Mark Tax Demand Paid" color={GREEN} onClick={() => patch({ challanPaid:true, challanPaidAt:new Date().toISOString() })} disabled={loading} />
+              : hasAppeal
+                ? <span style={{ fontSize:12, color:PURPLE, fontWeight:600, fontFamily:F }}>Client Filed Appeal</span>
+                : <>
+                    <Btn label="Tax Demand Paid" color={GREEN} onClick={() => patch({ challanPaid:true, challanPaidAt:new Date().toISOString() })} disabled={loading} />
+                    {onGoToAppeal && <Btn label="Client Filed Appeal" color={PURPLE} onClick={onGoToAppeal} disabled={loading} />}
+                  </>
           )}
         </ResultCard>
       )}
@@ -852,8 +858,6 @@ export default function FbrCaseDetail({ case: c, onUpdated, onReload, onMarkInco
 
   const hasAppeal = !!c.appeal
   const hasStay   = (c.stayApplications?.length ?? 0) > 0
-  const lastRound = c.noticeRounds?.[c.noticeRounds.length - 1]
-  const canAppeal = lastRound?.outcome === 'ORDER_AGAINST' && !hasAppeal
 
   async function addRound()  { await api.post(`/fbr/cases/${c.id}/notice-rounds`, {}); onReload() }
   async function addAppeal() { await api.post(`/fbr/cases/${c.id}/appeal`, {}); onReload(); setTab('appeal') }
@@ -934,7 +938,6 @@ export default function FbrCaseDetail({ case: c, onUpdated, onReload, onMarkInco
               </span>
             )}
             {c.currentStage !== 'CLOSED' && (<>
-              {canAppeal && <button onClick={addAppeal} style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: `1.5px solid ${PURPLE}`, background: '#FAF5FF', color: PURPLE, fontFamily: F, lineHeight: 1 }}>File Appeal</button>}
               <button onClick={() => setShowStay(true)}  style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: `1.5px solid ${DANGER}`, background: '#FEF2F2', color: DANGER,    fontFamily: F, lineHeight: 1 }}>File Stay</button>
               <button onClick={() => setShowClose(true)} style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1.5px solid #94A3B8',  background: '#F8FAFC',   color: '#64748B', fontFamily: F, lineHeight: 1 }}>Close Case</button>
             </>)}
@@ -1003,7 +1006,7 @@ export default function FbrCaseDetail({ case: c, onUpdated, onReload, onMarkInco
             {(c.noticeRounds ?? []).map((r: any, i: number) => (
               <div key={r.id} style={{ marginBottom: i < c.noticeRounds.length-1 ? 32 : 0 }}>
                 {i > 0 && <div style={{ height: 1, background: '#F1F5F9', margin: '0 0 24px' }} />}
-                <NoticeRoundFlow round={r} caseCreatedAt={c.createdAt} onReload={onReload} isLast={i===c.noticeRounds.length-1} onAddFurther={i===c.noticeRounds.length-1 ? addRound : undefined} actors={c.actors ?? {}} />
+                <NoticeRoundFlow round={r} caseCreatedAt={c.createdAt} onReload={onReload} isLast={i===c.noticeRounds.length-1} onAddFurther={i===c.noticeRounds.length-1 ? addRound : undefined} onGoToAppeal={i===c.noticeRounds.length-1 && !hasAppeal ? addAppeal : undefined} hasAppeal={hasAppeal} actors={c.actors ?? {}} />
               </div>
             ))}
           </>
@@ -1017,12 +1020,6 @@ export default function FbrCaseDetail({ case: c, onUpdated, onReload, onMarkInco
         ))}
       </div>
 
-      {canAppeal && !hasAppeal && (
-        <div style={{ marginTop: 14, background: '#FAF5FF', border: '2px dashed #C4B5FD', borderRadius: 12, padding: '14px 18px', textAlign: 'center' }}>
-          <div style={{ fontSize: 13, color: PURPLE, fontWeight: 700, marginBottom: 10, fontFamily: F }}>Order Against Client, Appeal can now be filed</div>
-          <Btn label="File Appeal with CIR (Appeals) or ATIR" color={PURPLE} onClick={addAppeal} />
-        </div>
-      )}
     </div>
   )
 }
