@@ -489,7 +489,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
         <ResultCard
           label={r.outcome==='ACCEPTED'?'Reply Accepted by FBR': r.outcome==='FURTHER_NOTICE'?'Further Explanation Notice Issued':'Order Against Client'}
           color={r.outcome==='ACCEPTED'?GREEN: r.outcome==='FURTHER_NOTICE'?'#1E40AF':DANGER}
-          onUndo={() => patch({ outcome:'PENDING' })} loading={loading}
+          onUndo={() => patch({ outcome:'PENDING', challanPaid:false, challanPaidAt:null })} loading={loading}
           actorName={r.outcomeById ? actors[r.outcomeById]?.fullName : undefined}
         >
           {r.outcome==='FURTHER_NOTICE' && isLast && onAddFurther && (
@@ -497,7 +497,11 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
           )}
           {r.outcome==='ORDER_AGAINST' && (
             r.challanPaid
-              ? <span style={{ fontSize:12, color:GREEN, fontWeight:600, fontFamily:F }}>Tax Demand Paid</span>
+              ? <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ fontSize:12, color:GREEN, fontWeight:600, fontFamily:F }}>Tax Demand Paid</span>
+                  <button onClick={() => patch({ challanPaid:false, challanPaidAt:null })} disabled={loading}
+                    style={{ fontSize:11, fontWeight:600, color:'#64748B', background:'#F1F5F9', border:'1px solid #E2E8F0', borderRadius:6, padding:'2px 10px', cursor:'pointer', fontFamily:F }}>Change</button>
+                </div>
               : hasAppeal
                 ? <span style={{ fontSize:12, color:PURPLE, fontWeight:600, fontFamily:F }}>Client Filed Appeal</span>
                 : <>
