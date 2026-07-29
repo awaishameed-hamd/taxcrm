@@ -33,8 +33,10 @@ export class ChatService {
     let contacts: any[]
 
     if (role === Role.ADMIN || role === Role.PARTNER || role === Role.MANAGER || role === Role.TEAM_LEAD) {
+      // The real person behind a client is their representative, so chat lists
+      // representatives (portal users), never the client business login itself.
       contacts = await this.prisma.user.findMany({
-        where:   { id: { not: userId }, isActive: true },
+        where:   { id: { not: userId }, isActive: true, role: { not: Role.CLIENT } },
         select:  CONTACT_SELECT,
         orderBy: { fullName: 'asc' },
       })
@@ -45,12 +47,39 @@ export class ChatService {
           where:  { id: { not: userId }, role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] }, isActive: true },
           select: CONTACT_SELECT,
         }),
+        // The representatives of the clients this trainee handles (only those with
+        // a portal login can be chatted with).
         this.prisma.clientProfile.findMany({
-          where:  { traineeId: userId },
-          select: { user: { select: CONTACT_SELECT } },
+          where:  { traineeId: userId, representative: { isActive: true, userId: { not: null } } },
+          select: { representative: { select: { user: { select: CONTACT_SELECT } } } },
         }),
       ])
-      contacts = [...staff, ...clients.map((c) => c.user)]
+      const reps = clients
+        .map((c) => c.representative?.user)
+        .filter((u): u is NonNullable<typeof u> => !!u)
+      // One representative can cover several of the trainee's clients, dedupe by id.
+      const seen = new Set<string>()
+      const uniqueReps = reps.filter((r) => { if (seen.has(r.id)) return false; seen.add(r.id); return true })
+      contacts = [...staff, ...uniqueReps]
+    } else if (role === Role.REPRESENTATIVE) {
+      // A representative reaches the trainees handling the clients they represent,
+      // plus all senior staff.
+      const [staff, rep] = await Promise.all([
+        this.prisma.user.findMany({
+          where:  { role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD] }, isActive: true },
+          select: CONTACT_SELECT,
+        }),
+        this.prisma.clientRepresentative.findUnique({
+          where:  { userId },
+          select: { clients: { select: { trainee: { select: CONTACT_SELECT } } } },
+        }),
+      ])
+      const trainees = (rep?.clients ?? [])
+        .map((c) => c.trainee)
+        .filter((u): u is NonNullable<typeof u> => !!u)
+      const seen = new Set<string>()
+      const uniqueTrainees = trainees.filter((t) => { if (seen.has(t.id)) return false; seen.add(t.id); return true })
+      contacts = [...uniqueTrainees, ...staff]
     } else {
       // CLIENT
       const [staff, profile] = await Promise.all([
