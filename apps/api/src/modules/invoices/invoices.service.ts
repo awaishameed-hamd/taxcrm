@@ -626,7 +626,9 @@ export class InvoicesService {
     const alreadyApplied = payment.allocations.reduce((s, a) => s + Number(a.amount), 0)
     const unapplied      = Number(payment.amount) - alreadyApplied
 
-    const toApply = dto.allocations.filter(a => a.amount > 0)
+    // A row counts if it settles anything at all, cash from the credit or a
+    // discount / tax withheld that closes the invoice without touching the credit.
+    const toApply = dto.allocations.filter(a => (a.amount + (a.discount ?? 0) + (a.incomeTaxWithheld ?? 0) + (a.salesTaxWithheld ?? 0)) > 0)
     const total   = toApply.reduce((s, a) => s + a.amount, 0)
     if (toApply.length === 0) throw new BadRequestException('Nothing to apply')
     if (total > unapplied + 0.001) throw new BadRequestException('Applied amount is more than this payment has left')

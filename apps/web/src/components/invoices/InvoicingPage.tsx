@@ -474,40 +474,83 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
 
 // ─── Apply an advance payment's leftover credit to invoices ───────────────────
 function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose: () => void; onSaved: () => void }) {
-  const [open,    setOpen]    = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [alloc,   setAlloc]   = useState<Record<string, string>>({})
-  const [saving,  setSaving]  = useState(false)
-  const [error,   setError]   = useState('')
+  const [open,     setOpen]     = useState<any[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [alloc,    setAlloc]    = useState<Record<string, Adj>>({})
+  const [selected, setSelected] = useState<Record<string, boolean>>({})
+  const [saving,   setSaving]   = useState(false)
+  const [error,    setError]    = useState('')
+
+  const credit = Number(payment.unapplied)
 
   useEffect(() => {
     api.get(`/invoices/open/${payment.clientId}`)
       .then(({ data }) => {
         const list = Array.isArray(data) ? data : data.data ?? []
         setOpen(list)
-        // Pre-fill oldest-first with whatever credit is left, same as Receive Payment
-        let left = Number(payment.unapplied)
-        const next: Record<string, string> = {}
+        // Every invoice starts ticked with its full balance auto-filled from the
+        // credit, oldest first. Unticking a row frees that credit for the rest.
+        setSelected(Object.fromEntries(list.map((i: any) => [i.id, true])))
+        let left = credit
+        const next: Record<string, Adj> = {}
         for (const inv of list) {
-          if (left <= 0) break
-          const take = Math.min(left, Number(inv.balance))
-          next[inv.id] = String(take)
+          const take = Math.min(Math.max(0, left), Number(inv.balance))
+          next[inv.id] = { ...blankAdj(), amount: take > 0 ? String(take) : '' }
           left -= take
         }
         setAlloc(next)
       })
       .catch(() => setOpen([]))
       .finally(() => setLoading(false))
-  }, [payment.clientId, payment.unapplied])
+  }, [payment.clientId, credit])
 
-  const totalApplied = Object.values(alloc).reduce((s, v) => s + (Number(v) || 0), 0)
-  const remaining    = Number(payment.unapplied) - totalApplied
+  // Spread the available credit across the ticked invoices oldest-first, leaving
+  // room for any discount or withholding already typed on a row.
+  function autoApply(sel: Record<string, boolean>) {
+    let left = credit
+    setAlloc(prev => {
+      const next: Record<string, Adj> = {}
+      for (const inv of open) {
+        if (!sel[inv.id]) { next[inv.id] = blankAdj(); continue }
+        const row     = prev[inv.id] ?? blankAdj()
+        const nonCash = adjNum(row, 'discount') + adjNum(row, 'incomeTaxWithheld') + adjNum(row, 'salesTaxWithheld')
+        const needs   = Math.max(0, Number(inv.balance) - nonCash)
+        const take    = Math.min(Math.max(0, left), needs)
+        next[inv.id]  = { ...row, amount: take > 0 ? String(take) : '' }
+        left -= take
+      }
+      return next
+    })
+  }
+  function toggleRow(id: string) { const s = { ...selected, [id]: !selected[id] }; setSelected(s); autoApply(s) }
+  function toggleAll() {
+    const allOn = open.length > 0 && open.every(i => selected[i.id])
+    const s = Object.fromEntries(open.map(i => [i.id, !allOn]))
+    setSelected(s); autoApply(s)
+  }
+  function setField(id: string, key: keyof Adj, value: string) {
+    setAlloc(p => ({ ...p, [id]: { ...(p[id] ?? blankAdj()), [key]: value } }))
+  }
+
+  const totalApplied  = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'amount'), 0)
+  const totalDiscount = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'discount'), 0)
+  const totalItw      = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'incomeTaxWithheld'), 0)
+  const totalStw      = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'salesTaxWithheld'), 0)
+  const totalSettled  = totalApplied + totalDiscount + totalItw + totalStw
+  const creditLeft    = credit - totalApplied
 
   async function save() {
     const allocations = Object.entries(alloc)
-      .map(([invoiceId, v]) => ({ invoiceId, amount: Number(v) || 0 }))
-      .filter(a => a.amount > 0)
+      .map(([invoiceId, a]) => ({
+        invoiceId,
+        amount:            adjNum(a, 'amount'),
+        discount:          adjNum(a, 'discount'),
+        incomeTaxWithheld: adjNum(a, 'incomeTaxWithheld'),
+        salesTaxWithheld:  adjNum(a, 'salesTaxWithheld'),
+      }))
+      .filter(a => a.amount + a.discount + a.incomeTaxWithheld + a.salesTaxWithheld > 0)
     if (allocations.length === 0) { setError('Apply the credit to at least one invoice'); return }
+    if (creditLeft < -0.001)      { setError('Applied more credit than is available'); return }
 
     setSaving(true); setError('')
     try {
@@ -551,46 +594,101 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
             No outstanding invoices yet. This credit stays on the account until one is raised.
           </div>
         ) : (
-          <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+          <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 700 }}>
               <thead>
                 <tr style={{ background: '#F8FAFC' }}>
-                  {['Invoice', 'Date', 'Open Balance', 'Apply'].map((h, i) => (
-                    <th key={h} style={{ ...cell, fontWeight: 900, fontSize: 10, letterSpacing: '0.08em', color: '#64748B', textTransform: 'uppercase', textAlign: i >= 2 ? 'right' : 'left' }}>{h}</th>
+                  <th style={{ ...cell, width: 34, textAlign: 'center' }}>
+                    <input type="checkbox" title="Select all"
+                      checked={open.length > 0 && open.every(i => selected[i.id])}
+                      onChange={toggleAll}
+                      style={{ accentColor: TEAL, cursor: 'pointer', width: 15, height: 15 }} />
+                  </th>
+                  {[
+                    { h: 'Invoice',       w: undefined },
+                    { h: 'Open Balance',  w: 100 },
+                    { h: 'Applied',       w: 96 },
+                    { h: 'Discount',      w: 92 },
+                    { h: 'Income Tax W/H', w: 96 },
+                    { h: 'Sales Tax W/H',  w: 96 },
+                    { h: 'Left',          w: 84 },
+                  ].map((c, i) => (
+                    <th key={c.h} style={{ ...cell, width: c.w, fontWeight: 900, fontSize: 9.5, letterSpacing: '0.06em', color: '#64748B', textTransform: 'uppercase', textAlign: i >= 1 ? 'center' : 'left' }}>{c.h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {open.map(inv => (
-                  <tr key={inv.id}>
-                    <td style={{ ...cell, fontWeight: 700, color: TEAL }}>{inv.invoiceNumber}</td>
-                    <td style={{ ...cell, color: '#64748B' }}>{fmtDate(inv.issueDate)}</td>
-                    <td style={{ ...cell, textAlign: 'right', fontWeight: 700, color: NAVY }}>{money(inv.balance)}</td>
-                    <td style={{ ...cell, textAlign: 'right', width: 120 }}>
-                      <input type="number" min={0} max={inv.balance} value={alloc[inv.id] ?? ''}
-                        onChange={e => setAlloc(p => ({ ...p, [inv.id]: e.target.value }))} placeholder="0"
-                        style={{ ...inputStyle, padding: '5px 8px', textAlign: 'right', fontSize: 12.5, fontWeight: 700 }} />
-                    </td>
-                  </tr>
-                ))}
+                {open.map(inv => {
+                  const row       = alloc[inv.id]
+                  const settled   = adjTotal(row)
+                  const remaining = Number(inv.balance) - settled
+                  const on        = !!selected[inv.id]
+                  const numIn: React.CSSProperties = { ...inputStyle, padding: '5px 7px', textAlign: 'right', fontSize: 12, fontWeight: 700, opacity: on ? 1 : 0.45 }
+                  return (
+                    <tr key={inv.id} style={{ background: on ? 'transparent' : '#FAFBFC' }}>
+                      <td style={{ ...cell, textAlign: 'center' }}>
+                        <input type="checkbox" checked={on} onChange={() => toggleRow(inv.id)}
+                          style={{ accentColor: TEAL, cursor: 'pointer', width: 15, height: 15 }} />
+                      </td>
+                      <td style={{ ...cell, fontWeight: 700, color: on ? TEAL : '#94A3B8' }}>
+                        {inv.invoiceNumber}
+                        <div style={{ fontSize: 10.5, fontWeight: 400, color: '#94A3B8' }}>{fmtDate(inv.issueDate)}</div>
+                      </td>
+                      <td style={{ ...cell, textAlign: 'right', fontWeight: 700, color: on ? NAVY : '#94A3B8' }}>{money(inv.balance)}</td>
+                      <td style={cell}><input type="number" min={0} disabled={!on} value={row?.amount ?? ''} placeholder="0"
+                        onChange={e => setField(inv.id, 'amount', e.target.value)} style={numIn} /></td>
+                      <td style={cell}><input type="number" min={0} disabled={!on} value={row?.discount ?? ''} placeholder="0"
+                        onChange={e => setField(inv.id, 'discount', e.target.value)} style={numIn} /></td>
+                      <td style={cell}><input type="number" min={0} disabled={!on} value={row?.incomeTaxWithheld ?? ''} placeholder="0"
+                        onChange={e => setField(inv.id, 'incomeTaxWithheld', e.target.value)} style={numIn} /></td>
+                      <td style={cell}><input type="number" min={0} disabled={!on} value={row?.salesTaxWithheld ?? ''} placeholder="0"
+                        onChange={e => setField(inv.id, 'salesTaxWithheld', e.target.value)} style={numIn} /></td>
+                      <td style={{ ...cell, textAlign: 'right', fontWeight: 800, color: !on ? '#94A3B8' : Math.abs(remaining) < 0.01 ? '#16a34a' : remaining < 0 ? '#D62828' : '#64748B' }}>
+                        {money(remaining)}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
 
+        {open.length > 0 && (
+          <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>
+            Discount and withheld tax close the invoice without using credit. Get <strong>Left</strong> to 0 and it's marked Paid.
+          </p>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-          <div style={{ width: 260 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13 }}>
+          <div style={{ width: 300 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
               <span style={{ color: '#64748B' }}>Available credit</span>
-              <span style={{ fontWeight: 700, color: NAVY }}>{money(payment.unapplied)}</span>
+              <span style={{ fontWeight: 700, color: NAVY }}>{money(credit)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderBottom: `1px solid ${P.border}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
               <span style={{ color: '#64748B' }}>Applying now</span>
               <span style={{ fontWeight: 700, color: '#16a34a' }}>{money(totalApplied)}</span>
             </div>
+            {totalDiscount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+                <span style={{ color: '#64748B' }}>Discount allowed</span>
+                <span style={{ fontWeight: 700, color: '#D97706' }}>{money(totalDiscount)}</span>
+              </div>
+            )}
+            {(totalItw > 0 || totalStw > 0) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+                <span style={{ color: '#64748B' }}>Withheld at source</span>
+                <span style={{ fontWeight: 700, color: '#D97706' }}>{money(totalItw + totalStw)}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, borderTop: `1px solid ${P.border}`, borderBottom: `1px solid ${P.border}` }}>
+              <span style={{ fontWeight: 700, color: NAVY }}>Invoices settled</span>
+              <span style={{ fontWeight: 700, color: NAVY }}>{money(totalSettled)}</span>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0 0', fontSize: 13 }}>
               <span style={{ fontWeight: 900, color: NAVY }}>Credit left</span>
-              <span style={{ fontWeight: 900, color: remaining < -0.001 ? '#D62828' : '#5B21B6' }}>{money(remaining)}</span>
+              <span style={{ fontWeight: 900, color: creditLeft < -0.001 ? '#D62828' : '#5B21B6' }}>{money(creditLeft)}</span>
             </div>
           </div>
         </div>
@@ -599,8 +697,8 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
           <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
-          <button onClick={save} disabled={saving || totalApplied <= 0 || remaining < -0.001}
-            style={{ ...btn('#16a34a'), opacity: (saving || totalApplied <= 0 || remaining < -0.001) ? 0.6 : 1 }}>
+          <button onClick={save} disabled={saving || totalSettled <= 0 || creditLeft < -0.001}
+            style={{ ...btn('#16a34a'), opacity: (saving || totalSettled <= 0 || creditLeft < -0.001) ? 0.6 : 1 }}>
             {saving ? 'Applying…' : `Apply ${money(totalApplied)}`}
           </button>
         </div>
