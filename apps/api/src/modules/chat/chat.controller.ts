@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Delete, Param, Body, Query, UseGuards,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards,
   UseInterceptors, UploadedFile,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
@@ -37,6 +37,53 @@ export class ChatController {
     @CurrentUser() user: { id: string },
   ) {
     return this.chatService.getOrCreateDirectConversation(user.id, userId)
+  }
+
+  // ── Group chats ───────────────────────────────────────────────────────────
+  @Post('groups')
+  createGroup(
+    @Body('name') name: string,
+    @Body('memberIds') memberIds: string[],
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.chatService.createGroup(user.id, name, memberIds ?? [])
+  }
+
+  @Get('conversations/:id/group')
+  getGroupInfo(@Param('id') conversationId: string, @CurrentUser() user: { id: string }) {
+    return this.chatService.getGroupInfo(conversationId, user.id)
+  }
+
+  @Patch('groups/:id')
+  renameGroup(
+    @Param('id') conversationId: string,
+    @Body('name') name: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.chatService.renameGroup(conversationId, user.id, name)
+  }
+
+  @Post('groups/:id/members')
+  addGroupMembers(
+    @Param('id') conversationId: string,
+    @Body('memberIds') memberIds: string[],
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.chatService.addGroupMembers(conversationId, user.id, memberIds ?? [])
+  }
+
+  @Delete('groups/:id/members/:memberId')
+  removeGroupMember(
+    @Param('id') conversationId: string,
+    @Param('memberId') memberId: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.chatService.removeGroupMember(conversationId, user.id, memberId)
+  }
+
+  @Post('groups/:id/leave')
+  leaveGroup(@Param('id') conversationId: string, @CurrentUser() user: { id: string }) {
+    return this.chatService.leaveGroup(conversationId, user.id)
   }
 
   @Get('conversations/:id/messages')

@@ -522,6 +522,12 @@ model ClientRepresentative {
 model Conversation {
   id String @id @default(cuid())
 
+  // Group chats reuse this model: a direct chat has two participants and no
+  // name; a group is flagged, named, and can hold many participants.
+  isGroup     Boolean @default(false)
+  name        String?
+  createdById String?
+
   participants ConversationParticipant[]
   messages     Message[]
 
@@ -539,6 +545,8 @@ model ConversationParticipant {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   userId         String
 
+  // Group admins can rename the group and add or remove members.
+  isAdmin    Boolean   @default(false)
   lastReadAt DateTime?
 
   @@unique([conversationId, userId])

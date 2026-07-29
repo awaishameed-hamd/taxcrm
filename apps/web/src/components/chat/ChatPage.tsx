@@ -49,11 +49,25 @@ interface Contact {
 
 interface Conversation {
   id:            string
+  isGroup?:      boolean
+  name?:         string | null
+  memberCount?:  number
   otherUser:     Contact | null
   messages:      { content: string; createdAt: string; type: string; sender: { id: string; fullName: string } }[]
   participants:  { userId: string; lastReadAt: string | null }[]
   lastMessageAt: string | null
   unreadCount?:  number
+}
+
+interface GroupMember extends Contact { isAdmin: boolean }
+interface GroupInfo {
+  id: string; name: string | null; isGroup: boolean; createdById: string | null
+  isAdmin: boolean; members: GroupMember[]
+}
+
+// Title shown for a conversation: the group name, or the other person's name.
+function convTitle(c: Conversation): string {
+  return c.isGroup ? (c.name || 'Group') : (c.otherUser?.fullName ?? 'Unknown')
 }
 
 interface Message {
@@ -113,15 +127,19 @@ function lastSeenLabel(contact: Contact | null | undefined): string {
   return `last seen ${date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} at ${time}`
 }
 
-function Avatar({ name, photo, size = 40 }: { name?: string; photo?: string | null; size?: number }) {
+function Avatar({ name, photo, size = 40, group = false }: { name?: string; photo?: string | null; size?: number; group?: boolean }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: 'linear-gradient(135deg, #8696A0 0%, #667781 100%)',
+      background: group ? 'linear-gradient(135deg, #1E8496 0%, #0f6070 100%)' : 'linear-gradient(135deg, #8696A0 0%, #667781 100%)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       color: '#fff', fontSize: size * 0.4, fontWeight: 600, overflow: 'hidden',
     }}>
-      {photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (name?.charAt(0)?.toUpperCase() ?? '?')}
+      {group ? (
+        <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ) : photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (name?.charAt(0)?.toUpperCase() ?? '?')}
     </div>
   )
 }
@@ -331,6 +349,239 @@ function NewChatModal({ onClose, onSelect, title = 'New chat' }: { onClose: () =
   )
 }
 
+// ── Reusable multi-select contact list (used by New group + Add members) ────
+function ContactPickerList({ excludeIds = [], selected, onToggle }: {
+  excludeIds?: string[]; selected: Set<string>; onToggle: (id: string) => void
+}) {
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [search,   setSearch]   = useState('')
+
+  useEffect(() => {
+    api.get('/chat/contacts').then(({ data }) => setContacts(data.data ?? [])).finally(() => setLoading(false))
+  }, [])
+
+  const ex = new Set(excludeIds)
+  const filtered = contacts.filter(c => !ex.has(c.id) && (!search || c.fullName.toLowerCase().includes(search.toLowerCase())))
+
+  return (
+    <>
+      <div style={{ padding: '12px 16px 0' }}>
+        <input placeholder="Search people…" value={search} onChange={e => setSearch(e.target.value)}
+          style={{ width: '100%', background: WA.headerBg, border: 0, borderRadius: 8, padding: '9px 14px', fontSize: 14, color: WA.textPrimary, outline: 'none', fontFamily: WA_FONT }} />
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px 6px' }}>
+        {loading ? (
+          <p style={{ textAlign: 'center', color: WA.textSecondary, fontSize: 13, padding: 20 }}>Loading…</p>
+        ) : filtered.length === 0 ? (
+          <p style={{ textAlign: 'center', color: WA.textSecondary, fontSize: 13, padding: 20 }}>No contacts found.</p>
+        ) : filtered.map(c => {
+          const checked = selected.has(c.id)
+          return (
+            <div key={c.id} onClick={() => onToggle(c.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 10px', borderRadius: 8, cursor: 'pointer' }}
+              onMouseEnter={e => { e.currentTarget.style.background = WA.hoverBg }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+              <Avatar name={c.fullName} photo={c.avatar} size={38} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 14, color: WA.textPrimary }}>{c.fullName}</p>
+                <p style={{ margin: 0, fontSize: 11, color: WA.textSecondary, textTransform: 'capitalize' }}>{c.role.toLowerCase()}</p>
+              </div>
+              <span style={{
+                width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                border: `2px solid ${checked ? WA.green : '#C4CCD1'}`, background: checked ? WA.green : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {checked && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
+// ── New group modal ─────────────────────────────────────────────────────────
+function NewGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string, memberIds: string[]) => Promise<void> }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [name, setName]         = useState('')
+  const [saving, setSaving]     = useState(false)
+  const toggle = (id: string) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  const canCreate = name.trim().length > 0 && selected.size > 0 && !saving
+  const create = async () => { if (!canCreate) return; setSaving(true); try { await onCreate(name.trim(), [...selected]) } finally { setSaving(false) } }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, fontFamily: WA_FONT }}>
+      <div style={{ background: WA.panelBg, borderRadius: 8, width: '100%', maxWidth: 440, height: '80vh', maxHeight: 640, display: 'flex', flexDirection: 'column', boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}>
+        <div style={{ padding: '18px 20px', borderBottom: `1px solid ${WA.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: WA.textPrimary }}>New group</h2>
+          <button onClick={onClose} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontSize: 20, color: WA.textSecondary, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: '14px 16px 4px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Avatar group size={44} />
+          <input placeholder="Group name" value={name} onChange={e => setName(e.target.value)} maxLength={60}
+            style={{ flex: 1, border: 0, borderBottom: `2px solid ${WA.green}`, background: 'transparent', outline: 'none', fontSize: 15, color: WA.textPrimary, padding: '6px 2px', fontFamily: WA_FONT }} />
+        </div>
+        <p style={{ margin: 0, padding: '4px 18px 0', fontSize: 12, color: WA.textSecondary }}>
+          {selected.size === 0 ? 'Select members to add' : `${selected.size} selected`}
+        </p>
+        <ContactPickerList selected={selected} onToggle={toggle} />
+        <div style={{ padding: '12px 16px', borderTop: `1px solid ${WA.border}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button onClick={onClose} style={{ border: `1px solid ${WA.border}`, background: '#fff', borderRadius: 6, padding: '8px 16px', fontSize: 14, cursor: 'pointer', color: WA.textPrimary }}>Cancel</button>
+          <button onClick={create} disabled={!canCreate}
+            style={{ border: 0, background: canCreate ? WA.green : '#A8D5C9', color: '#fff', borderRadius: 6, padding: '8px 18px', fontSize: 14, fontWeight: 600, cursor: canCreate ? 'pointer' : 'default' }}>
+            {saving ? 'Creating…' : 'Create group'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Add members to an existing group ────────────────────────────────────────
+function AddMembersModal({ excludeIds, onClose, onAdd }: { excludeIds: string[]; onClose: () => void; onAdd: (ids: string[]) => Promise<void> }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [saving, setSaving]     = useState(false)
+  const toggle = (id: string) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const canAdd = selected.size > 0 && !saving
+  const add = async () => { if (!canAdd) return; setSaving(true); try { await onAdd([...selected]) } finally { setSaving(false) } }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 16, fontFamily: WA_FONT }}>
+      <div style={{ background: WA.panelBg, borderRadius: 8, width: '100%', maxWidth: 420, height: '76vh', maxHeight: 560, display: 'flex', flexDirection: 'column', boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}>
+        <div style={{ padding: '18px 20px', borderBottom: `1px solid ${WA.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: WA.textPrimary }}>Add members</h2>
+          <button onClick={onClose} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontSize: 20, color: WA.textSecondary, lineHeight: 1 }}>×</button>
+        </div>
+        <ContactPickerList excludeIds={excludeIds} selected={selected} onToggle={toggle} />
+        <div style={{ padding: '12px 16px', borderTop: `1px solid ${WA.border}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button onClick={onClose} style={{ border: `1px solid ${WA.border}`, background: '#fff', borderRadius: 6, padding: '8px 16px', fontSize: 14, cursor: 'pointer', color: WA.textPrimary }}>Cancel</button>
+          <button onClick={add} disabled={!canAdd}
+            style={{ border: 0, background: canAdd ? WA.green : '#A8D5C9', color: '#fff', borderRadius: 6, padding: '8px 18px', fontSize: 14, fontWeight: 600, cursor: canAdd ? 'pointer' : 'default' }}>
+            {saving ? 'Adding…' : `Add${selected.size ? ` (${selected.size})` : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Group info: members, rename, add/remove, leave ──────────────────────────
+function GroupInfoModal({ conversationId, currentUserId, onClose, onChanged, onLeft }: {
+  conversationId: string; currentUserId?: string
+  onClose: () => void; onChanged: () => void; onLeft: () => void
+}) {
+  const [info, setInfo]         = useState<GroupInfo | null>(null)
+  const [loading, setLoading]   = useState(true)
+  const [renaming, setRenaming] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [showAdd, setShowAdd]   = useState(false)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    api.get(`/chat/conversations/${conversationId}/group`)
+      .then(({ data }) => { const g = data.data as GroupInfo; setInfo(g); setNameDraft(g?.name ?? '') })
+      .finally(() => setLoading(false))
+  }, [conversationId])
+  useEffect(() => { load() }, [load])
+
+  const rename = async () => {
+    if (!nameDraft.trim()) return
+    await api.patch(`/chat/groups/${conversationId}`, { name: nameDraft.trim() })
+    setRenaming(false); load(); onChanged()
+  }
+  const removeMember = async (id: string, name: string) => {
+    if (!window.confirm(`Remove ${name} from the group?`)) return
+    await api.delete(`/chat/groups/${conversationId}/members/${id}`); load(); onChanged()
+  }
+  const addMembers = async (ids: string[]) => {
+    await api.post(`/chat/groups/${conversationId}/members`, { memberIds: ids }); setShowAdd(false); load(); onChanged()
+  }
+  const leave = async () => {
+    if (!window.confirm('Leave this group? You will stop receiving its messages.')) return
+    await api.post(`/chat/groups/${conversationId}/leave`); onLeft()
+  }
+
+  const isAdmin = !!info?.isAdmin
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, fontFamily: WA_FONT }}>
+      <div style={{ background: WA.panelBg, borderRadius: 8, width: '100%', maxWidth: 420, maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}>
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${WA.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: WA.textPrimary }}>Group info</h2>
+          <button onClick={onClose} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontSize: 20, color: WA.textSecondary, lineHeight: 1 }}>×</button>
+        </div>
+
+        {loading || !info ? (
+          <p style={{ textAlign: 'center', color: WA.textSecondary, fontSize: 13, padding: 30 }}>Loading…</p>
+        ) : (
+          <>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, borderBottom: `1px solid ${WA.border}` }}>
+              <Avatar group size={72} />
+              {renaming ? (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
+                  <input value={nameDraft} onChange={e => setNameDraft(e.target.value)} maxLength={60} autoFocus
+                    style={{ flex: 1, border: 0, borderBottom: `2px solid ${WA.green}`, background: 'transparent', outline: 'none', fontSize: 16, textAlign: 'center', color: WA.textPrimary, fontFamily: WA_FONT }} />
+                  <button onClick={rename} style={{ border: 0, background: WA.green, color: '#fff', borderRadius: 6, padding: '6px 12px', fontSize: 13, cursor: 'pointer' }}>Save</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 19, fontWeight: 600, color: WA.textPrimary }}>{info.name}</h3>
+                  {isAdmin && (
+                    <button onClick={() => setRenaming(true)} title="Rename" style={{ border: 0, background: 'transparent', cursor: 'pointer', color: WA.textSecondary }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                    </button>
+                  )}
+                </div>
+              )}
+              <span style={{ fontSize: 13, color: WA.textSecondary }}>{info.members.length} member{info.members.length === 1 ? '' : 's'}</span>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 20px' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: WA.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Members</span>
+                {isAdmin && (
+                  <button onClick={() => setShowAdd(true)} style={{ border: 0, background: 'transparent', color: WA.green, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Add</button>
+                )}
+              </div>
+              {info.members.map(m => (
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 20px' }}>
+                  <Avatar name={m.fullName} photo={m.avatar} size={38} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 14, color: WA.textPrimary }}>
+                      {m.id === currentUserId ? 'You' : m.fullName}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 11, color: WA.textSecondary, textTransform: 'capitalize' }}>{m.role?.toLowerCase()}</p>
+                  </div>
+                  {m.isAdmin && <span style={{ fontSize: 11, color: WA.green, fontWeight: 600, background: '#D9FDD3', borderRadius: 12, padding: '2px 8px' }}>Admin</span>}
+                  {isAdmin && m.id !== currentUserId && (
+                    <button onClick={() => removeMember(m.id, m.fullName)} title="Remove" style={{ border: 0, background: 'transparent', cursor: 'pointer', color: WA.danger }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: '12px 16px', borderTop: `1px solid ${WA.border}` }}>
+              <button onClick={leave}
+                style={{ width: '100%', border: 0, background: WA.dangerBg, color: WA.danger, borderRadius: 6, padding: '10px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                Leave group
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+      {showAdd && info && (
+        <AddMembersModal excludeIds={info.members.map(m => m.id)} onClose={() => setShowAdd(false)} onAdd={addMembers} />
+      )}
+    </div>
+  )
+}
+
 export default function ChatPage() {
   const { user } = useAuth()
   const searchParams = useSearchParams()
@@ -353,6 +604,8 @@ export default function ChatPage() {
   const [msgMenu,       setMsgMenu]        = useState<{ x: number; y: number; message: Message } | null>(null)
   const [replyTarget,   setReplyTarget]    = useState<Message | null>(null)
   const [forwardMsg,    setForwardMsg]     = useState<Message | null>(null)
+  const [showNewGroup,  setShowNewGroup]   = useState(false)
+  const [groupInfoId,   setGroupInfoId]    = useState<string | null>(null)
 
   const bottomRef       = useRef<HTMLDivElement>(null)
   const fileInputRef    = useRef<HTMLInputElement>(null)
@@ -566,10 +819,28 @@ export default function ChatPage() {
     fetchConversations(conv.id)
   }
 
+  async function handleCreateGroup(name: string, memberIds: string[]) {
+    const { data } = await api.post('/chat/groups', { name, memberIds })
+    const conv = data.data
+    setShowNewGroup(false)
+    fetchConversations(conv.id)
+  }
+
   async function handleDeleteConversation(conversationId: string) {
     setContextMenu(null)
     if (!window.confirm('Delete this conversation? This cannot be undone.')) return
     await api.delete(`/chat/conversations/${conversationId}`)
+    setConversations(prev => prev.filter(c => c.id !== conversationId))
+    if (selectedId === conversationId) {
+      setSelectedId(null)
+      setMessages([])
+    }
+  }
+
+  async function handleLeaveGroup(conversationId: string) {
+    setContextMenu(null)
+    if (!window.confirm('Leave this group? You will stop receiving its messages.')) return
+    await api.post(`/chat/groups/${conversationId}/leave`)
     setConversations(prev => prev.filter(c => c.id !== conversationId))
     if (selectedId === conversationId) {
       setSelectedId(null)
@@ -675,13 +946,28 @@ export default function ChatPage() {
     if (listFilter === 'unread' && (c.unreadCount ?? 0) === 0) return false
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
-    return c.otherUser?.fullName?.toLowerCase().includes(q) || lastMsg?.content?.toLowerCase().includes(q)
+    return convTitle(c).toLowerCase().includes(q) || lastMsg?.content?.toLowerCase().includes(q)
   })
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: WA.panelBg, fontFamily: WA_FONT }}>
       {showNewChat && <NewChatModal onClose={() => setShowNewChat(false)} onSelect={handleSelectContact} />}
       {forwardMsg && <NewChatModal title="Forward to…" onClose={() => setForwardMsg(null)} onSelect={handleForwardToContact} />}
+      {showNewGroup && <NewGroupModal onClose={() => setShowNewGroup(false)} onCreate={handleCreateGroup} />}
+      {groupInfoId && (
+        <GroupInfoModal
+          conversationId={groupInfoId}
+          currentUserId={user?.id}
+          onClose={() => setGroupInfoId(null)}
+          onChanged={() => fetchConversations(undefined, true)}
+          onLeft={() => {
+            const gid = groupInfoId
+            setGroupInfoId(null)
+            if (selectedId === gid) { setSelectedId(null); setMessages([]) }
+            fetchConversations(undefined, true)
+          }}
+        />
+      )}
 
       {/* Conversation list, on a phone this is a whole screen, not a 380px rail
           sitting next to the thread. Opening a chat swaps it out entirely,
@@ -700,18 +986,32 @@ export default function ChatPage() {
           <h1 style={{ fontSize: 26, color: '#1E8496', margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', lineHeight: 1.15 }}>
             Chats
           </h1>
-          <button onClick={() => setShowNewChat(true)} title="New chat"
-            style={{
-              width: 36, height: 36, borderRadius: '50%', border: 0, cursor: 'pointer',
-              background: 'transparent', color: WA.textSecondary,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = WA.hoverBg }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <button onClick={() => setShowNewGroup(true)} title="New group"
+              style={{
+                width: 36, height: 36, borderRadius: '50%', border: 0, cursor: 'pointer',
+                background: 'transparent', color: WA.textSecondary,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = WA.hoverBg }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </button>
+            <button onClick={() => setShowNewChat(true)} title="New chat"
+              style={{
+                width: 36, height: 36, borderRadius: '50%', border: 0, cursor: 'pointer',
+                background: 'transparent', color: WA.textSecondary,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = WA.hoverBg }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -786,8 +1086,8 @@ export default function ChatPage() {
                 onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = WA.hoverBg }}
                 onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <Avatar name={c.otherUser?.fullName} photo={c.otherUser?.avatar} />
-                  {c.otherUser?.isOnline && (
+                  <Avatar name={c.otherUser?.fullName} photo={c.otherUser?.avatar} group={c.isGroup} />
+                  {!c.isGroup && c.otherUser?.isOnline && (
                     <span style={{
                       position: 'absolute', bottom: -1, right: -1, width: 11, height: 11,
                       borderRadius: '50%', background: WA.online, border: `2px solid ${WA.panelBg}`,
@@ -797,14 +1097,14 @@ export default function ChatPage() {
                 <div style={{ flex: 1, minWidth: 0, borderTop: `1px solid ${WA.border}`, paddingTop: 12, paddingBottom: 12, marginTop: -12, marginBottom: -12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                     <span style={{ fontSize: 15, fontWeight: 400, color: WA.textPrimary }}>
-                      {c.otherUser?.fullName ?? 'Unknown'}
+                      {convTitle(c)}
                     </span>
                     <span style={{ fontSize: 12, color: isUnread ? WA.green : WA.textSecondary, fontWeight: isUnread ? 600 : 400 }}>{timeAgo(c.lastMessageAt)}</span>
                   </div>
                   {lastMsg && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 2 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
-                        {lastMsg.sender?.id === user?.id && (
+                        {!c.isGroup && lastMsg.sender?.id === user?.id && (
                           <MessageTicks status={getTickStatus(c, lastMsg.createdAt)} size={12} />
                         )}
                         <p style={{
@@ -812,7 +1112,7 @@ export default function ChatPage() {
                           fontWeight: isUnread ? 600 : 400,
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}>
-                          {lastMessagePreview(lastMsg)}
+                          {c.isGroup && lastMsg.sender ? `${lastMsg.sender.id === user?.id ? 'You' : lastMsg.sender.fullName.split(' ')[0]}: ` : ''}{lastMessagePreview(lastMsg)}
                         </p>
                       </div>
                       {unreadCount > 0 && (
@@ -842,21 +1142,39 @@ export default function ChatPage() {
             background: '#fff', borderRadius: 6, border: `1px solid ${WA.border}`,
             boxShadow: '0 2px 10px rgba(0,0,0,0.2)', overflow: 'hidden', minWidth: 170,
           }}>
-          <button
-            onClick={() => handleDeleteConversation(contextMenu.conversationId)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-              padding: '11px 16px', border: 0, background: 'transparent', cursor: 'pointer',
-              color: WA.danger, fontSize: 14, fontWeight: 400, textAlign: 'left', fontFamily: WA_FONT,
-            }}
-            onMouseEnter={ev => { ev.currentTarget.style.background = WA.dangerBg }}
-            onMouseLeave={ev => { ev.currentTarget.style.background = 'transparent' }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-            </svg>
-            Delete conversation
-          </button>
+          {conversations.find(c => c.id === contextMenu.conversationId)?.isGroup ? (
+            <button
+              onClick={() => handleLeaveGroup(contextMenu.conversationId)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                padding: '11px 16px', border: 0, background: 'transparent', cursor: 'pointer',
+                color: WA.danger, fontSize: 14, fontWeight: 400, textAlign: 'left', fontFamily: WA_FONT,
+              }}
+              onMouseEnter={ev => { ev.currentTarget.style.background = WA.dangerBg }}
+              onMouseLeave={ev => { ev.currentTarget.style.background = 'transparent' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              Leave group
+            </button>
+          ) : (
+            <button
+              onClick={() => handleDeleteConversation(contextMenu.conversationId)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                padding: '11px 16px', border: 0, background: 'transparent', cursor: 'pointer',
+                color: WA.danger, fontSize: 14, fontWeight: 400, textAlign: 'left', fontFamily: WA_FONT,
+              }}
+              onMouseEnter={ev => { ev.currentTarget.style.background = WA.dangerBg }}
+              onMouseLeave={ev => { ev.currentTarget.style.background = 'transparent' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
+              Delete conversation
+            </button>
+          )}
         </div>
       )}
 
@@ -928,14 +1246,20 @@ export default function ChatPage() {
                   </svg>
                 </button>
               )}
-              <Avatar name={selectedConv.otherUser?.fullName} photo={selectedConv.otherUser?.avatar} size={phone ? 34 : 40} />
-              <div style={{ minWidth: 0 }}>
-                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 500, color: WA.textPrimary, fontFamily: WA_FONT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {selectedConv.otherUser?.fullName}
-                </h2>
-                <p style={{ margin: 0, fontSize: 13, color: WA.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {lastSeenLabel(selectedConv.otherUser)}
-                </p>
+              <div
+                onClick={() => { if (selectedConv.isGroup) setGroupInfoId(selectedConv.id) }}
+                style={{ display: 'flex', alignItems: 'center', gap: phone ? 10 : 14, minWidth: 0, flex: 1, cursor: selectedConv.isGroup ? 'pointer' : 'default' }}>
+                <Avatar name={selectedConv.otherUser?.fullName} photo={selectedConv.otherUser?.avatar} group={selectedConv.isGroup} size={phone ? 34 : 40} />
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 500, color: WA.textPrimary, fontFamily: WA_FONT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {convTitle(selectedConv)}
+                  </h2>
+                  <p style={{ margin: 0, fontSize: 13, color: WA.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {selectedConv.isGroup
+                      ? `${selectedConv.memberCount ?? selectedConv.participants.length} members`
+                      : lastSeenLabel(selectedConv.otherUser)}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1005,7 +1329,7 @@ export default function ChatPage() {
                           avatar={isMine ? user?.avatar : m.sender?.avatar}
                           senderName={isMine ? 'You' : m.sender?.fullName}
                           time={new Date(m.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                          tickStatus={isMine ? getTickStatus(selectedConv, m.createdAt) : undefined}
+                          tickStatus={isMine && !selectedConv.isGroup ? getTickStatus(selectedConv, m.createdAt) : undefined}
                         />
                       )}
 
@@ -1019,7 +1343,7 @@ export default function ChatPage() {
                           <span style={{ fontSize: 11, color: WA.textSecondary }}>
                             {new Date(m.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                           </span>
-                          {isMine && <MessageTicks status={getTickStatus(selectedConv, m.createdAt)} />}
+                          {isMine && !selectedConv.isGroup && <MessageTicks status={getTickStatus(selectedConv, m.createdAt)} />}
                         </div>
                       )}
                     </div>

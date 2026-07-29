@@ -93,6 +93,118 @@ export class ChatService {
   }
 
 
+  // ── Group chats ────────────────────────────────────────────────────────────
+
+  private async assertGroupAdmin(conversationId: string, userId: string) {
+    const p = await this.prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId, userId } },
+    })
+    if (!p) throw new ForbiddenException('You are not part of this group')
+    if (!p.isAdmin) throw new ForbiddenException('Only a group admin can do this')
+  }
+
+  async createGroup(creatorId: string, name: string, memberIds: string[]) {
+    const members = Array.from(new Set((memberIds ?? []).filter((id) => id && id !== creatorId)))
+    return this.prisma.conversation.create({
+      data: {
+        isGroup:       true,
+        name:          (name ?? '').trim() || 'New Group',
+        createdById:   creatorId,
+        lastMessageAt: new Date(),
+        participants: {
+          create: [
+            { userId: creatorId, isAdmin: true },
+            ...members.map((id) => ({ userId: id })),
+          ],
+        },
+      },
+      include: { participants: true },
+    })
+  }
+
+  async renameGroup(conversationId: string, userId: string, name: string) {
+    await this.assertGroupAdmin(conversationId, userId)
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data:  { name: (name ?? '').trim() || 'Group' },
+    })
+    return this.getGroupInfo(conversationId, userId)
+  }
+
+  async addGroupMembers(conversationId: string, userId: string, memberIds: string[]) {
+    await this.assertGroupAdmin(conversationId, userId)
+    const existing = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId }, select: { userId: true },
+    })
+    const have = new Set(existing.map((e) => e.userId))
+    const toAdd = Array.from(new Set(memberIds ?? [])).filter((id) => id && !have.has(id))
+    if (toAdd.length) {
+      await this.prisma.conversationParticipant.createMany({
+        data: toAdd.map((id) => ({ conversationId, userId: id })),
+        skipDuplicates: true,
+      })
+    }
+    return this.getGroupInfo(conversationId, userId)
+  }
+
+  async removeGroupMember(conversationId: string, userId: string, memberId: string) {
+    await this.assertGroupAdmin(conversationId, userId)
+    if (memberId === userId) throw new ForbiddenException('Use leave group to remove yourself')
+    await this.prisma.conversationParticipant.deleteMany({ where: { conversationId, userId: memberId } })
+    return this.getGroupInfo(conversationId, userId)
+  }
+
+  async leaveGroup(conversationId: string, userId: string) {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId }, include: { participants: true },
+    })
+    if (!conv) throw new NotFoundException('Group not found')
+    if (!conv.isGroup) throw new ForbiddenException('Not a group')
+
+    await this.prisma.conversationParticipant.deleteMany({ where: { conversationId, userId } })
+    const remaining = conv.participants.filter((p) => p.userId !== userId)
+
+    if (remaining.length === 0) {
+      await this.prisma.conversation.delete({ where: { id: conversationId } })
+      return { left: true, deleted: true }
+    }
+    // Never leave a group without an admin, promote the first remaining member.
+    if (!remaining.some((p) => p.isAdmin)) {
+      await this.prisma.conversationParticipant.update({
+        where: { conversationId_userId: { conversationId, userId: remaining[0].userId } },
+        data:  { isAdmin: true },
+      })
+    }
+    return { left: true }
+  }
+
+  async getGroupInfo(conversationId: string, userId: string) {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId }, include: { participants: true },
+    })
+    if (!conv) throw new NotFoundException('Group not found')
+    if (!conv.participants.some((p) => p.userId === userId)) {
+      throw new ForbiddenException('You are not part of this group')
+    }
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: conv.participants.map((p) => p.userId) } }, select: CONTACT_SELECT,
+    })
+    const userMap = new Map(users.map((u) => [u.id, u]))
+    const members = conv.participants.map((p) => {
+      const u = userMap.get(p.userId)
+      return { ...(u ? this.withPresence(u) : { id: p.userId, fullName: 'Unknown', role: '', avatar: null }), isAdmin: p.isAdmin }
+    })
+    const me = conv.participants.find((p) => p.userId === userId)
+    return {
+      id:          conv.id,
+      name:        conv.name,
+      isGroup:     conv.isGroup,
+      createdById: conv.createdById,
+      isAdmin:     !!me?.isAdmin,
+      members,
+    }
+  }
+
   async getMessages(conversationId: string, userId: string, before?: string, limit = 50) {
     const conversation = await this.prisma.conversation.findUnique({
       where:  { id: conversationId },
@@ -301,12 +413,16 @@ export class ChatService {
     const unreadMap = new Map(unreadCounts)
 
     return conversations.map((c) => {
+      const unreadCount = unreadMap.get(c.id) ?? 0
+      if (c.isGroup) {
+        return { ...c, otherUser: null, memberCount: c.participants.length, unreadCount }
+      }
       const otherId  = c.participants.find((p) => p.userId !== userId)?.userId
       const otherRaw = otherId ? userMap.get(otherId) ?? null : null
       return {
         ...c,
         otherUser:   otherRaw ? this.withPresence(otherRaw) : null,
-        unreadCount: unreadMap.get(c.id) ?? 0,
+        unreadCount,
       }
     })
   }
