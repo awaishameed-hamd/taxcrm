@@ -290,7 +290,7 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
         }
         // Also send profile fields if filled
         const PROFILE_FIELDS = [
-          'firstName', 'midName', 'lastName', 'dateOfBirth', 'dateOfJoining',
+          'fullName', 'firstName', 'midName', 'lastName', 'dateOfBirth', 'dateOfJoining',
           'department', 'experience', 'cnic', 'permanentAddress', 'currentAddress',
           'bank', 'accountTitle', 'bankAccountNo', 'ibanNo',
           'basicSalary', 'punctualityAllowance', 'travellingAllowance', 'otherAllowance',
