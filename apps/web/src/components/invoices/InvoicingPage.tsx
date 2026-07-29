@@ -711,7 +711,11 @@ function InvoiceFormModal({ clientId, clientName, inv, onClose, onSaved }: {
   )
 }
 
-function InvoiceView({ inv, onClose, onDeleted, onEdit }: { inv: Invoice; onClose: () => void; onDeleted?: () => void; onEdit?: (inv: Invoice) => void }) {
+function InvoiceView({ inv: initialInv, onClose, onDeleted, onEdit, onChanged }: { inv: Invoice; onClose: () => void; onDeleted?: () => void; onEdit?: (inv: Invoice) => void; onChanged?: () => void }) {
+  // Kept in local state so removing a payment can refresh the view in place, at
+  // which point the invoice has no payments and can be deleted.
+  const [inv, setInv] = useState<Invoice>(initialInv)
+  useEffect(() => { setInv(initialInv) }, [initialInv])
   const balance = balanceOf(inv)
   const st = STATUS_META[inv.status] ?? STATUS_META.DRAFT
   const clientName = inv.client?.businessName ?? inv.client?.user?.fullName ?? 'Client'
@@ -720,6 +724,7 @@ function InvoiceView({ inv, onClose, onDeleted, onEdit }: { inv: Invoice; onClos
   const [confirmDel, setConfirmDel] = useState(false)
   const [delBusy,    setDelBusy]    = useState(false)
   const [delError,   setDelError]   = useState('')
+  const [rmPayId,    setRmPayId]    = useState<string | null>(null)
 
   async function handleDelete() {
     setDelBusy(true); setDelError('')
@@ -731,6 +736,23 @@ function InvoiceView({ inv, onClose, onDeleted, onEdit }: { inv: Invoice; onClos
       setConfirmDel(false)
     } finally {
       setDelBusy(false)
+    }
+  }
+
+  // Removing a payment always works, it takes its cash, discount and any withheld
+  // tax with it and reopens the invoice, which can then be deleted.
+  async function handleRemovePayment(paymentId: string) {
+    if (!window.confirm('Remove this payment? It takes the cash and any discount or tax withheld recorded with it, and reopens the invoices it settled. You can then delete the invoice.')) return
+    setRmPayId(paymentId); setDelError('')
+    try {
+      await api.delete(`/invoices/payments/${paymentId}`)
+      const { data } = await api.get(`/invoices/${inv.id}`)
+      setInv(data.data ?? data)
+      onChanged?.()
+    } catch (e: any) {
+      setDelError(e?.response?.data?.message ?? 'Could not remove this payment.')
+    } finally {
+      setRmPayId(null)
     }
   }
 
@@ -1019,6 +1041,14 @@ function InvoiceView({ inv, onClose, onDeleted, onEdit }: { inv: Invoice; onClos
                         <td style={{ padding: '7px 0', fontSize: 12, color: '#64748B' }}>{METHOD_LABEL[a.payment?.method] ?? a.payment?.method}</td>
                         <td style={{ padding: '7px 0', fontSize: 12, color: '#94A3B8' }}>{a.payment?.reference ?? ''}</td>
                         <td style={{ padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#16a34a', textAlign: 'right' }}>{money(a.amount)}</td>
+                        <td style={{ padding: '7px 0', textAlign: 'right', width: 34 }}>
+                          {a.payment?.id && (
+                            <button onClick={() => handleRemovePayment(a.payment.id)} disabled={rmPayId === a.payment.id} title="Remove this payment"
+                              style={{ border: 'none', background: 'transparent', color: '#DC2626', cursor: 'pointer', padding: 2, opacity: rmPayId === a.payment.id ? 0.5 : 1, display: 'inline-flex' }}>
+                              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1515,7 +1545,7 @@ export default function InvoicingPage() {
         </div>
       </div>
 
-      {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} onDeleted={() => { setViewInv(null); refresh() }} onEdit={i => { setViewInv(null); setEditInv(i) }} />}
+      {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} onDeleted={() => { setViewInv(null); refresh() }} onEdit={i => { setViewInv(null); setEditInv(i) }} onChanged={refresh} />}
       {editInv   && <InvoiceFormModal clientId={editInv.clientId} clientName={editInv.client?.businessName ?? editInv.client?.user?.fullName ?? 'Client'} inv={editInv} onClose={() => setEditInv(null)} onSaved={() => { setEditInv(null); refresh() }} />}
       {showNewInvoice && (selectedClient ?? ledger?.client) && (
         <InvoiceFormModal
