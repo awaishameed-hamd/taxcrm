@@ -530,6 +530,9 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
   }
   function setField(id: string, key: keyof Adj, value: string) {
     setAlloc(p => ({ ...p, [id]: { ...(p[id] ?? blankAdj()), [key]: value } }))
+    // Entering a discount or withheld tax reduces how much credit that invoice
+    // still needs, so re-spread the credit and keep the row's Left at 0.
+    if (key !== 'amount') autoApply(selected)
   }
 
   const totalApplied  = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'amount'), 0)
@@ -701,6 +704,75 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
             style={{ ...btn('#16a34a'), opacity: (saving || totalSettled <= 0 || creditLeft < -0.001) ? 0.6 : 1 }}>
             {saving ? 'Applying…' : `Apply ${money(totalApplied)}`}
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Edit a recorded payment (fix a wrong amount, method or date) ─────────────
+function PaymentEditModal({ payment, onClose, onSaved }: { payment: any; onClose: () => void; onSaved: () => void }) {
+  const [amount,    setAmount]    = useState(String(Number(payment.amount)))
+  const [method,    setMethod]    = useState(payment.method)
+  const [reference, setReference] = useState(payment.reference ?? '')
+  const [paidAt,    setPaidAt]    = useState((payment.paidAt ?? '').split('T')[0])
+  const [notes,     setNotes]     = useState(payment.notes ?? '')
+  const [saving,    setSaving]    = useState(false)
+  const [error,     setError]     = useState('')
+  const applied = Number(payment.applied ?? 0)
+
+  async function save() {
+    const amt = Number(amount) || 0
+    if (amt < applied - 0.001) { setError(`This payment already has ${money(applied)} applied to invoices. Unapply some first to go lower.`); return }
+    setSaving(true); setError('')
+    try {
+      await api.patch(`/invoices/payments/${payment.id}`, {
+        amount: amt, method,
+        reference: reference || undefined,
+        paidAt:    paidAt || undefined,
+        notes:     notes || undefined,
+      })
+      onSaved()
+    } catch (e: any) { setError(e?.response?.data?.message ?? 'Could not update the payment') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+        <div style={{ background: '#7EC8D0', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontFamily: "'Ethnocentric Rg', sans-serif", fontSize: 14, fontWeight: 300, letterSpacing: '0.04em', color: NAVY, margin: 0 }}>Edit Payment</h2>
+          <span style={{ fontSize: 12, color: NAVY, fontWeight: 700, fontFamily: F }}>{METHOD_LABEL[payment.method] ?? payment.method}</span>
+        </div>
+        <div style={{ padding: 20 }}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Amount <span style={{ color: '#ef4444' }}>*</span></label>
+            <input type="number" min={0} value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} autoFocus />
+            {applied > 0 && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>{money(applied)} already applied to invoices, can't go below that.</p>}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+            <div>
+              <label style={labelStyle}>Method</label>
+              <StyledSelect value={method} onChange={setMethod} options={PAYMENT_METHODS} />
+            </div>
+            <div>
+              <label style={labelStyle}>Date</label>
+              <input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Reference</label>
+            <input value={reference} onChange={e => setReference(e.target.value)} placeholder="Cheque no. / transaction ID" style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none' }} />
+          </div>
+          {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '0 0 12px' }}>{error}</p>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
+            <button onClick={save} disabled={saving} style={{ ...btn(TEAL), opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save changes'}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1217,6 +1289,7 @@ export default function InvoicingPage() {
   const [showNewInvoice, setShowNewInvoice] = useState(false)
   const [payClient,  setPayClient]  = useState<any>(null)
   const [applyPay,   setApplyPay]   = useState<any>(null)
+  const [editPay,    setEditPay]    = useState<any>(null)
   const [openBal,    setOpenBal]    = useState<{ client: any; mode: 'add' | 'edit' } | null>(null)
   const [ctxMenu,    setCtxMenu]    = useState<{ x: number; y: number; client: any } | null>(null)
 
@@ -1522,21 +1595,33 @@ export default function InvoicingPage() {
                             <td style={{ ...td, textAlign: 'right', color: '#16a34a' }}>{t.credit ? money(t.credit) : ''}</td>
                             <td style={{ ...td, textAlign: 'right', color: t.balance > 0 ? '#D62828' : '#16a34a' }}>{money(t.balance)}</td>
                             <td style={{ ...td, overflow: 'visible', textAlign: 'right' }}>
-                              {t.type === 'PAYMENT' && Number(t.unapplied) > 0 && (() => {
+                              {t.type === 'PAYMENT' ? (() => {
                                 const pay = ledger.payments?.find((p: any) => p.id === t.paymentId)
-                                return pay ? (
-                                  <button onClick={() => setApplyPay(pay)} title="Apply this unapplied credit to an invoice"
-                                    style={{ padding: '0 10px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
-                                    Apply
-                                  </button>
-                                ) : null
-                              })()}
-                              {invMatch && (
+                                if (!pay) return null
+                                return (
+                                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    {Number(t.unapplied) > 0 && (
+                                      <button onClick={() => setApplyPay(pay)} title="Apply this unapplied credit to an invoice"
+                                        style={{ padding: '0 10px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
+                                        Apply
+                                      </button>
+                                    )}
+                                    <button onClick={() => setEditPay(pay)} title="Edit payment"
+                                      style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
+                                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path strokeLinecap="round" strokeLinejoin="round" d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                    </button>
+                                    <button onClick={() => handleDeletePayment(pay.id)} disabled={delPayId === pay.id} title="Delete payment"
+                                      style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #FCA5A5', background: '#fff', color: '#DC2626', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: delPayId === pay.id ? 0.5 : 1 }}>
+                                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                                    </button>
+                                  </div>
+                                )
+                              })() : invMatch ? (
                                 <button onClick={() => setViewInv(invMatch)} title="View / Print invoice"
                                   style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
                                   <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
                                 </button>
-                              )}
+                              ) : null}
                             </td>
                           </tr>
                         )
@@ -1634,6 +1719,10 @@ export default function InvoicingPage() {
                                   Apply
                                 </button>
                               )}
+                              <button onClick={() => setEditPay(p)} title="Edit payment"
+                                style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', color: NAVY, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path strokeLinecap="round" strokeLinejoin="round" d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                              </button>
                               <button onClick={() => handleDeletePayment(p.id)} disabled={delPayId === p.id} title="Delete payment"
                                 style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #FCA5A5', background: '#fff', color: '#DC2626', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: delPayId === p.id ? 0.5 : 1 }}>
                                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
@@ -1663,6 +1752,7 @@ export default function InvoicingPage() {
         />
       )}
       {openBal   && <OpeningBalanceModal client={openBal.client} mode={openBal.mode} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
+      {editPay   && <PaymentEditModal payment={editPay} onClose={() => setEditPay(null)} onSaved={() => { setEditPay(null); refresh() }} />}
 
       {/* Right-click menu on a client */}
       {ctxMenu && (
