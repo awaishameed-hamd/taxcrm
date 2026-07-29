@@ -557,6 +557,10 @@ model Message {
   type          MessageType @default(TEXT)
   attachmentUrl String?      // relative path for file/image messages
 
+  // Per-user "delete for me": ids of participants who removed this message from
+  // their own view. The row survives until everyone has deleted it.
+  deletedForUserIds String[] @default([])
+
   replyToId String?
   replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies   Message[] @relation("MessageReplies")

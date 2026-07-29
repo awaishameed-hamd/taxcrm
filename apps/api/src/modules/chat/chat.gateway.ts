@@ -129,7 +129,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
     const { conversationId } = await this.chatService.deleteMessage(data.messageId, client.userId)
-    this.server.to(`conv:${conversationId}`).emit('message_deleted', { messageId: data.messageId, conversationId })
+    // "Delete for me": only remove it from the deleter's own clients, the other
+    // participant keeps the message.
+    this.emitToUser(client.userId, 'message_deleted', { messageId: data.messageId, conversationId })
     return { ok: true }
   }
 

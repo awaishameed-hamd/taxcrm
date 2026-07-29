@@ -40,8 +40,9 @@ export class ChatService {
       })
     } else if (role === Role.TRAINEE) {
       const [staff, clients] = await Promise.all([
+        // Trainees can now reach every staff member, other trainees included.
         this.prisma.user.findMany({
-          where:  { role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD] }, isActive: true },
+          where:  { id: { not: userId }, role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] }, isActive: true },
           select: CONTACT_SELECT,
         }),
         this.prisma.clientProfile.findMany({
@@ -104,6 +105,7 @@ export class ChatService {
     return this.prisma.message.findMany({
       where: {
         conversationId,
+        NOT: { deletedForUserIds: { has: userId } },
         ...(before && { createdAt: { lt: new Date(before) } }),
       },
       include: {
@@ -139,14 +141,27 @@ export class ChatService {
     return msg
   }
 
-  // ── Delete a single message (only the sender may delete their own) ────────
+  // ── Delete a single message, per user ("delete for me") ────────────────────
+  // Either participant, sender or receiver, can remove a message from their own
+  // view. The other side keeps it. Once everyone has deleted it, the row goes.
 
   async deleteMessage(messageId: string, userId: string) {
-    const message = await this.prisma.message.findUnique({ where: { id: messageId } })
+    const message = await this.prisma.message.findUnique({
+      where:   { id: messageId },
+      include: { conversation: { select: { participants: { select: { userId: true } } } } },
+    })
     if (!message) throw new NotFoundException('Message not found')
-    if (message.senderId !== userId) throw new ForbiddenException('You can only delete your own messages')
 
-    await this.prisma.message.delete({ where: { id: messageId } })
+    const participantIds = message.conversation.participants.map((p) => p.userId)
+    if (!participantIds.includes(userId)) throw new ForbiddenException('You are not part of this conversation')
+
+    const deletedFor = Array.from(new Set([...message.deletedForUserIds, userId]))
+
+    if (participantIds.every((id) => deletedFor.includes(id))) {
+      await this.prisma.message.delete({ where: { id: messageId } })
+    } else {
+      await this.prisma.message.update({ where: { id: messageId }, data: { deletedForUserIds: deletedFor } })
+    }
     return { conversationId: message.conversationId }
   }
 
@@ -231,6 +246,7 @@ export class ChatService {
           where: {
             conversationId: p.conversationId,
             senderId:       { not: userId },
+            NOT:            { deletedForUserIds: { has: userId } },
             ...(p.lastReadAt ? { createdAt: { gt: p.lastReadAt } } : {}),
           },
         }),
@@ -246,6 +262,7 @@ export class ChatService {
       },
       include: {
         messages: {
+          where:   { NOT: { deletedForUserIds: { has: userId } } },
           take:    1,
           orderBy: { createdAt: 'desc' },
           include: { sender: { select: { id: true, fullName: true } } },
@@ -274,6 +291,7 @@ export class ChatService {
           where: {
             conversationId: c.id,
             senderId:       { not: userId },
+            NOT:            { deletedForUserIds: { has: userId } },
             ...(me?.lastReadAt ? { createdAt: { gt: me.lastReadAt } } : {}),
           },
         })

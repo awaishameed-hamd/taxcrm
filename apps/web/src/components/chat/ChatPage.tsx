@@ -502,8 +502,7 @@ export default function ChatPage() {
 
   function handleMessageContextMenu(e: React.MouseEvent, message: Message) {
     e.preventDefault()
-    const isMine = message.senderId === user?.id || message.sender?.id === user?.id
-    const itemCount = 2 + (message.attachmentUrl ? 1 : 0) + 1 + (isMine ? 1 : 0) // Reply, Copy, [Download], Forward, [Delete]
+    const itemCount = 2 + (message.attachmentUrl ? 1 : 0) + 1 + 1 // Reply, Copy, [Download], Forward, Delete
     const pos = clampMenuPosition(e.clientX, e.clientY, 200, itemCount * 42 + 8)
     setMsgMenu({ x: pos.x, y: pos.y, message })
   }
@@ -520,7 +519,7 @@ export default function ChatPage() {
 
   async function handleDeleteMessage(message: Message) {
     setMsgMenu(null)
-    if (!window.confirm('Delete this message?')) return
+    if (!window.confirm('Delete this message for you? The other person will still see it.')) return
     socketRef.current.emit('delete_message', { messageId: message.id })
     setMessages(prev => prev.filter(m => m.id !== message.id))
   }
@@ -877,9 +876,7 @@ export default function ChatPage() {
               ? [{ label: 'Download', onClick: () => handleDownloadAttachment(msgMenu.message), icon: 'M12 3v12m0 0l-4-4m4 4l4-4M5 19h14' }]
               : []),
             { label: 'Forward', onClick: () => handleForwardClick(msgMenu.message), icon: 'M14 5l6 6-6 6M4 11h14' },
-            ...((msgMenu.message.senderId === user?.id || msgMenu.message.sender?.id === user?.id)
-              ? [{ label: 'Delete', onClick: () => handleDeleteMessage(msgMenu.message), icon: 'M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z', danger: true }]
-              : []),
+            { label: 'Delete', onClick: () => handleDeleteMessage(msgMenu.message), icon: 'M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z', danger: true },
           ].map(item => (
             <button key={item.label} onClick={item.onClick}
               style={{
