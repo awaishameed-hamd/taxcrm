@@ -25,7 +25,7 @@ const WA = {
   danger:         '#DC2626',
   dangerBg:       '#FEE2E2',
 }
-const WA_FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+const WA_FONT = "'Aptos', sans-serif"
 
 const QUICK_EMOJIS = ['😀','😂','😍','😊','👍','🙏','❤️','😢','😮','😡','🎉','🔥','✅','👏','🤝','📌']
 
