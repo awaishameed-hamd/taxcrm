@@ -1940,7 +1940,7 @@ export default function ClientsListPage() {
                   const na = <span style={{ color: '#CBD5E1' }}>N/A</span>
 
                   const cellMap: Record<string, React.ReactNode> = {
-                    business:       <td key="business"       style={{ ...td, fontWeight: 700, color: P.teal }}>{c.businessName ?? na}</td>,
+                    business:       <td key="business"       style={{ ...td, fontWeight: 700, color: P.teal, whiteSpace: 'normal', wordBreak: 'break-word' }}>{c.businessName ?? na}</td>,
                     ntn:            <td key="ntn"            style={{ ...td, color: P.textMuted }}>{c.ntn ?? na}</td>,
                     strn:           <td key="strn"           style={{ ...td, color: P.textMuted }}>{c.strn ?? na}</td>,
                     yearEnd:        <td key="yearEnd"        style={{ ...td, color: P.textMuted }}>{c.yearEnd ? c.yearEnd.charAt(0) + c.yearEnd.slice(1).toLowerCase() : na}</td>,
