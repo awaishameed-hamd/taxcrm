@@ -231,7 +231,7 @@ export class InvoicesService {
     const toDate   = to   ? new Date(`${to}T23:59:59.999Z`)   : null
 
     // Every real movement on the account, oldest first.
-    type Txn = { date: string; type: 'INVOICE' | 'PAYMENT' | 'DISCOUNT' | 'WITHHOLDING'; ref: string; description: string; charge: number; credit: number }
+    type Txn = { date: string; type: 'INVOICE' | 'PAYMENT' | 'DISCOUNT' | 'WITHHOLDING'; ref: string; description: string; charge: number; credit: number; paymentId?: string; unapplied?: number }
     const txns: Txn[] = []
     for (const i of invoices.filter(x => BILLABLE.includes(x.status))) {
       txns.push({
@@ -253,6 +253,8 @@ export class InvoicesService {
           + (p.unapplied > 0 ? ` · ${p.unapplied} unapplied` : '')
           + (p.bonus     > 0 ? ` · ${p.bonus} kept as bonus` : ''),
         charge: 0, credit,
+        // Carried so the ledger can offer an Apply action on an unapplied advance.
+        paymentId: p.id, unapplied: p.unapplied,
       })
 
       // Discount and withholding settle the invoice without cash, so they have to

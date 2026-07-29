@@ -1424,6 +1424,15 @@ export default function InvoicingPage() {
                             <td style={{ ...td, textAlign: 'right', color: '#16a34a' }}>{t.credit ? money(t.credit) : ''}</td>
                             <td style={{ ...td, textAlign: 'right', color: t.balance > 0 ? '#D62828' : '#16a34a' }}>{money(t.balance)}</td>
                             <td style={{ ...td, overflow: 'visible', textAlign: 'right' }}>
+                              {t.type === 'PAYMENT' && Number(t.unapplied) > 0 && (() => {
+                                const pay = ledger.payments?.find((p: any) => p.id === t.paymentId)
+                                return pay ? (
+                                  <button onClick={() => setApplyPay(pay)} title="Apply this unapplied credit to an invoice"
+                                    style={{ padding: '0 10px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
+                                    Apply
+                                  </button>
+                                ) : null
+                              })()}
                               {invMatch && (
                                 <button onClick={() => setViewInv(invMatch)} title="View / Print invoice"
                                   style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
