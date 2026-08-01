@@ -1292,6 +1292,7 @@ export default function InvoicingPage() {
   const [editPay,    setEditPay]    = useState<any>(null)
   const [openBal,    setOpenBal]    = useState<{ client: any; mode: 'add' | 'edit' } | null>(null)
   const [ctxMenu,    setCtxMenu]    = useState<{ x: number; y: number; client: any } | null>(null)
+  const [payMenu,    setPayMenu]    = useState<{ x: number; y: number; payment: any } | null>(null)
 
   // A custom range only applies once both ends are picked, so the ledger doesn't
   // blank out while the user is halfway through choosing.
@@ -1324,6 +1325,21 @@ export default function InvoicingPage() {
     return () => { document.removeEventListener('click', close); document.removeEventListener('scroll', close, true) }
   }, [ctxMenu])
 
+  useEffect(() => {
+    if (!payMenu) return
+    const close = () => setPayMenu(null)
+    document.addEventListener('click', close)
+    document.addEventListener('scroll', close, true)
+    return () => { document.removeEventListener('click', close); document.removeEventListener('scroll', close, true) }
+  }, [payMenu])
+
+  // Right-click on a payment (ledger or Payments tab) opens Edit / Delete, so
+  // those actions stay off the cramped row, the way chat handles a message.
+  function openPayMenu(e: React.MouseEvent, payment: any) {
+    e.preventDefault()
+    setPayMenu({ x: Math.min(e.clientX, window.innerWidth - 200), y: e.clientY, payment })
+  }
+
   useEffect(() => { fetchClients() }, [fetchClients])
   useEffect(() => { fetchRight() }, [fetchRight])
   useAutoRefresh(() => { fetchClients(); fetchRight(true) })
@@ -1333,17 +1349,13 @@ export default function InvoicingPage() {
   // A payment can always be removed. Deleting it takes its cash, discount and any
   // tax withheld with it, and reopens the invoices it had settled, so an invoice
   // that was blocked from deletion can then be deleted.
-  const [delPayId, setDelPayId] = useState<string | null>(null)
   async function handleDeletePayment(paymentId: string) {
     if (!window.confirm('Delete this payment? This removes the received amount along with any discount or tax withheld recorded with it, and reopens the invoices it had settled.')) return
-    setDelPayId(paymentId)
     try {
       await api.delete(`/invoices/payments/${paymentId}`)
       refresh()
     } catch (e: any) {
       alert(e?.response?.data?.message ?? 'Could not delete this payment.')
-    } finally {
-      setDelPayId(null)
     }
   }
 
@@ -1583,8 +1595,10 @@ export default function InvoicingPage() {
                         // Match this ledger line to a full invoice so the invoice
                         // rows can open the printable document.
                         const invMatch = ledger.invoices?.find((i: Invoice) => i.invoiceNumber === t.ref)
+                        const pay = t.type === 'PAYMENT' ? ledger.payments?.find((p: any) => p.id === t.paymentId) : null
                         return (
-                          <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
+                          <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}
+                            onContextMenu={pay ? e => openPayMenu(e, pay) : undefined}>
                             <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(t.date)}</td>
                             <td style={td}>
                               <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 9999, fontSize: 10.5, fontWeight: 800, color: meta.color, background: meta.bg }}>{meta.label}</span>
@@ -1595,28 +1609,14 @@ export default function InvoicingPage() {
                             <td style={{ ...td, textAlign: 'right', color: '#16a34a' }}>{t.credit ? money(t.credit) : ''}</td>
                             <td style={{ ...td, textAlign: 'right', color: t.balance > 0 ? '#D62828' : '#16a34a' }}>{money(t.balance)}</td>
                             <td style={{ ...td, overflow: 'visible', textAlign: 'right' }}>
-                              {t.type === 'PAYMENT' ? (() => {
-                                const pay = ledger.payments?.find((p: any) => p.id === t.paymentId)
-                                if (!pay) return null
-                                return (
-                                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-                                    {Number(t.unapplied) > 0 && (
-                                      <button onClick={() => setApplyPay(pay)} title="Apply this unapplied credit to an invoice"
-                                        style={{ padding: '0 10px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
-                                        Apply
-                                      </button>
-                                    )}
-                                    <button onClick={() => setEditPay(pay)} title="Edit payment"
-                                      style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
-                                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path strokeLinecap="round" strokeLinejoin="round" d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                    </button>
-                                    <button onClick={() => handleDeletePayment(pay.id)} disabled={delPayId === pay.id} title="Delete payment"
-                                      style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #FCA5A5', background: '#fff', color: '#DC2626', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: delPayId === pay.id ? 0.5 : 1 }}>
-                                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                                    </button>
-                                  </div>
-                                )
-                              })() : invMatch ? (
+                              {t.type === 'PAYMENT' ? (
+                                pay && Number(t.unapplied) > 0 ? (
+                                  <button onClick={() => setApplyPay(pay)} title="Apply this unapplied credit to an invoice"
+                                    style={{ padding: '0 10px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
+                                    Apply
+                                  </button>
+                                ) : null
+                              ) : invMatch ? (
                                 <button onClick={() => setViewInv(invMatch)} title="View / Print invoice"
                                   style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
                                   <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
@@ -1693,7 +1693,8 @@ export default function InvoicingPage() {
                           No payments from this client yet.
                         </td></tr>
                       ) : ledger.payments.map((p: any, idx: number) => (
-                        <tr key={p.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
+                        <tr key={p.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}
+                          onContextMenu={e => openPayMenu(e, p)}>
                           <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(p.paidAt)}</td>
                           <td style={td}>{METHOD_LABEL[p.method] ?? p.method}</td>
                           <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{p.reference || ''}</td>
@@ -1711,23 +1712,13 @@ export default function InvoicingPage() {
                           </td>
                           <td style={{ ...td, textAlign: 'right' }}>{money(p.amount)}</td>
                           <td style={{ ...td, textAlign: 'right', color: p.unapplied > 0 ? '#5B21B6' : '#94A3B8' }}>{money(p.unapplied)}</td>
-                          <td style={{ ...td, overflow: 'visible' }}>
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-                              {p.unapplied > 0 && (
-                                <button onClick={() => setApplyPay(p)} title="Apply this credit to an invoice"
-                                  style={{ padding: '0 9px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
-                                  Apply
-                                </button>
-                              )}
-                              <button onClick={() => setEditPay(p)} title="Edit payment"
-                                style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', color: NAVY, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path strokeLinecap="round" strokeLinejoin="round" d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                          <td style={{ ...td, overflow: 'visible', textAlign: 'right' }}>
+                            {p.unapplied > 0 && (
+                              <button onClick={() => setApplyPay(p)} title="Apply this credit to an invoice"
+                                style={{ padding: '0 9px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
+                                Apply
                               </button>
-                              <button onClick={() => handleDeletePayment(p.id)} disabled={delPayId === p.id} title="Delete payment"
-                                style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #FCA5A5', background: '#fff', color: '#DC2626', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: delPayId === p.id ? 0.5 : 1 }}>
-                                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                              </button>
-                            </div>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1766,6 +1757,29 @@ export default function InvoicingPage() {
               style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: NAVY, fontFamily: F, borderRadius: 6 }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#F1F5F9' }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Right-click menu on a payment (Account History or Payments tab) */}
+      {payMenu && (
+        <div onClick={e => e.stopPropagation()}
+          style={{ position: 'fixed', top: payMenu.y, left: payMenu.x, zIndex: 1200, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 10, boxShadow: '0 8px 30px rgba(0,0,0,0.18)', padding: 4, minWidth: 180 }}>
+          {[
+            { label: 'Edit payment',   danger: false, run: () => setEditPay(payMenu.payment) },
+            { label: 'Delete payment', danger: true,  run: () => handleDeletePayment(payMenu.payment.id) },
+          ].map(item => (
+            <button key={item.label} onClick={() => { setPayMenu(null); item.run() }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '8px 12px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: item.danger ? '#DC2626' : NAVY, fontFamily: F, borderRadius: 6 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = item.danger ? '#FEF2F2' : '#F1F5F9' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
+              {item.danger ? (
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+              ) : (
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path strokeLinecap="round" strokeLinejoin="round" d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+              )}
               {item.label}
             </button>
           ))}
