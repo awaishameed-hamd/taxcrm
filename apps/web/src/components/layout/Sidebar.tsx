@@ -13,7 +13,8 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 // ── Palette, exact match to Call Center CRM Sidebar.jsx ──────────────────────
 const C = {
   bg:        '#E8EAED',
-  bgActive:  '#E8EEF7',
+  // Selected row: a light wash of the brand gold, flat and easy on the eye
+  bgActive:  'rgba(242,172,24,0.26)',
   border:    '#E0DDD5',
   teal:      '#1E8496',
   tealDim:   'rgba(30,132,150,0.12)',
