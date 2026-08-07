@@ -211,6 +211,16 @@ const NAV: Record<string, NavItem[]> = {
 }
 
 const ATTENDANCE_KEYS = ['myAtt', 'myLeaves', 'attReport', 'attApproval', 'dailyAtt', 'workingDays']
+const TASK_KEYS       = ['tasks', 'completedTasks', 'incompleteTasks', 'taskApproval']
+
+// Nav items that collapse into one row and open as a flyout, so the sidebar
+// stays short instead of listing every sub-page.
+const NAV_GROUPS = [
+  { id: 'tasks',      label: 'Tasks',      icon: 'tasks', keys: TASK_KEYS       },
+  { id: 'attendance', label: 'Attendance', icon: 'myAtt', keys: ATTENDANCE_KEYS },
+] as const
+
+const GROUPED_KEYS = new Set<string>([...TASK_KEYS, ...ATTENDANCE_KEYS])
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN:     'Admin',
@@ -239,22 +249,22 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     setAvatar(localStorage.getItem(avatarKey))
   }, [avatarKey])
 
-  // ── Attendance flyout menu ────────────────────────────────────────────────
-  const attTriggerRef  = useRef<HTMLDivElement>(null)
+  // ── Grouped nav flyout menu (Tasks, Attendance) ───────────────────────────
+  const triggerRefs    = useRef<Record<string, HTMLDivElement | null>>({})
   const attPanelRef    = useRef<HTMLDivElement>(null)
   const attCloseTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [showAttMenu, setShowAttMenu] = useState(false)
-  const [attMenuPos,  setAttMenuPos]  = useState({ top: 0, left: 0 })
+  const [openGroup,  setOpenGroup]  = useState<string | null>(null)
+  const [attMenuPos, setAttMenuPos] = useState({ top: 0, left: 0 })
 
-  const openAttMenu = useCallback(() => {
+  const openGroupMenu = useCallback((id: string) => {
     if (attCloseTimer.current) { clearTimeout(attCloseTimer.current); attCloseTimer.current = null }
-    const rect = attTriggerRef.current?.getBoundingClientRect()
+    const rect = triggerRefs.current[id]?.getBoundingClientRect()
     if (rect) setAttMenuPos({ top: rect.top, left: rect.right + 8 })
-    setShowAttMenu(true)
+    setOpenGroup(id)
   }, [])
 
   const scheduleCloseAttMenu = useCallback(() => {
-    attCloseTimer.current = setTimeout(() => setShowAttMenu(false), 150)
+    attCloseTimer.current = setTimeout(() => setOpenGroup(null), 150)
   }, [])
 
   // Used when re-entering the already-open panel, cancels the pending close
@@ -263,7 +273,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     if (attCloseTimer.current) { clearTimeout(attCloseTimer.current); attCloseTimer.current = null }
   }, [])
 
-  useEffect(() => { setShowAttMenu(false) }, [pathname])
+  useEffect(() => { setOpenGroup(null) }, [pathname])
 
   // ── New Task modal state ──────────────────────────────────────────────────
   const [showNewTask,      setShowNewTask]      = useState(false)
@@ -495,30 +505,46 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     return (permissions as Record<string, boolean>)[item.permission] === true
   }).filter(item => item.key !== 'myAtt' || user?.attendanceApplicable !== false)
 
-  const attendanceSubItems = navItems.filter(item => ATTENDANCE_KEYS.includes(item.key))
+  // Sub-items for each collapsible group, in the order the nav defines them
+  const groupItems: Record<string, NavItem[]> = Object.fromEntries(
+    NAV_GROUPS.map(g => [g.id, navItems.filter(item => (g.keys as readonly string[]).includes(item.key))]),
+  )
 
-  // Collapse the individual attendance items into a single grouped trigger, in place of the first one
-  type RenderEntry = NavItem | { __group: true; items: NavItem[] }
+  // Collapse each group's items into a single trigger, placed where its first item was
+  type RenderEntry = NavItem | { __group: true; id: string; label: string; icon: string; items: NavItem[] }
   const renderList: RenderEntry[] = []
-  let attGroupInserted = false
+  const inserted = new Set<string>()
   for (const item of navItems) {
-    if (ATTENDANCE_KEYS.includes(item.key)) {
-      if (!attGroupInserted) {
-        renderList.push({ __group: true, items: attendanceSubItems })
-        attGroupInserted = true
+    if (GROUPED_KEYS.has(item.key)) {
+      const g = NAV_GROUPS.find(x => (x.keys as readonly string[]).includes(item.key))!
+      if (!inserted.has(g.id)) {
+        renderList.push({ __group: true, id: g.id, label: g.label, icon: g.icon, items: groupItems[g.id] })
+        inserted.add(g.id)
       }
       continue
     }
     renderList.push(item)
   }
 
-  const isAttActive = attendanceSubItems.some(si => pathname === si.href || pathname.startsWith(si.href + '/'))
+  const isGroupActive = (id: string) =>
+    (groupItems[id] ?? []).some(si => pathname === si.href || pathname.startsWith(si.href + '/'))
+
+  // Badges live on the sub-items, so the collapsed row carries their total,
+  // otherwise a pending count would be hidden behind the flyout.
+  const groupBadge = (id: string) => (groupItems[id] ?? []).reduce((sum, si) => sum
+    + (si.key === 'tasks' ? navCounts.tasks
+      : si.key === 'taskApproval' ? navCounts.taskApproval
+      : si.key === 'attApproval' ? navCounts.attApproval
+      : 0), 0)
+
+  const openItems = openGroup ? (groupItems[openGroup] ?? []) : []
+  const openLabel = NAV_GROUPS.find(g => g.id === openGroup)?.label ?? ''
 
   // Keep the panel fully on-screen: flip above the trigger when there isn't room below,
   // and clamp so it never runs off the top/bottom/right edge of the viewport.
   useLayoutEffect(() => {
-    if (!showAttMenu) return
-    const trigger = attTriggerRef.current
+    if (!openGroup) return
+    const trigger = triggerRefs.current[openGroup]
     const panel   = attPanelRef.current
     if (!trigger || !panel) return
     const margin  = 8
@@ -541,7 +567,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     left = Math.max(left, margin)
 
     setAttMenuPos(prev => (prev.top === top && prev.left === left ? prev : { top, left }))
-  }, [showAttMenu, attendanceSubItems.length])
+  }, [openGroup, openItems.length])
 
   const roleLabel = ROLE_LABELS[user?.role ?? ''] ?? user?.role ?? ''
   const initial   = user?.fullName?.charAt(0)?.toUpperCase() ?? '?'
@@ -673,24 +699,35 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
         {renderList.map(entry => {
           if ('__group' in entry) {
             if (entry.items.length === 0) return null
+            const active = isGroupActive(entry.id)
+            const open   = openGroup === entry.id
+            const count  = groupBadge(entry.id)
             return (
-              <div key="attendance-group" ref={attTriggerRef}
-                onMouseEnter={openAttMenu} onMouseLeave={scheduleCloseAttMenu}
-                onClick={openAttMenu}
+              <div key={`${entry.id}-group`} ref={el => { triggerRefs.current[entry.id] = el }}
+                onMouseEnter={() => openGroupMenu(entry.id)} onMouseLeave={scheduleCloseAttMenu}
+                onClick={() => openGroupMenu(entry.id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                   padding: '0.3rem 0.75rem', borderRadius: 8, marginBottom: 2,
                   fontSize: 16, fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.03em',
                   transition: 'all .15s ease',
-                  background: isAttActive || showAttMenu ? C.bgActive : 'transparent',
-                  color:      isAttActive || showAttMenu ? C.navy : C.slate,
-                  borderLeft: isAttActive ? `3px solid ${C.teal}` : '3px solid transparent',
+                  background: active || open ? C.bgActive : 'transparent',
+                  color:      active || open ? C.navy : C.slate,
+                  borderLeft: active ? `3px solid ${C.teal}` : '3px solid transparent',
                 }}
               >
-                <svg width={18} height={18} fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke={isAttActive || showAttMenu ? C.teal : C.iconMuted} style={{ flexShrink: 0 }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.myAtt} />
+                <svg width={18} height={18} fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke={active || open ? C.teal : C.iconMuted} style={{ flexShrink: 0 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[entry.icon] ?? ICONS.dashboard} />
                 </svg>
-                <span style={{ flex: 1 }}>Attendance</span>
+                <span style={{ flex: 1 }}>{entry.label}</span>
+                {count > 0 && (
+                  <span style={{
+                    minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px',
+                    background: '#E53935', color: '#fff',
+                    fontSize: 10.5, fontWeight: 700, lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>{count > 99 ? '99+' : count}</span>
+                )}
               </div>
             )
           }
@@ -736,8 +773,8 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
         })}
       </nav>
 
-      {/* ── Attendance flyout panel ── */}
-      {showAttMenu && attendanceSubItems.length > 0 && (
+      {/* ── Grouped nav flyout panel ── */}
+      {openGroup && openItems.length > 0 && (
         <div ref={attPanelRef}
           onMouseEnter={cancelCloseAttMenu} onMouseLeave={scheduleCloseAttMenu}
           style={{
@@ -748,12 +785,12 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
           }}
         >
           <div style={{ padding: '8px 14px 6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.gray, fontFamily: "'Aptos', sans-serif" }}>
-            Attendance
+            {openLabel}
           </div>
-          {attendanceSubItems.map(item => {
+          {openItems.map(item => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             return (
-              <Link key={item.href} href={item.href} onClick={() => setShowAttMenu(false)}
+              <Link key={item.href} href={item.href} onClick={() => setOpenGroup(null)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '8px 14px', textDecoration: 'none',
@@ -768,14 +805,21 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
                   <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[item.icon] ?? ICONS.dashboard} />
                 </svg>
                 <span style={{ flex: 1 }}>{item.label}</span>
-                {item.key === 'attApproval' && navCounts.attApproval > 0 && (
-                  <span style={{
-                    minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px',
-                    background: isActive ? C.teal : '#E53935', color: '#fff',
-                    fontSize: 10.5, fontWeight: 700, lineHeight: 1,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  }}>{navCounts.attApproval > 99 ? '99+' : navCounts.attApproval}</span>
-                )}
+                {(() => {
+                  const n = item.key === 'attApproval'  ? navCounts.attApproval
+                    : item.key === 'taskApproval' ? navCounts.taskApproval
+                    : item.key === 'tasks'        ? navCounts.tasks
+                    : 0
+                  if (n <= 0) return null
+                  return (
+                    <span style={{
+                      minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px',
+                      background: isActive ? C.teal : '#E53935', color: '#fff',
+                      fontSize: 10.5, fontWeight: 700, lineHeight: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>{n > 99 ? '99+' : n}</span>
+                  )
+                })()}
               </Link>
             )
           })}
