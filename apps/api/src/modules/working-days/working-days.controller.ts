@@ -20,7 +20,7 @@ export class WorkingDaysController {
 
   // ── Get month setup ────────────────────────────────────────────────────────
   @Get()
-  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   getMonth(
     @Query('month', new DefaultValuePipe(new Date().getMonth() + 1), ParseIntPipe) month: number,
     @Query('year',  new DefaultValuePipe(new Date().getFullYear()),  ParseIntPipe) year:  number,
@@ -30,14 +30,14 @@ export class WorkingDaysController {
 
   // ── Save month setup ───────────────────────────────────────────────────────
   @Post('setup')
-  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   setup(@Body() dto: SetupWorkingDaysDto) {
     return this.svc.setupMonth(dto)
   }
 
   // ── Update login time for a date ───────────────────────────────────────────
   @Patch(':date/login-time')
-  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   updateLoginTime(
     @Param('date') date: string,
     @Body('login_time') loginTime: string,

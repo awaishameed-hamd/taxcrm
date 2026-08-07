@@ -185,10 +185,9 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Chats',               href: '/team-lead/messages',         icon: 'messages',       key: 'messages',       permission: 'messages'            },
     { label: 'My Attendance',       href: '/team-lead/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
     { label: 'Leave',           href: '/team-lead/my-leaves',        icon: 'myLeaves',       key: 'myLeaves'                                                    },
-    { label: 'Attendance Report',   href: '/team-lead/att-report',       icon: 'attReport',      key: 'attReport',      permission: 'attendance_report'   },
-    // Attendance approval is Manager and above, a Team Lead does not approve it.
-    { label: 'Daily Attendance',    href: '/team-lead/daily-attendance', icon: 'dailyAtt',       key: 'dailyAtt',       permission: 'daily_attendance'    },
-    { label: 'Working Days',        href: '/team-lead/working-days',     icon: 'workingDays',    key: 'workingDays',    permission: 'working_days'        },
+    // A Team Lead's attendance access matches a Trainee's: their own attendance
+    // and leave only. Report, approval, daily attendance and working days are
+    // Manager and above.
     { label: 'My Profile',          href: '/team-lead/profile',          icon: 'profile',        key: 'profile',        permission: 'my_profile'          },
   ],
   [Role.TRAINEE]: [

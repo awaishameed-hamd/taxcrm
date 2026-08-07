@@ -33,11 +33,11 @@ export const FEATURES: Record<string, { label: string; roles: string[] }> = {
 
   // ── Attendance ─────────────────────────────────────────────────────────────
   my_attendance:          { label: 'My Attendance',           roles: ALL_ROLES },
-  attendance_report:      { label: 'Attendance Report',       roles: ALL_ROLES },
+  attendance_report:      { label: 'Attendance Report',       roles: ['PARTNER', 'MANAGER'] },
   // Attendance approval is Manager and above, a Team Lead does not approve it.
   attendance_approval:    { label: 'Attendance Approval',     roles: ['PARTNER', 'MANAGER'] },
-  daily_attendance:       { label: 'Daily Attendance',        roles: ALL_ROLES },
-  working_days:           { label: 'Working Days',            roles: ALL_ROLES },
+  daily_attendance:       { label: 'Daily Attendance',        roles: ['PARTNER', 'MANAGER'] },
+  working_days:           { label: 'Working Days',            roles: ['PARTNER', 'MANAGER'] },
 
   // ── Tax Summary ────────────────────────────────────────────────────────────
   tax_summary:            { label: 'Tax Summary',             roles: ALL_ROLES },
@@ -70,11 +70,12 @@ const DEFAULTS: Record<string, Record<string, boolean>> = {
     team_create:            true,
     team_edit:              true,
     messages:               true,
+    // Attendance access matches a Trainee's: their own attendance and leave only
     my_attendance:          true,
-    attendance_report:      true,
-    attendance_approval:    true,
-    daily_attendance:       true,
-    working_days:           true,
+    attendance_report:      false,
+    attendance_approval:    false,
+    daily_attendance:       false,
+    working_days:           false,
     tax_summary:            true,
     my_profile:             true,
   },

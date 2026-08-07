@@ -42,7 +42,7 @@ export class AttendanceController {
 
   // ── Report (manager / partner) ─────────────────────────────────────────────
   @Get('report')
-  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   getReport(
     @CurrentUser() user: any,
     @Query('mode')   mode?: string,
@@ -56,7 +56,7 @@ export class AttendanceController {
 
   // ── Daily snapshot ─────────────────────────────────────────────────────────
   @Get('daily')
-  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   getDailyAttendance(
     @CurrentUser() user: any,
     @Query('date') date?: string,
@@ -67,7 +67,7 @@ export class AttendanceController {
 
   // ── Opening balance ────────────────────────────────────────────────────────
   @Get('opening')
-  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   getOpeningBalances() {
     return this.svc.getOpeningBalances()
   }
