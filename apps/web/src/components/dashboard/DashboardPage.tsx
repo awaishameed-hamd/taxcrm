@@ -29,7 +29,6 @@ const CHART_COLORS = [NAVY, TEAL, GOLD, KHAKI, BRICK, MUTED, PURPLE, FOREST]
 const DONUT_TYPE   = [TEAL, NAVY, GOLD, BRICK]
 const DONUT_FBR    = [TEAL, GOLD, BRICK, NAVY, FOREST]
 const DONUT_GEN    = [MUTED, TEAL, FOREST]
-const TREE_COLORS  = [NAVY, TEAL, GOLD, KHAKI, BRICK, FOREST, PURPLE, MUTED]
 
 const F         = "'Aptos',sans-serif"
 const cardStyle: React.CSSProperties = { background: WHITE, borderRadius: 8, padding: '12px 14px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }
@@ -182,27 +181,6 @@ function PipelineFunnel({ data }: { data: { status: string; count: number }[] })
         <span style={{ fontSize:10, color:MUTED, fontFamily:F }}>Total pipeline tasks</span>
         <span style={{ fontSize:13, fontWeight:700, color:NAVY, fontFamily:F }}>{total}</span>
       </div>
-    </div>
-  )
-}
-
-// ── Pipeline Treemap. CC CRM SaleTypeTreemap style ───────────────────────────
-function PipelineTreemap({ data }: { data: { status: string; count: number }[] }) {
-  const filtered = data.filter(d => d.count > 0)
-  const total    = filtered.reduce((s, d) => s + d.count, 0)
-  if (!total) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:148, color:MUTED, fontSize:11, fontFamily:F }}>No pipeline tasks yet</div>
-  return (
-    <div style={{ display:'flex', height:148, gap:2, borderRadius:4, overflow:'hidden' }}>
-      {filtered.map((d, i) => {
-        const pct = Math.round(d.count / total * 100)
-        return (
-          <div key={d.status} style={{ flex:d.count, background:TREE_COLORS[i%TREE_COLORS.length], display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:3, minWidth:0, overflow:'hidden', padding:'0 2px' }}>
-            <div style={{ fontSize:10, fontWeight:900, color:'#fff', textAlign:'center', lineHeight:1.2, wordBreak:'break-word' }}>{PIPELINE_META[d.status] ?? d.status}</div>
-            <div style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.85)' }}>{pct}%</div>
-            <div style={{ fontSize:9, fontWeight:600, color:'rgba(255,255,255,0.65)' }}>{d.count}</div>
-          </div>
-        )
-      })}
     </div>
   )
 }
@@ -409,13 +387,6 @@ export default function DashboardPage({ title }: Props) {
         </div>
       </div>
 
-      {/* ── Row 4. Returns Distribution ── */}
-      <div style={{ marginBottom:10 }}>
-        <div style={cardStyle}>
-          <div style={titleStyle}>Returns Distribution</div>
-          {loading ? <Sk h={148} /> : <PipelineTreemap data={byStatus} />}
-        </div>
-      </div>
       </>)}
 
     </div>
