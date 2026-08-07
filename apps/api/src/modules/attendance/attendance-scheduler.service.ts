@@ -132,7 +132,11 @@ export class AttendanceSchedulerService implements OnModuleInit {
         distinct: ['userId'],
       })
 
-      const toMark = earlyTokens.map(t => t.userId).filter(id => !markedSet.has(id))
+      // Anyone on approved leave stays on leave, an early login must not turn
+      // their leave day into a present.
+      const candidates = earlyTokens.map(t => t.userId).filter(id => !markedSet.has(id))
+      const onLeave    = await this.attendance.usersOnApprovedLeave(candidates, today)
+      const toMark     = candidates.filter(id => !onLeave.has(id))
       if (toMark.length === 0) {
         this.logger.log('[AutoAttendance] No early-login users to mark')
         return
@@ -203,29 +207,47 @@ export class AttendanceSchedulerService implements OnModuleInit {
       })
       const markedSet = new Set(existing.map(r => r.userId))
 
-      const toAbsent = userIds.filter(id => !markedSet.has(id))
-      if (toAbsent.length === 0) {
+      const unmarked = userIds.filter(id => !markedSet.has(id))
+      if (unmarked.length === 0) {
         this.logger.log('[AutoAbsent] All users already have a record today')
         return
       }
 
+      // Approved leave is not an absence, those users get LEAVE instead.
+      const onLeave  = await this.attendance.usersOnApprovedLeave(unmarked, today)
+      const toAbsent = unmarked.filter(id => !onLeave.has(id))
+      const toLeave  = unmarked.filter(id => onLeave.has(id))
+
       // skipDuplicates makes this idempotent: the API runs as multiple cluster workers, so this
       // cron fires once per worker and they race on the same (userId, date) unique index.
       const { count } = await this.prisma.attendance.createMany({
-        data: toAbsent.map(userId => ({
-          userId,
-          workingDayId:   workingDay?.id ?? undefined,
-          date:           today,
-          loginTime:      null,
-          status:         AttendanceStatus.ABSENT,
-          isLate:         false,
-          lateMinutes:    null,
-          approvalStatus: 'pending',
-        })),
+        data: [
+          ...toAbsent.map(userId => ({
+            userId,
+            workingDayId:   workingDay?.id ?? undefined,
+            date:           today,
+            loginTime:      null,
+            status:         AttendanceStatus.ABSENT,
+            isLate:         false,
+            lateMinutes:    null,
+            approvalStatus: 'pending',
+          })),
+          ...toLeave.map(userId => ({
+            userId,
+            workingDayId:   workingDay?.id ?? undefined,
+            date:           today,
+            loginTime:      null,
+            status:         AttendanceStatus.LEAVE,
+            isLate:         false,
+            lateMinutes:    null,
+            approvalStatus: 'approved',
+            notes:          'Auto-marked from approved leave',
+          })),
+        ],
         skipDuplicates: true,
       })
 
-      this.logger.log(`[AutoAbsent] Marked ${count} users as ABSENT`)
+      this.logger.log(`[AutoAbsent] Marked ${count} records (${toAbsent.length} absent, ${toLeave.length} on leave)`)
     } catch (err) {
       this.logger.error('[AutoAbsent] Sweep failed', err)
     }

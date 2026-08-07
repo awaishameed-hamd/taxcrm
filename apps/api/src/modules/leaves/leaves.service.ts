@@ -1,5 +1,6 @@
-import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common'
+import { Injectable, BadRequestException, ForbiddenException, NotFoundException, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { AttendanceStatus, DayType } from '@prisma/client'
 import { Role } from '@ca-firm/shared'
 import { CreateLeaveDto } from './dto/create-leave.dto'
 
@@ -20,7 +21,56 @@ function calcDays(from: string, to: string): number {
 
 @Injectable()
 export class LeavesService {
+  private readonly logger = new Logger(LeavesService.name)
+
   constructor(private prisma: PrismaService) {}
+
+  // ── Approved leave writes the attendance days ──────────────────────────────
+  // Once a leave is approved the days it covers are settled: every working day in
+  // the range becomes a LEAVE record. That also overwrites an auto-ABSENT already
+  // written for a past day, so approving a leave after the fact corrects it.
+  private async markLeaveAttendance(applicantId: string, fromDate: Date, toDate: Date) {
+    const dates: Date[] = []
+    for (let d = new Date(fromDate); d <= toDate; d.setUTCDate(d.getUTCDate() + 1)) {
+      dates.push(new Date(d))
+    }
+    if (dates.length === 0) return
+
+    // Day-type overrides for the range, weekends and holidays are not leave days
+    const workingDays = await this.prisma.workingDay.findMany({
+      where:  { date: { gte: dates[0], lte: dates[dates.length - 1] } },
+      select: { id: true, date: true, dayType: true },
+    })
+    const wdMap = new Map(workingDays.map(w => [w.date.toISOString().split('T')[0], w]))
+
+    for (const date of dates) {
+      const key = date.toISOString().split('T')[0]
+      const wd  = wdMap.get(key)
+      const dow = date.getUTCDay()
+      const resolved = wd?.dayType ?? (dow !== 0 && dow !== 6 ? DayType.WORKING_DAY : DayType.WEEKEND)
+      if (resolved !== DayType.WORKING_DAY) continue
+
+      const data = {
+        workingDayId:   wd?.id ?? undefined,
+        loginTime:      null,
+        status:         AttendanceStatus.LEAVE,
+        isLate:         false,
+        lateMinutes:    null,
+        approvalStatus: 'approved',
+        notes:          'Auto-marked from approved leave',
+      }
+      try {
+        await this.prisma.attendance.upsert({
+          where:  { userId_date: { userId: applicantId, date } },
+          update: data,
+          create: { userId: applicantId, date, ...data },
+        })
+      } catch (e) {
+        // Best-effort: a failure here must never block the approval itself
+        this.logger.warn(`Could not mark leave attendance for ${key}: ${e}`)
+      }
+    }
+  }
 
   async apply(applicantId: string, dto: CreateLeaveDto) {
     if (dto.fromDate > dto.toDate)
@@ -92,10 +142,15 @@ export class LeavesService {
     if (!approvableRoles.includes(leave.applicant.role as string))
       throw new ForbiddenException('Not authorised to approve this leave')
 
-    return this.prisma.leaveApplication.update({
+    const updated = await this.prisma.leaveApplication.update({
       where: { id },
       data:  { status: 'approved', reviewedById: actorId, reviewedAt: new Date() },
     })
+
+    // Settle the attendance for every working day the leave covers
+    await this.markLeaveAttendance(leave.applicantId, leave.fromDate, leave.toDate)
+
+    return updated
   }
 
   async reject(id: string, actorId: string, actorRole: string, reason?: string) {

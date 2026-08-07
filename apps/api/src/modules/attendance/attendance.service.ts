@@ -127,6 +127,38 @@ export class AttendanceService {
     return { role, attendanceApplicable: applicable }
   }
 
+  // ── Approved leave lookup ──────────────────────────────────────────────────
+  // Someone on approved leave is not "absent" and must never be marked present,
+  // even if they log in that day. These two helpers are the single source of
+  // truth for that, used by the login mark and by both attendance crons.
+
+  async usersOnApprovedLeave(userIds: string[], date: Date): Promise<Set<string>> {
+    if (userIds.length === 0) return new Set()
+    const leaves = await this.prisma.leaveApplication.findMany({
+      where: {
+        applicantId: { in: userIds },
+        status:      'approved',
+        fromDate:    { lte: date },
+        toDate:      { gte: date },
+      },
+      select: { applicantId: true },
+    })
+    return new Set(leaves.map(l => l.applicantId))
+  }
+
+  async isOnApprovedLeave(userId: string, date: Date): Promise<boolean> {
+    const found = await this.prisma.leaveApplication.findFirst({
+      where: {
+        applicantId: userId,
+        status:      'approved',
+        fromDate:    { lte: date },
+        toDate:      { gte: date },
+      },
+      select: { id: true },
+    })
+    return !!found
+  }
+
   async autoMarkOnLogin(userId: string, userRole: Role) {
     // Clients don't have attendance
     if (userRole === Role.CLIENT) return null
@@ -153,6 +185,25 @@ export class AttendanceService {
       where: { userId_date: { userId, date: today } },
     })
     if (existing) return null
+
+    // On approved leave: the day stays a leave, logging in must not make it a
+    // present or a late.
+    if (await this.isOnApprovedLeave(userId, today)) {
+      await this.prisma.attendance.create({
+        data: {
+          userId,
+          workingDayId:   undefined,
+          date:           today,
+          loginTime:      null,
+          status:         AttendanceStatus.LEAVE,
+          isLate:         false,
+          lateMinutes:    null,
+          approvalStatus: 'approved',
+          notes:          'Auto-marked from approved leave',
+        },
+      }).catch(() => null) // a racing cron may have written it already
+      return null
+    }
 
     // Check if today is a working day (fall back to calendar if no DB record)
     const workingDay = await this.prisma.workingDay.findUnique({ where: { date: today } })
