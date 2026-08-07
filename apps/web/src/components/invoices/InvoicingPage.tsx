@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
+import { uploadFile } from '@/lib/storage'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
@@ -203,9 +204,8 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
     if (!file) return
     setUploading(true)
     try {
-      const fd = new FormData(); fd.append('file', file)
-      const res = await api.post('/sales-tax-tasks/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      setProofUrl(res.data?.data?.url ?? res.data?.url)
+      const up = await uploadFile(file, 'invoices')
+      setProofUrl(up.url)
       setProofName(file.name)
     } catch { setError('Upload failed') }
     finally { setUploading(false) }

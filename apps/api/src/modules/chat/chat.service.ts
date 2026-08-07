@@ -1,8 +1,4 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
-import * as fs from 'fs'
-import * as path from 'path'
-import { v4 as uuidv4 } from 'uuid'
 import { Role } from '@ca-firm/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import { PresenceService } from './presence.service'
@@ -11,16 +7,10 @@ const CONTACT_SELECT = { id: true, fullName: true, role: true, avatar: true, las
 
 @Injectable()
 export class ChatService {
-  private readonly uploadDir: string
-
   constructor(
     private prisma:   PrismaService,
-    private config:   ConfigService,
     private presence: PresenceService,
-  ) {
-    this.uploadDir = path.join(this.config.get<string>('upload.dir') ?? './uploads', 'chat')
-    fs.mkdirSync(this.uploadDir, { recursive: true })
-  }
+  ) {}
 
   // Attaches a live isOnline flag derived from the in-memory socket registry
   private withPresence<T extends { id: string }>(u: T): T & { isOnline: boolean } {
@@ -306,24 +296,8 @@ export class ChatService {
     return { conversationId: message.conversationId }
   }
 
-  // ── File upload for chat attachments ────────────────────────────────────────
-
-  async uploadAttachment(file: Express.Multer.File) {
-    const ext      = path.extname(file.originalname) || this.extensionForMime(file.mimetype)
-    const fileName = `${uuidv4()}${ext}`
-    const filePath = path.join(this.uploadDir, fileName)
-    fs.writeFileSync(filePath, file.buffer)
-
-    const isImage = file.mimetype.startsWith('image/')
-    const isAudio = file.mimetype.startsWith('audio/')
-    return {
-      url:      `/uploads/chat/${fileName}`,
-      type:     isImage ? 'IMAGE' : isAudio ? 'AUDIO' : 'FILE',
-      fileName: file.originalname,
-      mimeType: file.mimetype,
-      size:     file.size,
-    }
-  }
+  // Chat attachments go straight from the browser to Backblaze, this server
+  // never receives or stores the bytes.
 
   // Voice recordings come from MediaRecorder with no real filename/extension
   private extensionForMime(mimeType: string): string {

@@ -1,7 +1,8 @@
 ﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import api, { FILE_BASE_URL } from '@/lib/api'
+import api from '@/lib/api'
+import { fileHref } from '@/lib/storage'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const NAVY = '#132E57'
@@ -40,9 +41,10 @@ function fileTypeFromUrl(url: string): 'pdf' | 'excel' | 'word' | 'image' | 'oth
 }
 
 function openFile(url: string, type: string) {
-  const full = url.startsWith('http') ? url : `${FILE_BASE_URL}${url}`
-  if (type === 'pdf' || type === 'image') { window.open(full, '_blank') }
-  else { const a = document.createElement('a'); a.href = full; a.download = full.split('/').pop() ?? 'file'; a.click() }
+  const inline = type === 'pdf' || type === 'image'
+  const full = url.startsWith('http') ? url : fileHref(url, { download: !inline })
+  if (inline) { window.open(full, '_blank') }
+  else { const a = document.createElement('a'); a.href = full; a.click() }
 }
 
 function StatusBadge({ status }: { status: string }) {

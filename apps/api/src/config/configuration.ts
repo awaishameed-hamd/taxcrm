@@ -25,6 +25,19 @@ export default () => {
       maxFileMb:   parseInt(process.env.MAX_FILE_SIZE_MB ?? '50', 10),
     },
 
+    // Backblaze B2, S3-compatible. Files live only here, never on the VPS: the
+    // browser uploads straight to B2 and reads straight from B2 through short
+    // lived signed links, so no file bytes ever pass through this server.
+    b2: {
+      bucket:    process.env.B2_BUCKET   ?? '',
+      endpoint:  process.env.B2_ENDPOINT ?? '',
+      region:    process.env.B2_REGION   ?? '',
+      keyId:     process.env.B2_KEY_ID   ?? '',
+      appKey:    process.env.B2_APP_KEY  ?? '',
+      // How long a signed upload/download link stays valid
+      signedUrlTtlSeconds: parseInt(process.env.B2_URL_TTL ?? '900', 10),
+    },
+
     resend: {
       apiKey:    process.env.RESEND_API_KEY    ?? '',
       fromEmail: process.env.RESEND_FROM_EMAIL ?? 'noreply@cafirm.com',

@@ -1,9 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
-import { FileInterceptor } from '@nestjs/platform-express'
-import { diskStorage } from 'multer'
-import { extname, join } from 'path'
-import { v4 as uuidv4 } from 'uuid'
-import { mkdirSync } from 'fs'
+import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../../common/guards/roles.guard'
 import { Roles } from '../../common/decorators/roles.decorator'
@@ -13,26 +8,13 @@ import { AdvanceTaskDto } from './dto/advance-task.dto'
 import { ManagerApproveDto, ManagerSendBackDto } from './dto/manager-action.dto'
 import { CreateSalesTaxTaskDto } from './dto/create-sales-tax-task.dto'
 
-const UPLOAD_DIR = join(process.cwd(), 'uploads', 'tasks')
-mkdirSync(UPLOAD_DIR, { recursive: true })
-
-const taskStorage = diskStorage({
-  destination: UPLOAD_DIR,
-  filename: (_req, file, cb) => cb(null, `${uuidv4()}${extname(file.originalname)}`),
-})
-
 @Controller('sales-tax-tasks')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SalesTaxTasksController {
   constructor(private readonly service: SalesTaxTasksService) {}
 
-  // ── Any role: upload an attachment file ────────────────────────────────────
-  @Post('upload')
-  @Roles(Role.TRAINEE, Role.MANAGER, Role.ADMIN, Role.PARTNER, Role.TEAM_LEAD)
-  @UseInterceptors(FileInterceptor('file', { storage: taskStorage }))
-  uploadFile(@UploadedFile() file: Express.Multer.File) {
-    return { url: `/uploads/tasks/${file.filename}`, originalName: file.originalname }
-  }
+  // Attachments are uploaded straight to Backblaze by the browser, see
+  // POST /files/presign-upload. Nothing is written to this server's disk.
 
   // ── Manager/Admin: create a single task manually ───────────────────────────
   @Post()

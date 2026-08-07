@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import api, { FILE_BASE_URL } from '@/lib/api'
+import api from '@/lib/api'
+import { uploadFile, fileHref } from '@/lib/storage'
 import { getSocket } from '@/lib/socket'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { usePhone } from '@/hooks/useMediaQuery'
@@ -780,7 +781,7 @@ export default function ChatPage() {
   async function handleDownloadAttachment(message: Message) {
     setMsgMenu(null)
     if (!message.attachmentUrl) return
-    const url = `${FILE_BASE_URL}${message.attachmentUrl}`
+    const url = fileHref(message.attachmentUrl!, { name: message.content, download: true })
     const res  = await fetch(url)
     const blob = await res.blob()
     const blobUrl = URL.createObjectURL(blob)
@@ -859,10 +860,7 @@ export default function ChatPage() {
     if (!file || !selectedId) return
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const { data } = await api.post('/chat/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      const { url, type, fileName } = data.data
+      const { url, type, fileName } = await uploadFile(file, 'chat')
       socketRef.current.emit('send_message', { conversationId: selectedId, content: fileName, type, attachmentUrl: url, replyToId: replyTarget?.id })
       setReplyTarget(null)
     } finally {
@@ -914,10 +912,7 @@ export default function ChatPage() {
       const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
       setUploading(true)
       try {
-        const formData = new FormData()
-        formData.append('file', blob, `voice-${Date.now()}.webm`)
-        const { data } = await api.post('/chat/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-        const { url, type, fileName } = data.data
+        const { url, type, fileName } = await uploadFile(blob, 'chat', `voice-${Date.now()}.webm`)
         socketRef.current.emit('send_message', { conversationId: selectedId, content: fileName, type, attachmentUrl: url, replyToId: replyTarget?.id })
         setReplyTarget(null)
       } finally {
@@ -1306,14 +1301,14 @@ export default function ChatPage() {
                       )}
 
                       {isImage && m.attachmentUrl && (
-                        <a href={`${FILE_BASE_URL}${m.attachmentUrl}`} target="_blank" rel="noopener noreferrer">
-                          <img src={`${FILE_BASE_URL}${m.attachmentUrl}`} alt={m.content}
+                        <a href={fileHref(m.attachmentUrl!, { name: m.content })} target="_blank" rel="noopener noreferrer">
+                          <img src={fileHref(m.attachmentUrl!, { name: m.content })} alt={m.content}
                             style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 6, display: 'block' }} />
                         </a>
                       )}
 
                       {isFile && m.attachmentUrl && (
-                        <a href={`${FILE_BASE_URL}${m.attachmentUrl}`} target="_blank" rel="noopener noreferrer"
+                        <a href={fileHref(m.attachmentUrl!, { name: m.content })} target="_blank" rel="noopener noreferrer"
                           style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}>
                           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" />
@@ -1324,7 +1319,7 @@ export default function ChatPage() {
 
                       {isAudio && m.attachmentUrl && (
                         <VoiceMessage
-                          src={`${FILE_BASE_URL}${m.attachmentUrl}`}
+                          src={fileHref(m.attachmentUrl!, { name: m.content })}
                           isMine={isMine}
                           avatar={isMine ? user?.avatar : m.sender?.avatar}
                           senderName={isMine ? 'You' : m.sender?.fullName}

@@ -3,6 +3,7 @@ import { ConfigModule }   from '@nestjs/config'
 import { ScheduleModule } from '@nestjs/schedule'
 import configuration from './config/configuration'
 import { PrismaModule }        from './modules/prisma/prisma.module'
+import { StorageModule }       from './modules/storage/storage.module'
 import { AuthModule }          from './modules/auth/auth.module'
 import { UsersModule }         from './modules/users/users.module'
 import { ClientsModule }       from './modules/clients/clients.module'
@@ -30,6 +31,7 @@ import { InvoicesModule }        from './modules/invoices/invoices.module'
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    StorageModule,
     AuthModule,
     UsersModule,
     ClientsModule,

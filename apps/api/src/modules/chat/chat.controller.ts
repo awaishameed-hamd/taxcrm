@@ -105,10 +105,6 @@ export class ChatController {
     return this.chatService.deleteConversation(conversationId, user.id)
   }
 
-  // ── Upload a file/image attachment for chat ─────────────────────────────────
-  @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
-  upload(@UploadedFile() file: Express.Multer.File) {
-    return this.chatService.uploadAttachment(file)
-  }
+  // Attachments are uploaded straight to Backblaze by the browser, see
+  // POST /files/presign-upload. Nothing is written to this server's disk.
 }

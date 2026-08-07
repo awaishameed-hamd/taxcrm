@@ -1,6 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 import api from '@/lib/api'
+import { uploadFile } from '@/lib/storage'
 import { useAuth } from '@/contexts/AuthContext'
 
 const NAVY   = '#132E57'
@@ -366,10 +367,8 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
     if (!file) return
     setAttachUploading(true)
     try {
-      const fd = new FormData(); fd.append('file', file)
-      const res = await api.post('/sales-tax-tasks/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      const url = res.data?.data?.url ?? res.data?.url
-      setAttachUrl(url); setAttachName(file.name)
+      const up = await uploadFile(file, 'fbr')
+      setAttachUrl(up.url); setAttachName(file.name)
     } catch { /* silent */ }
     finally { setAttachUploading(false) }
   }
@@ -577,10 +576,8 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
     if (!file) return
     setAttachUploading(true)
     try {
-      const fd = new FormData(); fd.append('file', file)
-      const res = await api.post('/sales-tax-tasks/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      const url = res.data?.data?.url ?? res.data?.url
-      setAttachUrl(url); setAttachName(file.name)
+      const up = await uploadFile(file, 'fbr')
+      setAttachUrl(up.url); setAttachName(file.name)
     } catch { /* silent */ }
     finally { setAttachUploading(false) }
   }
@@ -755,10 +752,8 @@ function StayFlow({ stay: s, onReload, actors }: { stay: any; onReload: () => vo
     if (!file) return
     setAttachUploading(true)
     try {
-      const fd = new FormData(); fd.append('file', file)
-      const res = await api.post('/sales-tax-tasks/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      const url = res.data?.data?.url ?? res.data?.url
-      setAttachUrl(url); setAttachName(file.name)
+      const up = await uploadFile(file, 'fbr')
+      setAttachUrl(up.url); setAttachName(file.name)
     } catch { /* silent */ }
     finally { setAttachUploading(false) }
   }

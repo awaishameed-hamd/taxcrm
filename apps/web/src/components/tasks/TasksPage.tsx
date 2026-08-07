@@ -137,12 +137,10 @@ function GenStepList({ steps, role, genStepLoading, genStepFormVal, setGenStepFo
   }
 
   const uploadFile = async (stepId: string, file: File) => {
-    const fd = new FormData(); fd.append('file', file)
     try {
-      const { default: apiMod } = await import('@/lib/api')
-      const res = await apiMod.post('/sales-tax-tasks/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      const url = res.data?.data?.url ?? res.data?.url
-      setGenStepFormVal(stepId, { attachmentUrl: url })
+      const { uploadFile: uploadToStorage } = await import('@/lib/storage')
+      const up = await uploadToStorage(file, 'tasks')
+      setGenStepFormVal(stepId, { attachmentUrl: up.url })
     } catch { /* silent */ }
   }
 
@@ -1183,13 +1181,10 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                                 onChange={async e => {
                                   const file = e.target.files?.[0]
                                   if (!file) return
-                                  const fd = new FormData()
-                                  fd.append('file', file)
                                   try {
-                                    const { default: api } = await import('../../lib/api')
-                                    const res = await api.post('/sales-tax-tasks/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-                                    const url = res.data?.data?.url ?? res.data?.url
-                                    setAdvanceForm(p => ({...p, attachment: url}))
+                                    const { uploadFile: uploadToStorage } = await import('@/lib/storage')
+                                    const up = await uploadToStorage(file, 'tasks')
+                                    setAdvanceForm(p => ({...p, attachment: up.url}))
                                   } catch { /* silent */ }
                                 }}
                               />
