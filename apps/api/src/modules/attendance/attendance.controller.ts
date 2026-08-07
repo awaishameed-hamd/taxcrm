@@ -142,14 +142,15 @@ export class AttendanceController {
   }
 
   // ── Approve / reject ──────────────────────────────────────────────────────
+  // Attendance approval is Manager and above, a Team Lead does not approve it.
   @Patch(':id/approve')
-  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   approve(@Param('id') id: string, @CurrentUser() user: any) {
     return this.svc.approveAttendance(id, user.id, true)
   }
 
   @Patch(':id/reject')
-  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   reject(@Param('id') id: string, @CurrentUser() user: any) {
     return this.svc.approveAttendance(id, user.id, false)
   }

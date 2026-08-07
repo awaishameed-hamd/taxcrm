@@ -186,7 +186,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'My Attendance',       href: '/team-lead/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
     { label: 'Leave',           href: '/team-lead/my-leaves',        icon: 'myLeaves',       key: 'myLeaves'                                                    },
     { label: 'Attendance Report',   href: '/team-lead/att-report',       icon: 'attReport',      key: 'attReport',      permission: 'attendance_report'   },
-    { label: 'Attendance Approval', href: '/team-lead/att-approval',     icon: 'attApproval',    key: 'attApproval',    permission: 'attendance_approval' },
+    // Attendance approval is Manager and above, a Team Lead does not approve it.
     { label: 'Daily Attendance',    href: '/team-lead/daily-attendance', icon: 'dailyAtt',       key: 'dailyAtt',       permission: 'daily_attendance'    },
     { label: 'Working Days',        href: '/team-lead/working-days',     icon: 'workingDays',    key: 'workingDays',    permission: 'working_days'        },
     { label: 'My Profile',          href: '/team-lead/profile',          icon: 'profile',        key: 'profile',        permission: 'my_profile'          },

@@ -34,7 +34,8 @@ export const FEATURES: Record<string, { label: string; roles: string[] }> = {
   // ── Attendance ─────────────────────────────────────────────────────────────
   my_attendance:          { label: 'My Attendance',           roles: ALL_ROLES },
   attendance_report:      { label: 'Attendance Report',       roles: ALL_ROLES },
-  attendance_approval:    { label: 'Attendance Approval',     roles: ALL_ROLES },
+  // Attendance approval is Manager and above, a Team Lead does not approve it.
+  attendance_approval:    { label: 'Attendance Approval',     roles: ['PARTNER', 'MANAGER'] },
   daily_attendance:       { label: 'Daily Attendance',        roles: ALL_ROLES },
   working_days:           { label: 'Working Days',            roles: ALL_ROLES },
 

@@ -99,6 +99,9 @@ export class ClientRepresentativesService {
             role:            Role.REPRESENTATIVE as any,
             hasPortalAccess: true,
             isActive:        true,
+            // A representative logs in only to reach their files, attendance
+            // never applies to them.
+            attendanceApplicable: false,
           },
           select: { id: true },
         })

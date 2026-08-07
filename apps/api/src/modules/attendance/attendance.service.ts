@@ -98,7 +98,9 @@ export class AttendanceService {
 
   async getApplicability() {
     const users = await this.prisma.user.findMany({
-      where: { role: { notIn: [Role.CLIENT] }, isActive: true },
+      // Attendance is firm staff only, a Client or a Client Representative logs in
+      // to reach their files and must never appear here.
+      where: { role: { in: INTERNAL_STAFF_ROLES }, isActive: true },
       select: { id: true, fullName: true, userCode: true, role: true, attendanceApplicable: true },
       orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
     })
@@ -160,8 +162,9 @@ export class AttendanceService {
   }
 
   async autoMarkOnLogin(userId: string, userRole: Role) {
-    // Clients don't have attendance
-    if (userRole === Role.CLIENT) return null
+    // Attendance is firm staff only. Clients and Client Representatives log in
+    // just to reach their files, so they are never marked.
+    if (!INTERNAL_STAFF_ROLES.includes(userRole)) return null
 
     // Check if attendance is applicable for this user
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { attendanceApplicable: true } })
@@ -255,7 +258,7 @@ export class AttendanceService {
 
   // ── Weekend voluntary self-checkin ─────────────────────────────────────────
   async selfCheckin(userId: string, userRole: Role) {
-    if (userRole === Role.CLIENT) return null
+    if (!INTERNAL_STAFF_ROLES.includes(userRole)) return null
 
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { attendanceApplicable: true } })
     if (!user?.attendanceApplicable) return null
@@ -447,10 +450,8 @@ export class AttendanceService {
       date:           { gte: startDate, lt: endDate },
       approvalStatus: 'pending',
     }
-    if (actorRole === Role.TEAM_LEAD) {
-      const trainees = await this.prisma.user.findMany({ where: { teamLeadId: actorId }, select: { id: true } })
-      attWhere.userId = { in: [actorId, ...trainees.map(t => t.id)] }
-    }
+    // Team Leads do not approve attendance at all, so they never carry a badge for it.
+    const approvesAttendance = actorRole !== Role.TEAM_LEAD
 
     // Leave approvals are Admin/Partner/Manager only. Team Leads don't approve leaves.
     // Mirrors the CAN_APPROVE hierarchy in leaves.service.ts (Manager can't approve other Managers' leaves).
@@ -462,7 +463,7 @@ export class AttendanceService {
     const approvableRoles = leaveApprovableRoles[actorRole] ?? []
 
     const [attCount, leaveCount] = await Promise.all([
-      this.prisma.attendance.count({ where: attWhere }),
+      approvesAttendance ? this.prisma.attendance.count({ where: attWhere }) : Promise.resolve(0),
       approvableRoles.length
         ? this.prisma.leaveApplication.count({ where: { status: 'pending', applicant: { role: { in: approvableRoles } } } })
         : Promise.resolve(0),
