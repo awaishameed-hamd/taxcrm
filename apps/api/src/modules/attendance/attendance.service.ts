@@ -449,6 +449,11 @@ export class AttendanceService {
       user:           { attendanceApplicable: true, role: { in: INTERNAL_STAFF_ROLES } },
       date:           { gte: startDate, lt: endDate },
       approvalStatus: 'pending',
+      // Only a day someone actually logged in can be approved. Auto-marked
+      // absents and leave days are system facts with nothing to review, and the
+      // approval screen already leaves them out, so counting them here made the
+      // badge show work that did not exist.
+      status:         { in: [AttendanceStatus.PRESENT, AttendanceStatus.LATE] },
     }
     // Team Leads do not approve attendance at all, so they never carry a badge for it.
     const approvesAttendance = actorRole !== Role.TEAM_LEAD
