@@ -83,21 +83,26 @@ function PriceModal({ inv, onClose, onSaved }: { inv: any; onClose: () => void; 
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 470, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-        <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#F1F5F9', margin: 0 }}>
+        <div style={{ background: '#7EC8D0', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontFamily: "'Ethnocentric Rg', sans-serif", fontSize: 14, fontWeight: 300, letterSpacing: '0.04em', color: NAVY, margin: 0 }}>
             {inv.invoiceNumber}
           </h2>
-          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
+          <span style={{ fontSize: 12, color: NAVY, fontWeight: 700, fontFamily: F }}>
             {inv.client?.businessName ?? inv.client?.user?.fullName}
           </span>
         </div>
 
         <div style={{ padding: 20 }}>
           <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Professional Fee <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="number" min={0} value={subtotal} onChange={e => setSubtotal(e.target.value)} placeholder="0" style={inputStyle} autoFocus />
+            <label style={labelStyle}>Description <span style={{ color: '#ef4444' }}>*</span></label>
+            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What is being billed" style={inputStyle} autoFocus />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Professional Fee</label>
+            <input type="number" min={0} value={subtotal} onChange={e => setSubtotal(e.target.value)} placeholder="0" style={inputStyle} />
             {inv.kind === 'RETAINER' && (
               <p style={{ margin: '5px 0 0', fontSize: 11, color: '#5B21B6', fontFamily: F, fontWeight: 700 }}>
                 Pre-filled from the client's agreed monthly retainer
@@ -122,20 +127,15 @@ function PriceModal({ inv, onClose, onSaved }: { inv: any; onClose: () => void; 
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Description</label>
-            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What is being billed" style={inputStyle} />
-          </div>
-          <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Due Date</label>
             <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
-            <p style={{ margin: '5px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>Past this date an unpaid invoice is flagged Overdue</p>
           </div>
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Notes</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none' }} placeholder="Shown on the invoice" />
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none' }} />
           </div>
 
-          {error && <p style={{ fontSize: 12, color: '#ef4444', marginBottom: 12 }}>{error}</p>}
+          {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '0 0 12px' }}>{error}</p>}
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
