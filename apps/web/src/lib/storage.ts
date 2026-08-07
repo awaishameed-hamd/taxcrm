@@ -4,7 +4,24 @@ import api, { FILE_BASE_URL } from './api'
 // straight from there through short-lived signed links, so no file ever passes
 // through the VPS. What we store in the database is just the object key.
 
-export type StorageFolder = 'chat' | 'tasks' | 'fbr' | 'invoices' | 'misc'
+// Folders inside the bucket, one per kind of work, so files stay organised
+// instead of landing in a single dump.
+export type StorageFolder =
+  | 'sales-tax'
+  | 'income-tax'
+  | 'wht'
+  | 'notices-appeals'
+  | 'general-tasks'
+  | 'chat'
+  | 'payment-proofs'
+  | 'misc'
+
+// The tax-return tabs map onto their own folders
+export function taxFolder(activeTax: string): StorageFolder {
+  if (activeTax === 'income_tax') return 'income-tax'
+  if (activeTax === 'wht')        return 'wht'
+  return 'sales-tax'
+}
 
 export interface UploadedFileInfo {
   url:      string   // the stored reference (B2 object key)

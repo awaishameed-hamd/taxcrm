@@ -139,7 +139,7 @@ function GenStepList({ steps, role, genStepLoading, genStepFormVal, setGenStepFo
   const uploadFile = async (stepId: string, file: File) => {
     try {
       const { uploadFile: uploadToStorage } = await import('@/lib/storage')
-      const up = await uploadToStorage(file, 'tasks')
+      const up = await uploadToStorage(file, 'general-tasks')
       setGenStepFormVal(stepId, { attachmentUrl: up.url })
     } catch { /* silent */ }
   }
@@ -1182,8 +1182,8 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                                   const file = e.target.files?.[0]
                                   if (!file) return
                                   try {
-                                    const { uploadFile: uploadToStorage } = await import('@/lib/storage')
-                                    const up = await uploadToStorage(file, 'tasks')
+                                    const { uploadFile: uploadToStorage, taxFolder } = await import('@/lib/storage')
+                                    const up = await uploadToStorage(file, taxFolder(activeTax))
                                     setAdvanceForm(p => ({...p, attachment: up.url}))
                                   } catch { /* silent */ }
                                 }}

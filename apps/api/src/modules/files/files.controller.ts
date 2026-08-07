@@ -2,7 +2,7 @@ import { Body, Controller, Get, Post, Query, Req, Res, UseGuards } from '@nestjs
 import { AuthGuard } from '@nestjs/passport'
 import type { Response } from 'express'
 import { FilesService } from './files.service'
-import { StorageService, StorageFolder, isLegacyPath } from '../storage/storage.service'
+import { StorageService, StorageFolder, STORAGE_FOLDERS, isLegacyPath } from '../storage/storage.service'
 
 @Controller('files')
 @UseGuards(AuthGuard('jwt'))
@@ -18,7 +18,7 @@ export class FilesController {
   // passes through this server, so a big upload costs the VPS nothing.
   @Post('presign-upload')
   async presignUpload(@Body() body: { fileName?: string; contentType?: string; folder?: StorageFolder }) {
-    const folder = (['chat', 'tasks', 'fbr', 'invoices', 'misc'] as const).includes(body?.folder as any)
+    const folder: StorageFolder = STORAGE_FOLDERS.includes(body?.folder as any)
       ? (body.folder as StorageFolder)
       : 'misc'
     const key       = this.storage.buildKey(folder, body?.fileName ?? '')

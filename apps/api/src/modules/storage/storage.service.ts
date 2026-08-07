@@ -5,9 +5,20 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { v4 as uuidv4 } from 'uuid'
 import * as path from 'path'
 
-// Where each kind of upload lands inside the bucket. Keeping them apart makes the
-// bucket browsable and lets us apply different lifecycle rules later if needed.
-export type StorageFolder = 'chat' | 'tasks' | 'fbr' | 'invoices' | 'misc'
+// Where each kind of upload lands inside the bucket, so the bucket stays
+// browsable by the kind of work the file belongs to rather than one big dump.
+export const STORAGE_FOLDERS = [
+  'sales-tax',
+  'income-tax',
+  'wht',
+  'notices-appeals',
+  'general-tasks',
+  'chat',
+  'payment-proofs',
+  'misc',
+] as const
+
+export type StorageFolder = typeof STORAGE_FOLDERS[number]
 
 // A stored file is referenced by its object key, never by a path on this server.
 // Legacy rows still hold '/uploads/...' paths from before B2, so anything starting

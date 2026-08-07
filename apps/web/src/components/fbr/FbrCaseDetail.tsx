@@ -367,7 +367,7 @@ function NoticeRoundFlow({ round: r, caseCreatedAt, onReload, isLast, onAddFurth
     if (!file) return
     setAttachUploading(true)
     try {
-      const up = await uploadFile(file, 'fbr')
+      const up = await uploadFile(file, 'notices-appeals')
       setAttachUrl(up.url); setAttachName(file.name)
     } catch { /* silent */ }
     finally { setAttachUploading(false) }
@@ -576,7 +576,7 @@ function AppealFlow({ appeal: a, caseId, onReload, actors }: { appeal: any; case
     if (!file) return
     setAttachUploading(true)
     try {
-      const up = await uploadFile(file, 'fbr')
+      const up = await uploadFile(file, 'notices-appeals')
       setAttachUrl(up.url); setAttachName(file.name)
     } catch { /* silent */ }
     finally { setAttachUploading(false) }
@@ -752,7 +752,7 @@ function StayFlow({ stay: s, onReload, actors }: { stay: any; onReload: () => vo
     if (!file) return
     setAttachUploading(true)
     try {
-      const up = await uploadFile(file, 'fbr')
+      const up = await uploadFile(file, 'notices-appeals')
       setAttachUrl(up.url); setAttachName(file.name)
     } catch { /* silent */ }
     finally { setAttachUploading(false) }

@@ -204,7 +204,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
     if (!file) return
     setUploading(true)
     try {
-      const up = await uploadFile(file, 'invoices')
+      const up = await uploadFile(file, 'payment-proofs')
       setProofUrl(up.url)
       setProofName(file.name)
     } catch { setError('Upload failed') }
