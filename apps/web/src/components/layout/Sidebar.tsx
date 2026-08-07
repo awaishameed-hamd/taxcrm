@@ -713,7 +713,6 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
                   transition: 'all .15s ease',
                   background: active || open ? C.bgActive : 'transparent',
                   color:      active || open ? C.navy : C.slate,
-                  borderLeft: active ? `3px solid ${C.teal}` : '3px solid transparent',
                 }}
               >
                 <svg width={18} height={18} fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke={active || open ? C.teal : C.iconMuted} style={{ flexShrink: 0 }}>
@@ -749,9 +748,10 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
                 padding: compact ? '0.55rem 0.75rem' : '0.3rem 0.75rem', borderRadius: 8, marginBottom: 2,
                 fontSize: 16, fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, letterSpacing: '0.03em',
                 textDecoration: 'none', transition: 'all .15s ease',
+                // Flat, lightly shaded selection like the rest of the CRM, no
+                // raised bar on the edge.
                 background: isActive ? C.bgActive : 'transparent',
                 color:      isActive ? C.navy : C.slate,
-                borderLeft: isActive ? `3px solid ${C.teal}` : '3px solid transparent',
               }}
               onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = C.tealDim; e.currentTarget.style.color = C.navy } }}
               onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.slate } }}
