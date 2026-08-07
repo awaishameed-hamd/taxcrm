@@ -17,7 +17,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     private prisma:  PrismaService,
   ) {
     super({
-      jwtFromRequest:   ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // Normally the token comes in the Authorization header. An <img>, <audio>
+      // or <a download> tag cannot set headers, so file links carry it as ?t=
+      // instead. That is only useful for GET /files/open, which redirects to a
+      // short-lived Backblaze link.
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        ExtractJwt.fromUrlQueryParameter('t'),
+      ]),
       ignoreExpiration: false,
       secretOrKey:      config.get<string>('jwt.accessSecret')!,
     })

@@ -36,6 +36,8 @@ export class FilesController {
     @Res() res: Response,
   ) {
     if (!key) return res.status(400).send('Missing key')
+    // The link can carry the token as ?t=, so never leak this URL onward
+    res.setHeader('Referrer-Policy', 'no-referrer')
     // Files uploaded before B2 still live on disk and are served the old way
     if (isLegacyPath(key)) return res.redirect(key)
 

@@ -45,6 +45,13 @@ export function fileHref(ref: string, opts?: { name?: string; download?: boolean
   const params = new URLSearchParams({ key: ref })
   if (opts?.name)     params.set('name', opts.name)
   if (opts?.download) params.set('download', 'true')
+  // An <img>, <audio> or <a> tag cannot send an Authorization header, so the
+  // token rides along in the URL. The API answers with a redirect to Backblaze,
+  // and the media then streams from there, never through the VPS.
+  if (typeof window !== 'undefined') {
+    const token = sessionStorage.getItem('access_token')
+    if (token) params.set('t', token)
+  }
   return `${api.defaults.baseURL}/files/open?${params.toString()}`
 }
 
