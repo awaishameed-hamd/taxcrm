@@ -67,10 +67,18 @@ export class SalesTaxTasksService {
 
   // ── List tasks, role-filtered ──────────────────────────────────────────────
 
-  async listForTrainee(traineeId: string, status?: string, taskType?: string) {
+  async listForTrainee(traineeId: string, status?: string, taskType?: string, role?: string) {
+    // A Team Lead's task list covers their whole team, not just what is assigned
+    // to them personally, and it follows the trainee's current team lead, so
+    // moving a trainee to another lead moves their tasks with them. General
+    // Tasks already work this way.
+    const scope = role === 'TEAM_LEAD'
+      ? { OR: [{ traineeId }, { trainee: { teamLeadId: traineeId } }] }
+      : { traineeId }
+
     return this.prisma.salesTaxTask.findMany({
       where: {
-        traineeId,
+        ...scope,
         ...(taskType ? { taskType } : {}),
         ...(status ? { status: status as SalesTaxTaskStatus } : {}),
       },
@@ -405,8 +413,12 @@ export class SalesTaxTasksService {
       taxWhere = { status: { in: approvalStatuses }, ...teamFilter }
       noticesCount = this.fbrService.listCases(userId, role as StaffRole, undefined, undefined, undefined, 'approval').then(c => c.length)
     } else {
-      // Tasks tab ("my tasks"): whatever's assigned directly to this user, regardless of role
-      taxWhere = { traineeId: userId, status: { not: SalesTaxTaskStatus.COMPLETED } }
+      // Tasks tab ("my tasks"): whatever's assigned directly to this user. A Team
+      // Lead also counts their team's, matching what the list actually returns.
+      const scope = role === 'TEAM_LEAD'
+        ? { OR: [{ traineeId: userId }, { trainee: { teamLeadId: userId } }] }
+        : { traineeId: userId }
+      taxWhere = { ...scope, status: { not: SalesTaxTaskStatus.COMPLETED } }
       noticesCount = this.prisma.fbrCase.count({ where: { assignedToId: userId, currentStage: { not: 'CLOSED' } } })
     }
 

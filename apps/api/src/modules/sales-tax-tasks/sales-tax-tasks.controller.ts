@@ -52,7 +52,7 @@ export class SalesTaxTasksController {
   @Get('my')
   @Roles(Role.TRAINEE, Role.MANAGER, Role.ADMIN, Role.PARTNER, Role.TEAM_LEAD)
   listMine(@Req() req: any, @Query('status') status?: string, @Query('taskType') taskType?: string) {
-    return this.service.listForTrainee(req.user.id, status, taskType)
+    return this.service.listForTrainee(req.user.id, status, taskType, req.user.role)
   }
 
   // ── Manager/TeamLead/Partner: list tasks pending approval ──────────────────
