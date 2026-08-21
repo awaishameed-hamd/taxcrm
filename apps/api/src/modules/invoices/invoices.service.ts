@@ -777,9 +777,16 @@ export class InvoicesService {
       )
 
       if (covered) {
-        const now   = new Date()
-        const month = now.getMonth() + 1
-        const year  = now.getFullYear()
+        // The retainer bills the month the work belongs to, so a July return
+        // rolls into July's retainer invoice even when it is completed in
+        // August. An annual return carries no month, so it falls back to the
+        // month just ended, which is what the monthly cron bills.
+        const now       = new Date()
+        const prev      = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        const taskMonth = task.periodMonth ?? 0
+        const hasPeriod = taskMonth >= 1 && taskMonth <= 12
+        const month = hasPeriod ? taskMonth : prev.getMonth() + 1
+        const year  = hasPeriod ? (task.periodYear ?? prev.getFullYear()) : prev.getFullYear()
         return await this.ensureRetainerInvoice(task.clientId, month, year, Number(c.retainerAmount), this.retainerServices(c))
       }
 
