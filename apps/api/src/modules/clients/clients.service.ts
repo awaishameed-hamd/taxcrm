@@ -167,6 +167,9 @@ export class ClientsService {
             province:            dto.province,
             traineeId:           dto.traineeId,
             representativeId:    dto.representativeId ?? undefined,
+            // Without this the column falls back to its DECEMBER default, so a
+            // client created with a June year end came out as December.
+            ...(dto.yearEnd ? { yearEnd: dto.yearEnd } : {}),
             salesTaxAuthorities:  dto.salesTaxAuthorities ?? [],
             hasWhtService:        dto.hasWhtService ?? false,
             hasAdvanceTaxService: dto.hasAdvanceTaxService ?? false,
