@@ -1522,10 +1522,48 @@ export default function ClientsListPage() {
   const [inviteSending,  setInviteSending]  = useState<string | null>(null)
   const [toast,          setToast]          = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [statusFilter,   setStatusFilter]   = useState<'all' | 'active' | 'inactive'>('all')
+  // Empty means every staff member. Filtering by one shows just their clients.
+  const [traineeFilter,  setTraineeFilter]  = useState<string>('')
   const [visibleCols, setVisibleCols] = useState<string[]>(ALL_CLIENT_COL_KEYS)
   const [colWidths, setColWidths] = useState<Record<string, number>>(
     Object.fromEntries(ALL_CLIENT_COLS.map(c => [c.key, c.defaultWidth])),
   )
+
+  const matchesStatus = useCallback((c: any) => {
+    if (statusFilter === 'active')   return c.user?.isActive !== false
+    if (statusFilter === 'inactive') return c.user?.isActive === false
+    return true
+  }, [statusFilter])
+
+  // Built from the clients themselves, so the list only offers staff who
+  // actually hold clients, and each option carries their count.
+  const traineeOptions = useMemo(() => {
+    const counts = new Map<string, { name: string; n: number }>()
+    let unassigned = 0
+    for (const c of clients) {
+      if (!matchesStatus(c)) continue
+      const t = c.trainee
+      if (!t?.id) { unassigned++; continue }
+      const row = counts.get(t.id) ?? { name: t.fullName ?? 'Unknown', n: 0 }
+      row.n += 1
+      counts.set(t.id, row)
+    }
+    const opts = [...counts.entries()]
+      .sort((a, b) => b[1].n - a[1].n || a[1].name.localeCompare(b[1].name))
+      .map(([id, r]) => ({ value: id, label: `${r.name} (${r.n})` }))
+    return [
+      { value: '', label: `All Staff (${clients.filter(matchesStatus).length})` },
+      ...opts,
+      ...(unassigned > 0 ? [{ value: '__none__', label: `Unassigned (${unassigned})` }] : []),
+    ]
+  }, [clients, matchesStatus])
+
+  const visibleClients = useMemo(() => clients.filter(c => {
+    if (!matchesStatus(c)) return false
+    if (!traineeFilter) return true
+    if (traineeFilter === '__none__') return !c.trainee?.id
+    return c.trainee?.id === traineeFilter
+  }), [clients, matchesStatus, traineeFilter])
   const [colsHydrated, setColsHydrated] = useState(false)
   const resizingCol = useRef<{ key: string; startX: number; startW: number } | null>(null)
 
@@ -1859,16 +1897,20 @@ export default function ClientsListPage() {
           {/* Separator */}
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
+          {/* Assigned staff, each option shows how many clients they hold */}
+          <div style={{ flexShrink: 0, width: 190 }}>
+            <StyledSelect value={traineeFilter} onChange={setTraineeFilter} options={traineeOptions} />
+          </div>
+
+          {/* Separator */}
+          <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
+
           {/* Column Picker */}
           <ColumnPicker visible={visibleCols} onChange={setVisibleCols} />
 
           {/* Count */}
           <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#fff', paddingLeft: 4, paddingRight: 4 }}>
-            {clients.filter(c => {
-              if (statusFilter === 'active')   return c.user?.isActive !== false
-              if (statusFilter === 'inactive') return c.user?.isActive === false
-              return true
-            }).length} clients
+            {visibleClients.length} clients
           </span>
 
         </div>
@@ -1920,19 +1962,17 @@ export default function ClientsListPage() {
                   ))}
                 </tr>
               ))
-              : clients.length === 0
+              : visibleClients.length === 0
                 ? (
                   <tr>
                     <td colSpan={visibleCols.length + 1} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted }}>
-                      {search ? `No clients matching "${search}".` : 'No clients yet. Click + New Client to add one.'}
+                      {search ? `No clients matching "${search}".`
+                        : traineeFilter ? 'No clients for this staff member.'
+                        : 'No clients yet. Click + New Client to add one.'}
                     </td>
                   </tr>
                 )
-                : clients.filter(c => {
-                    if (statusFilter === 'active')   return c.user?.isActive !== false
-                    if (statusFilter === 'inactive') return c.user?.isActive === false
-                    return true
-                  }).map((c, idx) => {
+                : visibleClients.map((c, idx) => {
                   const td: React.CSSProperties = {
                     padding: '6px 14px', borderBottom: `1px solid ${P.border}50`,
                     fontFamily: "'Aptos', sans-serif", fontSize: 13, whiteSpace: 'nowrap',
