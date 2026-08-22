@@ -1497,15 +1497,24 @@ function StaffFilter({ value, onChange, options }: {
   onChange: (v: string) => void
   options: { value: string; label: string }[]
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen]   = useState(false)
+  const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [])
+  // Start each visit with the full list rather than the last search
+  useEffect(() => { if (!open) setQuery('') }, [open])
 
   const current = options.find(o => o.value === value) ?? options[0]
+
+  // With a lot of staff, typing narrows the list. "All Staff" stays reachable
+  // by clearing the box, so it is only hidden while a search is active.
+  const shown = query.trim()
+    ? options.filter(o => o.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : options
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
@@ -1525,28 +1534,40 @@ function StaffFilter({ value, onChange, options }: {
         <div style={{
           position: 'absolute', left: 0, top: 'calc(100% + 6px)', zIndex: 50,
           background: '#0D1B2A', border: '1px solid #3F4753', borderRadius: 10,
-          overflow: 'hidden', width: 210, maxHeight: 320, overflowY: 'auto',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          overflow: 'hidden', width: 220, boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         }}>
-          {options.map((o, i) => {
-            const active = o.value === value
-            return (
-              <button key={o.value || `all-${i}`} onClick={() => { onChange(o.value); setOpen(false) }}
-                style={{
-                  display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
-                  border: 'none', cursor: 'pointer', fontSize: 12,
-                  fontFamily: '"Aptos", sans-serif',
-                  background: active ? 'rgba(30,132,150,0.25)' : 'transparent',
-                  color: active ? '#FBDCB4' : '#9FA7B2',
-                  borderBottom: i === 0 ? '1px solid #3F4753' : 'none',
-                  fontWeight: active ? 700 : 500,
-                }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)' }}
-                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
-                {o.label}
-              </button>
-            )
-          })}
+          <div style={{ padding: 8, borderBottom: '1px solid #3F4753' }}>
+            <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search staff…"
+              style={{
+                width: '100%', boxSizing: 'border-box', padding: '6px 10px', borderRadius: 6,
+                border: '1px solid #3F4753', background: 'rgba(255,255,255,0.06)',
+                color: '#fff', fontSize: 12, outline: 'none', fontFamily: '"Aptos", sans-serif',
+              }} />
+          </div>
+          <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+            {shown.length === 0 ? (
+              <div style={{ padding: '12px', fontSize: 12, color: '#9FA7B2', textAlign: 'center', fontFamily: '"Aptos", sans-serif' }}>
+                No staff found.
+              </div>
+            ) : shown.map((o, i) => {
+              const active = o.value === value
+              return (
+                <button key={o.value || `all-${i}`} onClick={() => { onChange(o.value); setOpen(false) }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
+                    border: 'none', cursor: 'pointer', fontSize: 12,
+                    fontFamily: '"Aptos", sans-serif',
+                    background: active ? 'rgba(30,132,150,0.25)' : 'transparent',
+                    color: active ? '#FBDCB4' : '#9FA7B2',
+                    fontWeight: active ? 700 : 500,
+                  }}
+                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)' }}
+                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
+                  {o.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
