@@ -1491,6 +1491,68 @@ function RepFormModal({ initial, onClose, onSuccess }: { initial?: any; onClose:
   )
 }
 
+// ── Assigned staff filter, styled to sit inside the teal filter bar ──────────
+function StaffFilter({ value, onChange, options }: {
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const current = options.find(o => o.value === value) ?? options[0]
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 8,
+        fontSize: 11, fontWeight: 700, cursor: 'pointer', maxWidth: 190,
+        background: open ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.15)',
+        border: '1px solid rgba(255,255,255,0.3)', color: '#fff',
+        fontFamily: '"Aptos", sans-serif', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+      }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+        </svg>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{current?.label ?? 'All Staff'}</span>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', left: 0, top: 'calc(100% + 6px)', zIndex: 50,
+          background: '#0D1B2A', border: '1px solid #3F4753', borderRadius: 10,
+          overflow: 'hidden', width: 210, maxHeight: 320, overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        }}>
+          {options.map((o, i) => {
+            const active = o.value === value
+            return (
+              <button key={o.value || `all-${i}`} onClick={() => { onChange(o.value); setOpen(false) }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
+                  border: 'none', cursor: 'pointer', fontSize: 12,
+                  fontFamily: '"Aptos", sans-serif',
+                  background: active ? 'rgba(30,132,150,0.25)' : 'transparent',
+                  color: active ? '#FBDCB4' : '#9FA7B2',
+                  borderBottom: i === 0 ? '1px solid #3F4753' : 'none',
+                  fontWeight: active ? 700 : 500,
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
+                {o.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ClientsListPage() {
   const { user }           = useAuth()
@@ -1898,9 +1960,7 @@ export default function ClientsListPage() {
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
           {/* Assigned staff, each option shows how many clients they hold */}
-          <div style={{ flexShrink: 0, width: 190 }}>
-            <StyledSelect value={traineeFilter} onChange={setTraineeFilter} options={traineeOptions} />
-          </div>
+          <StaffFilter value={traineeFilter} onChange={setTraineeFilter} options={traineeOptions} />
 
           {/* Separator */}
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
