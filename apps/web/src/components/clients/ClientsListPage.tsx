@@ -57,7 +57,8 @@ function ColumnPicker({ visible, onChange }: { visible: string[]; onChange: (v: 
     <div ref={ref} style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)} style={{
         display: 'flex', alignItems: 'center', gap: 6,
-        padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+        // Same vertical padding as the staff filter pill so both sit at one height
+        padding: '4px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
         background: open ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.15)',
         border: '1px solid rgba(255,255,255,0.3)', color: '#fff',
         fontFamily: '"Aptos", sans-serif', letterSpacing: '0.06em',
