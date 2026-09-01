@@ -71,6 +71,12 @@ export class TasksController {
     return this.service.getAssignableUsers(req.user.id, req.user.role)
   }
 
+  @Get('team-leads')
+  @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
+  teamLeads() {
+    return this.service.getTeamLeads()
+  }
+
   @Get('clients')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
   clients(@Req() req: any) {

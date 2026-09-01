@@ -174,17 +174,20 @@ model User {
 
   // Sales Tax Tasks
   salesTaxTasks        SalesTaxTask[]        @relation("TraineeSalesTaxTasks")
+  salesTaxTasksToLead  SalesTaxTask[]        @relation("TeamLeadSalesTaxTasks")
   salesTaxTasksActedOn SalesTaxTaskHistory[] @relation("SalesTaxTaskHistoryActor")
   completedCustomSteps SalesTaxCustomStep[]  @relation("CompletedCustomSteps")
 
   // General Tasks
   createdTasks    Task[]     @relation("CreatedTasks")
   assignedTasks   Task[]     @relation("AssignedTasks")
+  tasksToLead     Task[]     @relation("TeamLeadTasks")
   taskStepsDone   TaskStep[] @relation("TaskStepDoneBy")
 
   // FBR Notices & Appeals
   fbrCasesCreated  FbrCase[]       @relation("FbrCaseCreator")
   fbrCasesAssigned FbrCase[]       @relation("FbrCaseAssignee")
+  fbrCasesToLead   FbrCase[]       @relation("TeamLeadFbrCases")
   fbrAttachments   FbrAttachment[] @relation("FbrAttachmentUploader")
   invoicesCreated  Invoice[]       @relation("InvoiceCreator")
   paymentsRecorded Payment[]       @relation("PaymentRecorder")
@@ -758,6 +761,13 @@ model SalesTaxTask {
   traineeId String
   trainee   User   @relation("TraineeSalesTaxTasks", fields: [traineeId], references: [id])
 
+  // Which Team Lead owns this task's approval. Null means "follow the trainee's
+  // current team lead", which is what auto-generated tasks want. A value is only
+  // stored when the task was deliberately routed elsewhere, so a Team Lead who
+  // raises work for someone outside their own team still gets it back to approve.
+  teamLeadId String?
+  teamLead   User?   @relation("TeamLeadSalesTaxTasks", fields: [teamLeadId], references: [id])
+
   // Tax period
   periodMonth Int  // 1–12
   periodYear  Int  // e.g. 2026
@@ -807,6 +817,7 @@ model SalesTaxTask {
 
   @@unique([clientId, periodMonth, periodYear, authority, returnType, taskType])
   @@index([traineeId])
+  @@index([teamLeadId])
   @@index([status])
   @@index([periodYear, periodMonth])
   @@index([clientId])
@@ -861,10 +872,15 @@ model Task {
   assignedToId String
   assignedTo   User   @relation("AssignedTasks", fields: [assignedToId], references: [id])
 
+  // Team Lead this task reports to, see the note on SalesTaxTask.teamLeadId
+  teamLeadId String?
+  teamLead   User?   @relation("TeamLeadTasks", fields: [teamLeadId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([assignedToId])
+  @@index([teamLeadId])
   @@index([createdById])
   @@index([status])
   @@index([taxType])
@@ -1100,6 +1116,10 @@ model FbrCase {
   assignedToId String?
   assignedTo   User?   @relation("FbrCaseAssignee", fields: [assignedToId], references: [id])
 
+  // Team Lead this case reports to, see the note on SalesTaxTask.teamLeadId
+  teamLeadId String?
+  teamLead   User?   @relation("TeamLeadFbrCases", fields: [teamLeadId], references: [id])
+
   createdById String
   createdBy   User   @relation("FbrCaseCreator", fields: [createdById], references: [id])
 
@@ -1117,6 +1137,7 @@ model FbrCase {
   @@index([clientId])
   @@index([currentStage])
   @@index([assignedToId])
+  @@index([teamLeadId])
   @@index([createdAt])
   @@map("fbr_cases")
 }

@@ -80,7 +80,7 @@ export default function GeneralTasksPage({ taxType }: Props) {
   const [saving,          setSaving]          = useState(false)
   const [toast,           setToast]           = useState<{ msg: string; ok: boolean } | null>(null)
 
-  const emptyForm = { title: '', description: '', priority: 'MEDIUM', dueDate: '', assignedToId: '', clientId: '', taxType: '', authority: '' }
+  const emptyForm = { title: '', description: '', priority: 'MEDIUM', dueDate: '', assignedToId: '', teamLeadId: '', clientId: '', taxType: '', authority: '' }
   const [form, setForm] = useState<typeof emptyForm>(emptyForm)
 
   const showToast = (msg: string, ok = true) => {
@@ -128,6 +128,7 @@ export default function GeneralTasksPage({ taxType }: Props) {
       priority:    task.priority,
       dueDate:     task.dueDate ? task.dueDate.split('T')[0] : '',
       assignedToId: task.assignedTo?.id ?? '',
+      teamLeadId:  task.teamLead?.id ?? '',
       clientId:    task.client?.id ?? '',
       taxType:     task.taxType ?? '',
       authority:   task.authority ?? '',
@@ -150,6 +151,7 @@ export default function GeneralTasksPage({ taxType }: Props) {
         priority:     form.priority,
         dueDate:      form.dueDate || undefined,
         assignedToId: effectiveAssignedToId,
+        teamLeadId:   form.teamLeadId || undefined,
         clientId:     form.clientId,
         taxType,
         authority:    form.authority || undefined,
@@ -173,6 +175,7 @@ export default function GeneralTasksPage({ taxType }: Props) {
         priority:    form.priority,
         dueDate:     form.dueDate || undefined,
         assignedToId: form.assignedToId,
+        teamLeadId:  form.teamLeadId || undefined,
         clientId:    form.clientId || undefined,
       })
       const task = uw(res.data)
@@ -462,6 +465,7 @@ export default function GeneralTasksPage({ taxType }: Props) {
           saving={saving}
           taxType={taxType}
           currentUserId={user?.id}
+          currentUserRole={role}
           onClose={() => { setShowCreate(false); setShowEdit(false) }}
           onSubmit={showCreate ? handleCreate : handleEdit}
           submitLabel={showCreate ? 'Create Task' : 'Save Changes'}
@@ -567,7 +571,7 @@ function SearchableSelect({ value, onChange, options, placeholder, loading, requ
 // ── Shared form modal (also exported for Sidebar use) ─────────────────────────
 export function TaskFormModal({
   title, form, setForm, clients, clientsLoading, assignableUsers, canAssignOthers,
-  saving, taxType, currentUserId, onClose, onSubmit, submitLabel, showSalesTax,
+  saving, taxType, currentUserId, currentUserRole, onClose, onSubmit, submitLabel, showSalesTax,
 }: {
   title: string
   form: any
@@ -579,6 +583,7 @@ export function TaskFormModal({
   saving: boolean
   taxType?: string
   currentUserId?: string
+  currentUserRole?: string
   onClose: () => void
   onSubmit: () => void
   submitLabel: string
@@ -606,6 +611,29 @@ export function TaskFormModal({
     setForm((f: any) => (f.assignedToId === lockedAssigneeId ? f : { ...f, assignedToId: lockedAssigneeId }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClientLockedAssignee, lockedAssigneeId])
+
+  // ── Approval By: which Team Lead reviews this task ──────────────────────────
+  // A Team Lead's own work always comes back to them, so they get no picker.
+  // Everyone else defaults to whoever the chosen assignee reports to and can
+  // point it somewhere else for this one task.
+  const showTeamLead = currentUserRole !== 'TEAM_LEAD'
+  const [teamLeads, setTeamLeads] = useState<any[]>([])
+  useEffect(() => {
+    if (!showTeamLead) return
+    api.get('/tasks/team-leads')
+      .then(r => { const d = r.data?.data ?? r.data; setTeamLeads(Array.isArray(d) ? d : []) })
+      .catch(() => {})
+  }, [showTeamLead])
+
+  const assigneeId   = canAssignOthers ? form.assignedToId : currentUserId
+  const assigneeLead = assignableUsers.find(u => u.id === assigneeId)?.teamLeadId ?? ''
+  // Resets to the assignee's own lead whenever the assignee changes, a manual
+  // pick sticks for as long as the assignee stays put.
+  useEffect(() => {
+    if (!showTeamLead) return
+    setForm((f: any) => (f.teamLeadId === assigneeLead ? f : { ...f, teamLeadId: assigneeLead }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assigneeLead, showTeamLead])
 
   // Notice sections, loaded when FBR tab is active, re-loaded on taxType change
   const [noticeSections, setNoticeSections] = useState<{ value: string; label: string }[]>([{ value: '', label: 'None' }])
@@ -924,6 +952,19 @@ export function TaskFormModal({
                   label: u.id === currentUserId ? `${u.fullName} (Myself)` : u.fullName,
                 }))}
                 placeholder="Search team member…"
+              />
+            </div>
+          )}
+
+          {/* Approval By, the Team Lead who reviews this task */}
+          {showTeamLead && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Approval By (Team Lead)</label>
+              <SearchableSelect
+                value={form.teamLeadId ?? ''}
+                onChange={val => setForm((f: any) => ({ ...f, teamLeadId: val }))}
+                options={teamLeads.map(t => ({ value: t.id, label: t.fullName }))}
+                placeholder="Select team lead…"
               />
             </div>
           )}

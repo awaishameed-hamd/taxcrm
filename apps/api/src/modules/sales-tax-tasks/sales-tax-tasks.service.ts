@@ -9,6 +9,7 @@ import { ChatGateway } from '../chat/chat.gateway'
 import { FbrService } from '../fbr/fbr.service'
 import { InvoicesService } from '../invoices/invoices.service'
 import { Role as StaffRole } from '@ca-firm/shared'
+import { resolveTaskTeamLead, teamLeadOwnedFilter } from '../../common/utils/task-team-lead.util'
 
 // Steps that only the assigned trainee can advance
 const TRAINEE_STEPS: SalesTaxTaskStatus[] = [
@@ -43,7 +44,8 @@ const TASK_INCLUDE = {
       user: { select: { id: true, fullName: true, userCode: true, email: true } },
     },
   },
-  trainee: { select: { id: true, fullName: true, userCode: true } },
+  trainee:  { select: { id: true, fullName: true, userCode: true } },
+  teamLead: { select: { id: true, fullName: true, userCode: true } },
   history: {
     include: { actedBy: { select: { id: true, fullName: true, role: true } } },
     orderBy: { createdAt: 'asc' as const },
@@ -69,11 +71,11 @@ export class SalesTaxTasksService {
 
   async listForTrainee(traineeId: string, status?: string, taskType?: string, role?: string) {
     // A Team Lead's task list covers their whole team, not just what is assigned
-    // to them personally, and it follows the trainee's current team lead, so
-    // moving a trainee to another lead moves their tasks with them. General
-    // Tasks already work this way.
+    // to them personally, plus anything pinned to them (work they raised for a
+    // trainee on someone else's team). Unpinned tasks follow the trainee's
+    // current team lead, so moving a trainee moves their tasks with them.
     const scope = role === 'TEAM_LEAD'
-      ? { OR: [{ traineeId }, { trainee: { teamLeadId: traineeId } }] }
+      ? { OR: [{ traineeId }, ...teamLeadOwnedFilter(traineeId, 'trainee').OR] }
       : { traineeId }
 
     return this.prisma.salesTaxTask.findMany({
@@ -93,7 +95,7 @@ export class SalesTaxTasksService {
       SalesTaxTaskStatus.SENT_BACK,
       SalesTaxTaskStatus.COMPLETED,
     ]
-    const teamFilter = role === 'TEAM_LEAD' && userId ? { trainee: { teamLeadId: userId } } : {}
+    const teamFilter = role === 'TEAM_LEAD' && userId ? teamLeadOwnedFilter(userId, 'trainee') : {}
     return this.prisma.salesTaxTask.findMany({
       where: {
         ...(taskType ? { taskType } : {}),
@@ -106,7 +108,7 @@ export class SalesTaxTasksService {
   }
 
   async listAll(taskType?: string, userId?: string, role?: string) {
-    const teamFilter = role === 'TEAM_LEAD' && userId ? { trainee: { teamLeadId: userId } } : {}
+    const teamFilter = role === 'TEAM_LEAD' && userId ? teamLeadOwnedFilter(userId, 'trainee') : {}
     return this.prisma.salesTaxTask.findMany({
       where: {
         status: { notIn: [SalesTaxTaskStatus.COMPLETED] },
@@ -316,7 +318,7 @@ export class SalesTaxTasksService {
 
   // ── Manually create a single task (manager / admin) ────────────────────────
 
-  async createSingle(dto: { clientId: string; traineeId: string; periodMonth: number; periodYear: number; dueDate?: string; priority?: string; assignerNote?: string; authority?: string; returnType?: string; taskType?: string }, creatorId: string, creatorRole?: string) {
+  async createSingle(dto: { clientId: string; traineeId: string; periodMonth: number; periodYear: number; dueDate?: string; priority?: string; assignerNote?: string; authority?: string; returnType?: string; taskType?: string; teamLeadId?: string | null }, creatorId: string, creatorRole?: string) {
     const taskType   = dto.taskType   ?? 'SALES_TAX'
     if (taskType === 'SALES_TAX' || taskType === 'WHT') {
       // Sales Tax / WHT are locked to whichever staff member the client is assigned to ,
@@ -349,10 +351,13 @@ export class SalesTaxTasksService {
       throw new ConflictException(`A ${typeLabel} task for this client (${periodLabel}) is already in progress${traineeLabel}. Check "Incomplete Tasks" to find it.`)
     }
 
+    const teamLeadId = await resolveTaskTeamLead(this.prisma, dto.traineeId, creatorId, creatorRole, dto.teamLeadId)
+
     const task = await this.prisma.salesTaxTask.create({
       data: {
         clientId:    dto.clientId,
         traineeId:   dto.traineeId,
+        teamLeadId,
         periodMonth: dto.periodMonth,
         periodYear:  dto.periodYear,
         dueDate:     dto.dueDate ? new Date(dto.dueDate) : null,
@@ -409,14 +414,14 @@ export class SalesTaxTasksService {
       noticesCount = this.prisma.fbrCase.count({ where: { assignedToId: userId, currentStage: { not: 'CLOSED' } } })
     } else if (view === 'approval') {
       // Task Approval tab: tasks pending review, the whole team for Team Lead, firm-wide otherwise
-      const teamFilter = role === 'TEAM_LEAD' ? { trainee: { teamLeadId: userId } } : {}
+      const teamFilter = role === 'TEAM_LEAD' ? teamLeadOwnedFilter(userId, 'trainee') : {}
       taxWhere = { status: { in: approvalStatuses }, ...teamFilter }
       noticesCount = this.fbrService.listCases(userId, role as StaffRole, undefined, undefined, undefined, 'approval').then(c => c.length)
     } else {
       // Tasks tab ("my tasks"): whatever's assigned directly to this user. A Team
       // Lead also counts their team's, matching what the list actually returns.
       const scope = role === 'TEAM_LEAD'
-        ? { OR: [{ traineeId: userId }, { trainee: { teamLeadId: userId } }] }
+        ? { OR: [{ traineeId: userId }, ...teamLeadOwnedFilter(userId, 'trainee').OR] }
         : { traineeId: userId }
       taxWhere = { ...scope, status: { not: SalesTaxTaskStatus.COMPLETED } }
       noticesCount = this.prisma.fbrCase.count({ where: { assignedToId: userId, currentStage: { not: 'CLOSED' } } })

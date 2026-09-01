@@ -9,6 +9,8 @@ export class CreateFbrCaseDto {
   @IsOptional() @IsString() noticeNumber?: string
   @IsOptional() @IsString() description?: string
   @IsOptional() @IsString() assignedToId?: string
+  // Which Team Lead approves this case. Left out means "the assignee's own lead".
+  @IsOptional() @IsString() teamLeadId?: string
   @IsOptional() @IsString() authority?: string
 }
 

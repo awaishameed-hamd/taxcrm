@@ -21,6 +21,14 @@ export async function assertClientAccess(
 
   if (actorRole === Role.TEAM_LEAD) {
     if (client.traineeId === actorId || client.trainee?.teamLeadId === actorId) return
+    // Work a Team Lead raised for a trainee outside their own team is pinned to
+    // them for approval, so they need this client's data to review it.
+    const [task, fbrCase, general] = await Promise.all([
+      prisma.salesTaxTask.findFirst({ where: { clientId, teamLeadId: actorId }, select: { id: true } }),
+      prisma.fbrCase.findFirst({ where: { clientId, teamLeadId: actorId }, select: { id: true } }),
+      prisma.task.findFirst({ where: { clientId, teamLeadId: actorId }, select: { id: true } }),
+    ])
+    if (task || fbrCase || general) return
     throw new ForbiddenException('Access denied')
   }
 

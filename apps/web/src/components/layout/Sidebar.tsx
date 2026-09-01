@@ -236,7 +236,7 @@ const AVATAR_KEY_PREFIX = 'ca_firm_avatar_'
 
 interface SidebarProps { collapsed: boolean; onToggle: () => void; compact?: boolean }
 
-const BLANK_FORM = { title: '', clientId: '', priority: 'MEDIUM', dueDate: '', assignedToId: '', description: '', taxType: '', incomeTaxKind: 'return', periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), authority: 'FBR', returnType: 'ORIGINAL', fbrEntryPoint: 'FRESH_NOTICE', fbrTaxType: 'INCOME_TAX', fbrTaxYear: '', fbrNoticeSection: '', fbrNoticeNumber: '', fbrTaxTypeOther: '' }
+const BLANK_FORM = { title: '', clientId: '', priority: 'MEDIUM', dueDate: '', assignedToId: '', teamLeadId: '', description: '', taxType: '', incomeTaxKind: 'return', periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), authority: 'FBR', returnType: 'ORIGINAL', fbrEntryPoint: 'FRESH_NOTICE', fbrTaxType: 'INCOME_TAX', fbrTaxYear: '', fbrNoticeSection: '', fbrNoticeNumber: '', fbrTaxTypeOther: '' }
 
 export default function Sidebar({ collapsed, onToggle, compact = false }: SidebarProps) {
   const { user, logout, permissions } = useAuth()
@@ -433,6 +433,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
           description:  ntForm.description   || undefined,
           authority:    ntForm.authority || 'FBR',
           assignedToId: effectiveAssignedToId,
+          teamLeadId:   ntForm.teamLeadId || undefined,
         })
         setShowNewTask(false)
         setNtToast({ msg: 'FBR case created!', ok: true })
@@ -468,6 +469,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
         await api.post('/sales-tax-tasks', {
           clientId:     ntForm.clientId,
           traineeId:    effectiveAssignedToId ?? user?.id,
+          teamLeadId:   ntForm.teamLeadId || undefined,
           periodMonth,
           periodYear:   Number(ntForm.periodYear),
           dueDate:      ntForm.dueDate || undefined,
@@ -483,6 +485,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
           priority:     ntForm.priority,
           dueDate:      ntForm.dueDate || undefined,
           assignedToId: effectiveAssignedToId,
+          teamLeadId:   ntForm.teamLeadId || undefined,
           taxType:      ntForm.taxType || 'income_tax',
           clientId:     ntForm.clientId,
         })
@@ -970,6 +973,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
           canAssignOthers={canAssignOthers}
           saving={ntSaving}
           currentUserId={user?.id}
+          currentUserRole={user?.role}
           showSalesTax={true}
           onClose={() => setShowNewTask(false)}
           onSubmit={submitNewTask}

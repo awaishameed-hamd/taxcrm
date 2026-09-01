@@ -14,6 +14,7 @@ import {
   UpdateHearingDto,
   CreateNoticeSectionDto,
 } from './dto/fbr.dto'
+import { resolveTaskTeamLead, teamLeadOwnedFilter } from '../../common/utils/task-team-lead.util'
 
 // Review/approval steps in the FBR workflow are Manager+ or Partner+ tier decisions ,
 // a Trainee must never be able to complete these themselves, no matter what the client sends.
@@ -136,11 +137,12 @@ export class FbrService {
     if (role === Role.TRAINEE) {
       where.assignedToId = userId
     } else if (role === Role.TEAM_LEAD) {
-      const myTrainees = await this.prisma.user.findMany({
-        where: { teamLeadId: userId },
-        select: { id: true },
-      })
-      where.assignedToId = { in: [userId, ...myTrainees.map(t => t.id)] }
+      // Their own cases, their team's, plus anything pinned to them because
+      // they raised it for a trainee on another lead's team.
+      where.OR = [
+        { assignedToId: userId },
+        ...teamLeadOwnedFilter(userId, 'assignedTo').OR,
+      ]
     }
 
     const cases = await this.prisma.fbrCase.findMany({
@@ -220,17 +222,20 @@ export class FbrService {
     if (role === Role.TRAINEE) {
       if (assignedToId !== userId) throw new ForbiddenException('Access denied')
     } else if (role === Role.TEAM_LEAD) {
-      const myTrainees = await this.prisma.user.findMany({ where: { teamLeadId: userId }, select: { id: true } })
-      const allowed = new Set([userId, ...myTrainees.map(t => t.id)])
-      if (!assignedToId || !allowed.has(assignedToId)) throw new ForbiddenException('Access denied')
+      const owned = await this.prisma.fbrCase.findFirst({
+        where:  { id, ...teamLeadOwnedFilter(userId, 'assignedTo') },
+        select: { id: true },
+      })
+      if (assignedToId !== userId && !owned) throw new ForbiddenException('Access denied')
     }
 
     return c
   }
 
   // â”€â”€ Create case â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  async createCase(dto: CreateFbrCaseDto, creatorId: string) {
+  async createCase(dto: CreateFbrCaseDto, creatorId: string, creatorRole?: Role | string) {
     const caseNumber = await this.nextCaseNumber()
+    const teamLeadId = await resolveTaskTeamLead(this.prisma, dto.assignedToId, creatorId, creatorRole, dto.teamLeadId)
 
     const entryPoint = dto.entryPoint as any
     // Determine initial stage from entry point
@@ -252,6 +257,7 @@ export class FbrService {
         description: dto.description,
         authority:    dto.authority || 'FBR',
         assignedToId: dto.assignedToId,
+        teamLeadId,
         createdById:  creatorId,
       },
       select: FULL_CASE_SELECT,

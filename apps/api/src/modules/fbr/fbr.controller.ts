@@ -49,7 +49,7 @@ export class FbrController {
   @Post('cases')
   @Roles(...ALL)
   createCase(@Req() req: any, @Body() dto: CreateFbrCaseDto) {
-    return this.svc.createCase(dto, req.user.id)
+    return this.svc.createCase(dto, req.user.id, req.user.role)
   }
 
   @Patch('cases/:id')

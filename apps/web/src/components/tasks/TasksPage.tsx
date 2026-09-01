@@ -306,10 +306,11 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
 
   // Assign task modal (manager/admin only)
   const [assignModal,     setAssignModal]     = useState(false)
-  const [assignForm,      setAssignForm]      = useState({ clientId:'', traineeId:'', periodMonth: new Date().getMonth()+1, periodYear: new Date().getFullYear(), dueDate:'', authority:'FBR', returnType:'ORIGINAL' })
+  const [assignForm,      setAssignForm]      = useState({ clientId:'', traineeId:'', teamLeadId:'', periodMonth: new Date().getMonth()+1, periodYear: new Date().getFullYear(), dueDate:'', authority:'FBR', returnType:'ORIGINAL' })
   const [assignLoading,   setAssignLoading]   = useState(false)
   const [clientList,      setClientList]      = useState<any[]>([])
   const [traineeList,     setTraineeList]     = useState<any[]>([])
+  const [teamLeadList,    setTeamLeadList]    = useState<any[]>([])
 
   // General tasks state
   const [genTasks,        setGenTasks]        = useState<any[]>([])
@@ -428,16 +429,29 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   const openAssignModal = async () => {
     setAssignModal(true)
     try {
-      const [cl, tl] = await Promise.all([
+      const [cl, tl, leads] = await Promise.all([
         api.get('/tasks/clients'),
         api.get('/tasks/assignable-users'),
+        api.get('/tasks/team-leads'),
       ])
       const clients = cl.data?.data ?? cl.data ?? []
       const users   = tl.data?.data ?? tl.data ?? []
       setClientList(clients)
       setTraineeList(users)
+      setTeamLeadList(leads.data?.data ?? leads.data ?? [])
     } catch { /* ignore */ }
   }
+
+  // Approval routing: a Team Lead's own work always comes back to them, so they
+  // get no picker. For everyone else it defaults to the chosen trainee's own
+  // lead and can be pointed elsewhere for this one task.
+  const showAssignTeamLead = role !== 'team_lead'
+  const assignTraineeLead  = traineeList.find((u:any) => u.id === assignForm.traineeId)?.teamLeadId ?? ''
+  useEffect(() => {
+    if (!showAssignTeamLead) return
+    setAssignForm(p => (p.teamLeadId === assignTraineeLead ? p : { ...p, teamLeadId: assignTraineeLead }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignTraineeLead, showAssignTeamLead])
 
   const submitAssignTask = async () => {
     if (!assignForm.clientId || !assignForm.traineeId) return
@@ -448,6 +462,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
       await api.post('/sales-tax-tasks', {
         clientId:    assignForm.clientId,
         traineeId:   assignForm.traineeId,
+        teamLeadId:  assignForm.teamLeadId || undefined,
         periodMonth,
         periodYear:  Number(assignForm.periodYear),
         dueDate:     assignForm.dueDate || undefined,
@@ -455,7 +470,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
         ...(activeTax === 'sales_tax' ? { authority: assignForm.authority, returnType: assignForm.returnType } : {}),
       })
       setAssignModal(false)
-      setAssignForm({ clientId:'', traineeId:'', periodMonth: new Date().getMonth()+1, periodYear: new Date().getFullYear(), dueDate:'', authority:'FBR', returnType:'ORIGINAL' })
+      setAssignForm({ clientId:'', traineeId:'', teamLeadId:'', periodMonth: new Date().getMonth()+1, periodYear: new Date().getFullYear(), dueDate:'', authority:'FBR', returnType:'ORIGINAL' })
       showToast('Task assigned successfully')
       fetchPipeTasks()
     } catch (e:any) {
@@ -2205,6 +2220,21 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                 placeholder="Select user…"
               />
             </div>
+
+            {/* Approval By, the Team Lead who reviews this task */}
+            {showAssignTeamLead && (
+              <>
+                <label style={{ display:'block', fontSize:11, fontWeight:700, color:P.textLabel, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em', fontFamily:"'Aptos',sans-serif" }}>Approval By (Team Lead)</label>
+                <div style={{ marginBottom:12 }}>
+                  <StyledSelect
+                    value={assignForm.teamLeadId}
+                    onChange={val => setAssignForm(p => ({...p, teamLeadId:val}))}
+                    options={teamLeadList.map((t:any) => ({ value: t.id, label: t.fullName }))}
+                    placeholder="Select team lead…"
+                  />
+                </div>
+              </>
+            )}
 
             {/* Period */}
             <div style={{ display:'flex', gap:10, marginBottom:12 }}>

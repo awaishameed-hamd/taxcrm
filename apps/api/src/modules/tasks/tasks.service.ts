@@ -4,6 +4,7 @@ import { Role } from '@ca-firm/shared'
 import { CreateTaskDto, UpdateTaskDto } from './dto/create-task.dto'
 import { NotificationsService } from '../notifications/notifications.service'
 import { ChatGateway } from '../chat/chat.gateway'
+import { resolveTaskTeamLead, teamLeadOwnedFilter } from '../../common/utils/task-team-lead.util'
 
 @Injectable()
 export class TasksService {
@@ -20,6 +21,7 @@ export class TasksService {
     client:      { select: { id: true, businessName: true, user: { select: { id: true, fullName: true, userCode: true } } } },
     createdBy:   { select: { id: true, fullName: true, role: true, userCode: true } },
     assignedTo:  { select: { id: true, fullName: true, role: true, userCode: true } },
+    teamLead:    { select: { id: true, fullName: true, userCode: true } },
     steps:       { select: { id: true, title: true, description: true, approvedBy: true, isDone: true, order: true, comment: true, attachmentUrl: true, doneAt: true, doneBy: { select: { id: true, fullName: true } } }, orderBy: { order: 'asc' as const } },
   }
 
@@ -30,11 +32,12 @@ export class TasksService {
     if (role === Role.TRAINEE) {
       where.assignedToId = userId
     } else if (role === Role.TEAM_LEAD) {
-      const myTrainees = await this.prisma.user.findMany({
-        where: { teamLeadId: userId },
-        select: { id: true },
-      })
-      where.assignedToId = { in: [userId, ...myTrainees.map(t => t.id)] }
+      // Their own work, their team's, plus anything they raised for someone
+      // outside their team (pinned to them via teamLeadId).
+      where.OR = [
+        { assignedToId: userId },
+        ...teamLeadOwnedFilter(userId, 'assignedTo').OR,
+      ]
     }
     // ADMIN / PARTNER see everything
 
@@ -56,10 +59,12 @@ export class TasksService {
       throw new ForbiddenException('Trainees can only create tasks for themselves')
     }
 
+    // A Team Lead can assign to any trainee in the firm, not just their own team.
+    // Whatever they raise is pinned back to them for approval, see resolveTaskTeamLead.
     if (creatorRole === Role.TEAM_LEAD && assignedToId !== creatorId) {
-      const target = await this.prisma.user.findUnique({ where: { id: assignedToId }, select: { role: true, teamLeadId: true } })
-      if (!target || target.role !== Role.TRAINEE || target.teamLeadId !== creatorId) {
-        throw new ForbiddenException('Team Leads can only assign tasks to themselves or their own trainees')
+      const target = await this.prisma.user.findUnique({ where: { id: assignedToId }, select: { role: true } })
+      if (!target || target.role !== Role.TRAINEE) {
+        throw new ForbiddenException('Team Leads can only assign tasks to themselves or to a trainee')
       }
     }
 
@@ -88,6 +93,8 @@ export class TasksService {
     }
     const autoTitle = dto.title?.trim() || (TAX_LABELS[dto.taxType ?? ''] ? `${TAX_LABELS[dto.taxType!]} Task` : 'Task')
 
+    const teamLeadId = await resolveTaskTeamLead(this.prisma, assignedToId, creatorId, creatorRole, dto.teamLeadId)
+
     const task = await this.prisma.task.create({
       data: {
         title:        autoTitle,
@@ -99,6 +106,7 @@ export class TasksService {
         clientId:     dto.clientId ?? null,
         createdById:  creatorId,
         assignedToId,
+        teamLeadId,
       } as any,
       select: this.taskSelect,
     })
@@ -142,6 +150,7 @@ export class TasksService {
     if (dto.priority     !== undefined) data.priority     = dto.priority
     if (dto.dueDate      !== undefined) data.dueDate      = dto.dueDate ? new Date(dto.dueDate) : null
     if (dto.assignedToId !== undefined) data.assignedToId = dto.assignedToId
+    if (dto.teamLeadId   !== undefined) data.teamLeadId   = dto.teamLeadId || null
     if (dto.taxType      !== undefined) data.taxType      = dto.taxType
     if (dto.clientId     !== undefined) data.clientId     = dto.clientId || null
 
@@ -163,28 +172,43 @@ export class TasksService {
   }
 
   // ── Assignable users dropdown ──────────────────────────────────────────────────
+  // teamLeadId rides along so the New Task form can default the "Approval By"
+  // picker to whoever the chosen assignee actually reports to.
+  private assignableSelect = { id: true, fullName: true, role: true, userCode: true, teamLeadId: true }
+
   async getAssignableUsers(callerId: string, callerRole: Role) {
     if (callerRole === Role.TRAINEE) {
-      const me = await this.prisma.user.findUnique({ where: { id: callerId }, select: { id: true, fullName: true, role: true, userCode: true } })
+      const me = await this.prisma.user.findUnique({ where: { id: callerId }, select: this.assignableSelect })
       return me ? [me] : []
     }
     if (callerRole === Role.TEAM_LEAD) {
+      // Every trainee in the firm, not just their own team. Approval still comes
+      // back to this lead because the task is pinned to them on create.
       const [me, trainees] = await Promise.all([
-        this.prisma.user.findUnique({ where: { id: callerId }, select: { id: true, fullName: true, role: true, userCode: true } }),
-        this.prisma.user.findMany({ where: { teamLeadId: callerId }, select: { id: true, fullName: true, role: true, userCode: true }, orderBy: { fullName: 'asc' } }),
+        this.prisma.user.findUnique({ where: { id: callerId }, select: this.assignableSelect }),
+        this.prisma.user.findMany({ where: { role: Role.TRAINEE }, select: this.assignableSelect, orderBy: { fullName: 'asc' } }),
       ])
       return me ? [me, ...trainees] : trainees
     }
     if (callerRole === Role.MANAGER) {
       return this.prisma.user.findMany({
         where: { role: { in: [Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] } },
-        select: { id: true, fullName: true, role: true, userCode: true },
+        select: this.assignableSelect,
         orderBy: { fullName: 'asc' },
       })
     }
     return this.prisma.user.findMany({
       where: { role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] } },
-      select: { id: true, fullName: true, role: true, userCode: true },
+      select: this.assignableSelect,
+      orderBy: { fullName: 'asc' },
+    })
+  }
+
+  // ── Team Lead dropdown for the "Approval By" field ─────────────────────────────
+  async getTeamLeads() {
+    return this.prisma.user.findMany({
+      where:  { role: Role.TEAM_LEAD, isActive: true },
+      select: { id: true, fullName: true, userCode: true },
       orderBy: { fullName: 'asc' },
     })
   }
@@ -243,14 +267,10 @@ export class TasksService {
   // ── Client dropdown ───────────────────────────────────────────────────────────
   async getClients(callerId: string, callerRole: Role) {
     const where: any = {}
+    // Team Leads see every client here, since they can now raise work for any
+    // trainee and Sales Tax / WHT derive the assignee from the client.
     if (callerRole === Role.TRAINEE) {
       where.traineeId = callerId
-    } else if (callerRole === Role.TEAM_LEAD) {
-      const myTrainees = await this.prisma.user.findMany({
-        where: { teamLeadId: callerId },
-        select: { id: true },
-      })
-      where.traineeId = { in: [callerId, ...myTrainees.map(t => t.id)] }
     }
     return this.prisma.clientProfile.findMany({
       where,

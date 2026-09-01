@@ -16,4 +16,6 @@ export class CreateSalesTaxTaskDto {
   @IsOptional() @IsEnum(TaxAuthorityDto) authority?: TaxAuthorityDto
   @IsOptional() @IsEnum(ReturnTypeDto) returnType?: ReturnTypeDto
   @IsOptional() @IsEnum(TaskTypeDto) taskType?: TaskTypeDto
+  // Which Team Lead approves this task. Left out means "the trainee's own lead".
+  @IsOptional() @IsString() teamLeadId?: string
 }

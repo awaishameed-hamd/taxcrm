@@ -35,6 +35,12 @@ export class CreateTaskDto {
   @Transform(({ value }) => value || undefined)
   assignedToId?: string
 
+  // Which Team Lead approves this task. Left out means "the assignee's own lead".
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => value || undefined)
+  teamLeadId?: string
+
   @IsOptional()
   @IsString()
   authority?: string
@@ -65,6 +71,11 @@ export class UpdateTaskDto {
   @IsString()
   @Transform(({ value }) => value || undefined)
   assignedToId?: string
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => value || undefined)
+  teamLeadId?: string
 
   @IsOptional()
   @IsString()
