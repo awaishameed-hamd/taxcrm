@@ -95,7 +95,15 @@ export class SalesTaxTasksService {
       SalesTaxTaskStatus.SENT_BACK,
       SalesTaxTaskStatus.COMPLETED,
     ]
-    const teamFilter = role === 'TEAM_LEAD' && userId ? teamLeadOwnedFilter(userId, 'trainee') : {}
+    // Completed Tasks shares this endpoint, so a Team Lead who also carries their
+    // own client work needs to find it here. Only their finished tasks are added,
+    // never ones still awaiting review, so nobody can approve their own work.
+    const teamFilter = role === 'TEAM_LEAD' && userId
+      ? { OR: [
+          ...teamLeadOwnedFilter(userId, 'trainee').OR,
+          { traineeId: userId, status: SalesTaxTaskStatus.COMPLETED },
+        ] }
+      : {}
     return this.prisma.salesTaxTask.findMany({
       where: {
         ...(taskType ? { taskType } : {}),
