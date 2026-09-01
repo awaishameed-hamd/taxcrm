@@ -22,6 +22,14 @@ function pktToday(offset = 0): string {
   return pkt.toISOString().split('T')[0]
 }
 
+// One height for every in-row control, so the type dropdown, the reason box and
+// the login time sit level instead of each taking its own browser default.
+const CTRL: React.CSSProperties = {
+  height: 26, boxSizing: 'border-box', borderRadius: 6,
+  padding: '0 8px', fontSize: 12, outline: 'none', lineHeight: '24px',
+}
+const CELL: React.CSSProperties = { padding: '3px 16px' }
+
 function Toast({ msg, type, onClose }: { msg: string; type: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t) }, [onClose])
   return (
@@ -207,7 +215,7 @@ export default function WorkingDaysPage() {
               <tr style={{ background: '#F2AC18' }}>
                 {['Date', 'Day', 'Type', 'Reason / Note', 'Login Time'].map(h => (
                   <th key={h} style={{
-                    padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700,
+                    padding: '7px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700,
                     textTransform: 'uppercase', color: P.navy,
                     fontFamily: '"Aptos", sans-serif', letterSpacing: '0.07em',
                   }}>{h}</th>
@@ -219,7 +227,7 @@ export default function WorkingDaysPage() {
                 ? Array.from({ length: 10 }).map((_, i) => (
                   <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#F9FAFB' }}>
                     {[1,2,3,4,5].map(c => (
-                      <td key={c} style={{ padding: '10px 16px', borderBottom: `1px solid ${P.gridLine}` }}>
+                      <td key={c} style={{ ...CELL, height: 32, borderBottom: `1px solid ${P.gridLine}` }}>
                         <div style={{ height: 12, borderRadius: 4, background: P.gridLine }} />
                       </td>
                     ))}
@@ -235,17 +243,17 @@ export default function WorkingDaysPage() {
 
                     return (
                       <tr key={row.date} style={{ background: rowBg, opacity: isLocked ? 0.65 : 1 }}>
-                        <td style={{ padding: '9px 16px', borderBottom: `1px solid ${P.gridLine}`, fontWeight: 600, color: P.textHeading }}>
+                        <td style={{ ...CELL, borderBottom: `1px solid ${P.gridLine}`, fontWeight: 600, color: P.textHeading }}>
                           {row.date}
                         </td>
-                        <td style={{ padding: '9px 16px', borderBottom: `1px solid ${P.gridLine}`, color: P.textMuted, fontFamily: '"Aptos", sans-serif', letterSpacing: '0.02em' }}>
+                        <td style={{ ...CELL, borderBottom: `1px solid ${P.gridLine}`, color: P.textMuted, fontFamily: '"Aptos", sans-serif', letterSpacing: '0.02em' }}>
                           {DAY_NAMES[new Date(row.date).getDay()]}
                         </td>
-                        <td style={{ padding: '9px 16px', borderBottom: `1px solid ${P.gridLine}` }}>
+                        <td style={{ ...CELL, borderBottom: `1px solid ${P.gridLine}` }}>
                           {isLocked
                             ? <span style={{
-                                display: 'inline-flex', alignItems: 'center',
-                                padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                                ...CTRL, display: 'inline-flex', alignItems: 'center',
+                                fontSize: 11, fontWeight: 600,
                                 background: dayType === 'HOLIDAY' ? '#FFF3E0' : dayType === 'WEEKEND' ? '#F5F5F5' : '#E6F4F6',
                                 color: dayType === 'HOLIDAY' ? P.brick : dayType === 'WEEKEND' ? P.textMuted : P.deepTeal,
                               }}>
@@ -255,8 +263,8 @@ export default function WorkingDaysPage() {
                                 value={dayType}
                                 onChange={e => setDayField(idx, 'dayType', e.target.value)}
                                 style={{
-                                  borderRadius: 6, padding: '4px 8px', fontSize: 12, fontWeight: 600,
-                                  border: `1px solid ${P.border}`, outline: 'none', cursor: 'pointer',
+                                  ...CTRL, fontWeight: 600,
+                                  border: `1px solid ${P.border}`, cursor: 'pointer',
                                   background: dayType === 'HOLIDAY' ? '#FFF3E0' : dayType === 'WEEKEND' ? '#F5F5F5' : '#fff',
                                   color: dayType === 'HOLIDAY' ? P.brick : dayType === 'WEEKEND' ? P.textMuted : P.textHeading,
                                 }}>
@@ -264,7 +272,7 @@ export default function WorkingDaysPage() {
                               </select>
                           }
                         </td>
-                        <td style={{ padding: '9px 16px', borderBottom: `1px solid ${P.gridLine}`, minWidth: 180 }}>
+                        <td style={{ ...CELL, borderBottom: `1px solid ${P.gridLine}`, minWidth: 180 }}>
                           {dayType === 'HOLIDAY'
                             ? isLocked
                               ? <span style={{ fontSize: 12, color: '#49311E' }}>{row.leave_reason ?? 'N/A'}</span>
@@ -274,15 +282,15 @@ export default function WorkingDaysPage() {
                                   value={row.leave_reason ?? ''}
                                   onChange={e => setDayField(idx, 'leave_reason', e.target.value)}
                                   style={{
-                                    width: '100%', border: `1px solid ${!row.leave_reason?.trim() ? '#f87171' : '#AA7F56'}`,
-                                    borderRadius: 6, padding: '4px 8px', fontSize: 12, outline: 'none',
+                                    ...CTRL, width: '100%',
+                                    border: `1px solid ${!row.leave_reason?.trim() ? '#f87171' : '#AA7F56'}`,
                                     background: 'rgba(73,49,30,0.04)', color: P.textHeading,
                                   }}
                                 />
                             : <span style={{ color: P.textMuted, fontSize: 12 }}>N/A</span>
                           }
                         </td>
-                        <td style={{ padding: '9px 16px', borderBottom: `1px solid ${P.gridLine}` }}>
+                        <td style={{ ...CELL, borderBottom: `1px solid ${P.gridLine}` }}>
                           {(() => {
                             const dow = new Date(row.date).getDay()
                             const isEnabledWeekend = dayType === 'WEEKEND' && (
@@ -300,7 +308,7 @@ export default function WorkingDaysPage() {
                                     type="time"
                                     value={val}
                                     onChange={e => setDayField(idx, 'login_time_formatted', e.target.value)}
-                                    style={{ border: `1px solid ${P.border}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, outline: 'none' }}
+                                    style={{ ...CTRL, border: `1px solid ${P.border}`, color: P.textHeading }}
                                   />
                             }
                             return <span style={{ color: P.textMuted, fontSize: 12, fontWeight: 600 }}>N/A</span>
