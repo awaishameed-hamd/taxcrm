@@ -7,6 +7,20 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
 
+// ClientProfile.yearEnd is stored as a month name, turn it into 1-12.
+// Anything unrecognised falls back to December, matching the column default.
+const yearEndMonthOf = (yearEnd?: string | null): number => {
+  const name = (yearEnd ?? '').trim().toUpperCase()
+  const i = MONTHS.findIndex(m => m.toUpperCase() === name)
+  return i >= 0 ? i + 1 : 12
+}
+
+// Which fiscal year a period belongs to, named by the calendar year the client's
+// year end falls in. With a June year end, Aug 2026 work belongs to FY 2027
+// (Jul 2026 to Jun 2027) while Jan 2027 work belongs to that same FY 2027.
+const fiscalYearOf = (month: number, year: number, yearEndMonth: number): number =>
+  month <= yearEndMonth ? year : year + 1
+
 type Alloc = { invoiceId: string; amount: number; discount?: number; incomeTaxWithheld?: number; salesTaxWithheld?: number }
 
 // Statuses that represent real money owed by the client. DRAFT isn't issued yet,
@@ -23,6 +37,8 @@ const INVOICE_INCLUDE = {
       id: true, businessName: true, ntn: true, strn: true, address: true,
       hasMonthlyRetainer: true, retainerSalesTax: true, retainerSalesTaxAuthorities: true,
       retainerIncomeTax: true, retainerWht: true,
+      hasAnnualBilling: true, annualSalesTax: true, annualSalesTaxAuthorities: true,
+      annualIncomeTax: true, annualWht: true,
       user: { select: { fullName: true, email: true, phone: true, userCode: true } },
     },
   },
@@ -66,8 +82,18 @@ export class InvoicesService {
     return false
   }
 
+  // Same hint for the yearly billing contract.
+  private isAnnualCovered(inv: any): boolean {
+    const c = inv.client
+    if (!c?.hasAnnualBilling || !inv.task) return false
+    if (inv.task.taskType === 'INCOME_TAX') return c.annualIncomeTax
+    if (inv.task.taskType === 'WHT')        return c.annualWht
+    if (inv.task.taskType === 'SALES_TAX')  return c.annualSalesTax && c.annualSalesTaxAuthorities.includes(inv.task.authority ?? 'FBR')
+    return false
+  }
+
   private decorate(inv: any) {
-    return { ...inv, retainerCovered: this.isRetainerCovered(inv) }
+    return { ...inv, retainerCovered: this.isRetainerCovered(inv), annualCovered: this.isAnnualCovered(inv) }
   }
 
   // ── Listing ────────────────────────────────────────────────────────────────
@@ -212,6 +238,7 @@ export class InvoicesService {
       select: {
         id: true, businessName: true, ntn: true, openingBalance: true, createdAt: true,
         hasMonthlyRetainer: true, retainerAmount: true,
+        hasAnnualBilling: true, annualBillingAmount: true,
         user: { select: { fullName: true, email: true } },
       },
     })
@@ -460,13 +487,23 @@ export class InvoicesService {
   }
 
   async markRetainerIncluded(id: string) {
+    return this.markCoveredByContract(id, InvoiceStatus.RETAINER_INCLUDED)
+  }
+
+  async markAnnualIncluded(id: string) {
+    return this.markCoveredByContract(id, InvoiceStatus.ANNUAL_INCLUDED)
+  }
+
+  // Work absorbed by a standing contract, monthly or yearly. The draft stays on
+  // record at zero so the manager can see the work happened, it just never bills.
+  private async markCoveredByContract(id: string, status: InvoiceStatus) {
     const inv = await this.prisma.invoice.findUnique({ where: { id }, include: { allocations: { select: { id: true } } } })
     if (!inv) throw new NotFoundException('Invoice not found')
     if (inv.allocations.length > 0) throw new BadRequestException('This invoice already has payments applied to it')
 
     await this.prisma.invoice.update({
       where: { id },
-      data:  { status: InvoiceStatus.RETAINER_INCLUDED, amount: 0, amountPaid: 0, sentAt: null, paidAt: null },
+      data:  { status, amount: 0, amountPaid: 0, sentAt: null, paidAt: null },
     })
     return this.getOne(id)
   }
@@ -525,8 +562,10 @@ export class InvoicesService {
         },
       })
       if (!inv) continue
-      // Retainer-covered and cancelled invoices aren't billable, so leave their status alone
-      if (inv.status === InvoiceStatus.RETAINER_INCLUDED || inv.status === InvoiceStatus.CANCELLED) continue
+      // Contract-covered and cancelled invoices aren't billable, so leave their status alone
+      if (inv.status === InvoiceStatus.RETAINER_INCLUDED
+        || inv.status === InvoiceStatus.ANNUAL_INCLUDED
+        || inv.status === InvoiceStatus.CANCELLED) continue
 
       const paid     = inv.allocations.reduce((s, a) => s + Number(a.amount), 0)
       const discount = inv.allocations.reduce((s, a) => s + Number(a.discount), 0)
@@ -735,13 +774,29 @@ export class InvoicesService {
     return { ok: true }
   }
 
-  // Which services the client's retainer covers, for the retainer invoice's description
-  private retainerServices(c: { retainerSalesTax: boolean; retainerSalesTaxAuthorities: string[]; retainerIncomeTax: boolean; retainerWht: boolean }): string {
+  // Which services a contract covers, for the invoice's description
+  private contractServices(salesTax: boolean, authorities: string[], incomeTax: boolean, wht: boolean): string {
     const parts: string[] = []
-    if (c.retainerSalesTax && c.retainerSalesTaxAuthorities.length > 0) parts.push(`Sales Tax (${c.retainerSalesTaxAuthorities.join(', ')})`)
-    if (c.retainerIncomeTax) parts.push('Income Tax')
-    if (c.retainerWht)       parts.push('WHT')
+    if (salesTax && authorities.length > 0) parts.push(`Sales Tax (${authorities.join(', ')})`)
+    if (incomeTax) parts.push('Income Tax')
+    if (wht)       parts.push('WHT')
     return parts.join(', ')
+  }
+
+  private retainerServices(c: { retainerSalesTax: boolean; retainerSalesTaxAuthorities: string[]; retainerIncomeTax: boolean; retainerWht: boolean }): string {
+    return this.contractServices(c.retainerSalesTax, c.retainerSalesTaxAuthorities, c.retainerIncomeTax, c.retainerWht)
+  }
+
+  private annualServices(c: { annualSalesTax: boolean; annualSalesTaxAuthorities: string[]; annualIncomeTax: boolean; annualWht: boolean }): string {
+    return this.contractServices(c.annualSalesTax, c.annualSalesTaxAuthorities, c.annualIncomeTax, c.annualWht)
+  }
+
+  // Does this contract's service selection cover the task in hand?
+  private covers(taskType: string, authority: string | null, salesTax: boolean, authorities: string[], incomeTax: boolean, wht: boolean): boolean {
+    if (taskType === 'INCOME_TAX') return incomeTax
+    if (taskType === 'WHT')        return wht
+    if (taskType === 'SALES_TAX')  return salesTax && authorities.includes(authority ?? 'FBR')
+    return false
   }
 
   // ── Auto-drafting ──────────────────────────────────────────────────────────
@@ -750,6 +805,8 @@ export class InvoicesService {
   //   - covered by the client's monthly retainer → rolls into that month's single
   //     retainer draft, pre-priced at the agreed fee. Later retainer tasks in the same
   //     month find it already there, so the client gets one bill, not one per service.
+  //   - covered by the client's yearly billing → the same, rolled into that fiscal
+  //     year's single annual draft instead.
   //   - not covered → its own draft at zero for the manager to price.
   async createDraftForTask(taskId: string) {
     const task = await this.prisma.salesTaxTask.findUnique({
@@ -759,8 +816,11 @@ export class InvoicesService {
         invoice: { select: { id: true } },
         client: {
           select: {
+            yearEnd: true,
             hasMonthlyRetainer: true, retainerAmount: true, retainerSalesTax: true,
             retainerSalesTaxAuthorities: true, retainerIncomeTax: true, retainerWht: true,
+            hasAnnualBilling: true, annualBillingAmount: true, annualSalesTax: true,
+            annualSalesTaxAuthorities: true, annualIncomeTax: true, annualWht: true,
           },
         },
       },
@@ -769,25 +829,38 @@ export class InvoicesService {
 
     try {
       const c = task.client
-      const covered = c.hasMonthlyRetainer && (
-        task.taskType === 'INCOME_TAX' ? c.retainerIncomeTax :
-        task.taskType === 'WHT'        ? c.retainerWht :
-        task.taskType === 'SALES_TAX'  ? (c.retainerSalesTax && c.retainerSalesTaxAuthorities.includes(task.authority ?? 'FBR')) :
-        false
+      const covered = c.hasMonthlyRetainer && this.covers(
+        task.taskType, task.authority,
+        c.retainerSalesTax, c.retainerSalesTaxAuthorities, c.retainerIncomeTax, c.retainerWht,
       )
 
+      // The month the work belongs to, so a July return rolls into July's bill
+      // even when it is completed in August. An annual return carries no month,
+      // so it falls back to the month just ended, which is what the cron bills.
+      const now       = new Date()
+      const prev      = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const taskMonth = task.periodMonth ?? 0
+      const hasPeriod = taskMonth >= 1 && taskMonth <= 12
+      const month = hasPeriod ? taskMonth : prev.getMonth() + 1
+      const year  = hasPeriod ? (task.periodYear ?? prev.getFullYear()) : prev.getFullYear()
+
       if (covered) {
-        // The retainer bills the month the work belongs to, so a July return
-        // rolls into July's retainer invoice even when it is completed in
-        // August. An annual return carries no month, so it falls back to the
-        // month just ended, which is what the monthly cron bills.
-        const now       = new Date()
-        const prev      = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        const taskMonth = task.periodMonth ?? 0
-        const hasPeriod = taskMonth >= 1 && taskMonth <= 12
-        const month = hasPeriod ? taskMonth : prev.getMonth() + 1
-        const year  = hasPeriod ? (task.periodYear ?? prev.getFullYear()) : prev.getFullYear()
         return await this.ensureRetainerInvoice(task.clientId, month, year, Number(c.retainerAmount), this.retainerServices(c))
+      }
+
+      // A monthly retainer wins where both contracts name the same service, so
+      // this is only reached for work the retainer does not cover.
+      const annualCovered = c.hasAnnualBilling && this.covers(
+        task.taskType, task.authority,
+        c.annualSalesTax, c.annualSalesTaxAuthorities, c.annualIncomeTax, c.annualWht,
+      )
+
+      if (annualCovered) {
+        const yem = yearEndMonthOf(c.yearEnd)
+        // An income tax return names its own tax year, everything else is placed
+        // by the month it covers.
+        const fy = hasPeriod ? fiscalYearOf(month, year, yem) : year
+        return await this.ensureAnnualInvoice(task.clientId, fy, yem, Number(c.annualBillingAmount), this.annualServices(c))
       }
 
       const label = task.taskType === 'SALES_TAX'
@@ -846,6 +919,69 @@ export class InvoicesService {
       }
       throw e
     }
+  }
+
+  // One annual draft per client per fiscal year. Month 0 stands for the whole
+  // year, so the unique index on (clientId, kind, periodMonth, periodYear) still
+  // catches a duplicate; a null there would not, Postgres treats nulls as distinct.
+  private async ensureAnnualInvoice(clientId: string, year: number, yearEndMonth: number, amount: number, services: string) {
+    const existing = await this.prisma.invoice.findFirst({
+      where: { clientId, kind: InvoiceKind.ANNUAL, periodMonth: 0, periodYear: year },
+    })
+    if (existing) return existing
+
+    const label = `Annual Billing, Year Ended ${MONTHS[yearEndMonth - 1]} ${year}`
+    try {
+      return await this.prisma.invoice.create({
+        data: {
+          invoiceNumber: await this.nextInvoiceNumber(),
+          clientId,
+          kind:        InvoiceKind.ANNUAL,
+          status:      InvoiceStatus.DRAFT,
+          subtotal:    amount,
+          amount,
+          periodMonth: 0,
+          periodYear:  year,
+          description: services ? `${label} (${services})` : label,
+        },
+      })
+    } catch (e: any) {
+      if (e?.code === 'P2002') {
+        return this.prisma.invoice.findFirst({
+          where: { clientId, kind: InvoiceKind.ANNUAL, periodMonth: 0, periodYear: year },
+        })
+      }
+      throw e
+    }
+  }
+
+  // Raised on the 1st of the month after a client's fiscal year end, so the run on
+  // 1 July bills every June-year-end client for the year that just closed. Only
+  // clients whose year end matches yearEndMonth are touched, which is what keeps
+  // one monthly run from billing the whole book.
+  async generateAnnualInvoices(yearEndMonth: number, year: number) {
+    const clients = await this.prisma.clientProfile.findMany({
+      where:  { hasAnnualBilling: true, user: { isActive: true } },
+      select: {
+        id: true, yearEnd: true, annualBillingAmount: true, annualSalesTax: true,
+        annualSalesTaxAuthorities: true, annualIncomeTax: true, annualWht: true,
+      },
+    })
+
+    let created = 0, skipped = 0
+    for (const c of clients) {
+      if (yearEndMonthOf(c.yearEnd) !== yearEndMonth) continue
+
+      const before = await this.prisma.invoice.findFirst({
+        where:  { clientId: c.id, kind: InvoiceKind.ANNUAL, periodMonth: 0, periodYear: year },
+        select: { id: true },
+      })
+      if (before) { skipped++; continue }
+
+      await this.ensureAnnualInvoice(c.id, year, yearEndMonth, Number(c.annualBillingAmount), this.annualServices(c))
+      created++
+    }
+    return { created, skipped }
   }
 
   // One draft retainer invoice per retainer client per month. The unique constraint

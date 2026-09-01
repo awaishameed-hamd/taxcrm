@@ -11,6 +11,14 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 const NAVY  = '#132E57'
 const TEAL  = '#1E8496'
 
+// Annual billing is raised the month after the client's year end, this names it
+// so the form can spell out the date instead of leaving the manager to work it out.
+const MONTH_AFTER: Record<string, string> = {
+  JANUARY: 'February', FEBRUARY: 'March',   MARCH:    'April',    APRIL:   'May',
+  MAY:     'June',     JUNE:     'July',    JULY:     'August',   AUGUST:  'September',
+  SEPTEMBER: 'October', OCTOBER: 'November', NOVEMBER: 'December', DECEMBER: 'January',
+}
+
 // ── Column definitions ────────────────────────────────────────────────────────
 const ALL_CLIENT_COLS = [
   { key: 'business',       label: 'Business',        defaultWidth: 150 },
@@ -404,6 +412,15 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
   const [retainerIncomeTax,   setRetainerIncomeTax]   = useState<boolean>(initial?.retainerIncomeTax ?? false)
   const [retainerWht,         setRetainerWht]         = useState<boolean>(initial?.retainerWht ?? false)
 
+  // Annual billing contract. Same shape as the retainer, billed once a year
+  // against the client's year end instead of every month.
+  const [hasAnnualBilling,    setHasAnnualBilling]    = useState<boolean>(initial?.hasAnnualBilling ?? false)
+  const [annualAmount,        setAnnualAmount]        = useState<string>(initial?.annualBillingAmount != null ? String(initial.annualBillingAmount) : '')
+  const [annualSalesTax,      setAnnualSalesTax]      = useState<boolean>(initial?.annualSalesTax ?? false)
+  const [annualAuthorities,   setAnnualAuthorities]   = useState<string[]>(initial?.annualSalesTaxAuthorities ?? [])
+  const [annualIncomeTax,     setAnnualIncomeTax]     = useState<boolean>(initial?.annualIncomeTax ?? false)
+  const [annualWht,           setAnnualWht]           = useState<boolean>(initial?.annualWht ?? false)
+
   const toggleAuthority = (auth: string) => {
     setSalesTaxAuthorities(prev =>
       prev.includes(auth) ? prev.filter(a => a !== auth) : [...prev, auth]
@@ -412,6 +429,12 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
 
   const toggleRetainerAuthority = (auth: string) => {
     setRetainerAuthorities(prev =>
+      prev.includes(auth) ? prev.filter(a => a !== auth) : [...prev, auth]
+    )
+  }
+
+  const toggleAnnualAuthority = (auth: string) => {
+    setAnnualAuthorities(prev =>
       prev.includes(auth) ? prev.filter(a => a !== auth) : [...prev, auth]
     )
   }
@@ -527,6 +550,12 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
         payload.retainerSalesTaxAuthorities = hasMonthlyRetainer && retainerSalesTax ? retainerAuthorities : []
         payload.retainerIncomeTax           = hasMonthlyRetainer && retainerIncomeTax
         payload.retainerWht                 = hasMonthlyRetainer && retainerWht
+        payload.hasAnnualBilling            = hasAnnualBilling
+        payload.annualBillingAmount         = Number(annualAmount) || 0
+        payload.annualSalesTax              = hasAnnualBilling && annualSalesTax
+        payload.annualSalesTaxAuthorities   = hasAnnualBilling && annualSalesTax ? annualAuthorities : []
+        payload.annualIncomeTax             = hasAnnualBilling && annualIncomeTax
+        payload.annualWht                   = hasAnnualBilling && annualWht
       }
       // Always send the assignment, it's mandatory and rendered outside the dynamic field loop above,
       // so it must not depend on that field's admin-configurable visibility toggle.
@@ -900,6 +929,80 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
                       <input type="checkbox" checked={retainerWht} onChange={() => setRetainerWht(v => !v)}
                         style={{ accentColor: TEAL, width: 14, height: 14, cursor: 'pointer' }} />
                       <span style={{ fontSize: 12, fontWeight: 700, color: retainerWht ? TEAL : NAVY, fontFamily: "'Aptos', sans-serif" }}>WHT included</span>
+                    </label>
+                  </div>
+                </>
+              )}
+
+              {/* Annual billing toggle */}
+              <div style={{ padding: '12px 18px', borderTop: `1px solid ${P.border}`, borderBottom: hasAnnualBilling ? `1px solid ${P.border}` : 'none', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, fontFamily: "'Aptos', sans-serif" }}>
+                    Annual Billing
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: "'Aptos', sans-serif", marginTop: 2 }}>
+                    Bill the selected services as one fixed yearly fee instead of per task
+                  </div>
+                </div>
+                <button type="button" onClick={() => setHasAnnualBilling(v => !v)}
+                  style={{ width: 44, height: 24, borderRadius: 12, border: 'none', padding: 0, background: hasAnnualBilling ? TEAL : '#CBD5E1', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <span style={{ position: 'absolute', top: 2, left: hasAnnualBilling ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.25)', transition: 'left 0.2s', display: 'block' }} />
+                </button>
+                <span style={{ fontSize: 12, fontWeight: 700, color: hasAnnualBilling ? TEAL : '#94A3B8', fontFamily: "'Aptos', sans-serif", minWidth: 28 }}>
+                  {hasAnnualBilling ? 'ON' : 'OFF'}
+                </span>
+              </div>
+
+              {hasAnnualBilling && (
+                <>
+                  {/* Yearly fee */}
+                  <div style={{ padding: '12px 18px', borderBottom: `1px solid ${P.border}` }}>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', marginBottom: 4, fontFamily: "'Aptos', sans-serif" }}>
+                      Yearly Fee (PKR)
+                    </label>
+                    <input type="number" min={0} value={annualAmount} onChange={e => setAnnualAmount(e.target.value)}
+                      placeholder="e.g. 300000" className={inputCls} style={inputStyle} />
+                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: "'Aptos', sans-serif" }}>
+                      A draft invoice for this amount is created automatically on the 1st of the month after this client's year end
+                      {yearEnd ? `, so ${MONTH_AFTER[yearEnd] ?? 'the next month'} 1st` : ''}
+                    </p>
+                  </div>
+
+                  {/* Sales Tax in annual billing */}
+                  <div style={{ padding: '12px 18px', borderBottom: `1px solid ${P.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: annualSalesTax ? 8 : 0 }}>
+                      <input type="checkbox" checked={annualSalesTax} onChange={() => setAnnualSalesTax(v => !v)}
+                        style={{ accentColor: TEAL, width: 14, height: 14, cursor: 'pointer' }} id="ann-st" />
+                      <label htmlFor="ann-st" style={{ fontSize: 12, fontWeight: 700, color: annualSalesTax ? TEAL : NAVY, fontFamily: "'Aptos', sans-serif", cursor: 'pointer' }}>
+                        Sales Tax included
+                      </label>
+                    </div>
+                    {annualSalesTax && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', paddingLeft: 22 }}>
+                        {SALES_TAX_AUTHORITIES.map(auth => (
+                          <label key={auth} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={annualAuthorities.includes(auth)} onChange={() => toggleAnnualAuthority(auth)}
+                              style={{ accentColor: TEAL, width: 14, height: 14, cursor: 'pointer' }} />
+                            <span style={{ fontSize: 13, fontWeight: 600, color: annualAuthorities.includes(auth) ? TEAL : '#64748B', fontFamily: "'Aptos', sans-serif" }}>
+                              {auth}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Income Tax + WHT in annual billing */}
+                  <div style={{ padding: '12px 18px', display: 'flex', flexWrap: 'wrap', gap: '6px 22px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={annualIncomeTax} onChange={() => setAnnualIncomeTax(v => !v)}
+                        style={{ accentColor: TEAL, width: 14, height: 14, cursor: 'pointer' }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: annualIncomeTax ? TEAL : NAVY, fontFamily: "'Aptos', sans-serif" }}>Income Tax included</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={annualWht} onChange={() => setAnnualWht(v => !v)}
+                        style={{ accentColor: TEAL, width: 14, height: 14, cursor: 'pointer' }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: annualWht ? TEAL : NAVY, fontFamily: "'Aptos', sans-serif" }}>WHT included</span>
                     </label>
                   </div>
                 </>

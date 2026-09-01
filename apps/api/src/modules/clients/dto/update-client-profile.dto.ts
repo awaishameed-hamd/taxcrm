@@ -28,5 +28,13 @@ export class UpdateClientProfileDto {
   @IsOptional() @IsArray() @IsString({ each: true }) retainerSalesTaxAuthorities?: string[]
   @IsOptional() @IsBoolean()    retainerIncomeTax?: boolean
   @IsOptional() @IsBoolean()    retainerWht?: boolean
+
+  // Annual billing contract, same audience as the retainer fields above
+  @IsOptional() @IsBoolean()    hasAnnualBilling?: boolean
+  @IsOptional() @IsNumber() @Min(0) annualBillingAmount?: number
+  @IsOptional() @IsBoolean()    annualSalesTax?: boolean
+  @IsOptional() @IsArray() @IsString({ each: true }) annualSalesTaxAuthorities?: string[]
+  @IsOptional() @IsBoolean()    annualIncomeTax?: boolean
+  @IsOptional() @IsBoolean()    annualWht?: boolean
   @IsOptional() @IsNumber()     openingBalance?: number
 }

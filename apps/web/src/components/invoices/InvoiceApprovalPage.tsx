@@ -15,12 +15,14 @@ const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-GB
 const KIND_META: Record<string, { label: string; color: string; bg: string }> = {
   TASK:     { label: 'Task',     color: '#1E40AF', bg: '#DBEAFE' },
   RETAINER: { label: 'Retainer', color: '#5B21B6', bg: '#EDE9FE' },
+  ANNUAL:   { label: 'Annual',   color: '#B45309', bg: '#FDF0D5' },
   MANUAL:   { label: 'Manual',   color: '#5C5C5C', bg: '#F1F5F9' },
 }
 const FILTERS = [
   { key: 'ALL',      label: 'All' },
   { key: 'TASK',     label: 'Task' },
   { key: 'RETAINER', label: 'Retainer' },
+  { key: 'ANNUAL',   label: 'Annual' },
   { key: 'MANUAL',   label: 'Manual' },
 ]
 
@@ -106,6 +108,11 @@ function PriceModal({ inv, onClose, onSaved }: { inv: any; onClose: () => void; 
             {inv.kind === 'RETAINER' && (
               <p style={{ margin: '5px 0 0', fontSize: 11, color: '#5B21B6', fontFamily: F, fontWeight: 700 }}>
                 Pre-filled from the client's agreed monthly retainer
+              </p>
+            )}
+            {inv.kind === 'ANNUAL' && (
+              <p style={{ margin: '5px 0 0', fontSize: 11, color: '#B45309', fontFamily: F, fontWeight: 700 }}>
+                Pre-filled from the client's agreed yearly billing fee
               </p>
             )}
           </div>
@@ -217,6 +224,7 @@ export default function InvoiceApprovalPage() {
         <StatCard label="Pending Drafts" value={rows.length}                              border="#1565C0" fill="#BDDAF8" />
         <StatCard label="Needs Pricing"  value={unpriced}                                 border="#DC2626" fill="#FECACA" />
         <StatCard label="Retainer"       value={rows.filter(r => r.kind === 'RETAINER').length} border="#7B2D8E" fill="#E4D4EC" />
+        <StatCard label="Annual"         value={rows.filter(r => r.kind === 'ANNUAL').length}   border="#B45309" fill="#FBE3B8" />
         <StatCard label="Total Value"    value={money(totalValue)}                        border="#16A34A" fill="#BBF0D6" />
       </div>
 
@@ -251,8 +259,8 @@ export default function InvoiceApprovalPage() {
       <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: '13%' }} /><col style={{ width: '18%' }} /><col style={{ width: '28%' }} />
-            <col style={{ width: '10%' }} /><col style={{ width: '11%' }} /><col style={{ width: '11%' }} /><col style={{ width: 210 }} />
+            <col style={{ width: '13%' }} /><col style={{ width: '18%' }} /><col style={{ width: '26%' }} />
+            <col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '11%' }} /><col style={{ width: 243 }} />
           </colgroup>
           <thead>
             <tr style={{ background: '#F2AC18' }}>
@@ -303,6 +311,10 @@ export default function InvoiceApprovalPage() {
                       <button onClick={() => act(r.id, 'mark-retainer')} disabled={disabled} title="Covered by the monthly retainer, don't bill separately"
                         style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B2D8E', opacity: disabled ? 0.5 : 1 }}>
                         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                      </button>
+                      <button onClick={() => act(r.id, 'mark-annual')} disabled={disabled} title="Covered by the yearly billing, don't bill separately"
+                        style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B45309', opacity: disabled ? 0.5 : 1 }}>
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0V11.25A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6 2 2 3.5-3.5" /></svg>
                       </button>
                       <button onClick={() => setConfirmDel(r)} disabled={disabled} title="Delete"
                         style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>

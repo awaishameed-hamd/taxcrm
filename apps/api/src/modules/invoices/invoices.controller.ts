@@ -84,6 +84,15 @@ export class InvoicesController {
     return this.svc.generateRetainerInvoices(month ?? now.getMonth() + 1, year ?? now.getFullYear())
   }
 
+  // yearEndMonth is the month the fiscal year closed in, so { yearEndMonth: 6,
+  // year: 2026 } raises the June-2026 year end drafts.
+  @Post('generate-annual')
+  generateAnnual(@Body('yearEndMonth') yearEndMonth: number, @Body('year') year: number) {
+    const now  = new Date()
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    return this.svc.generateAnnualInvoices(yearEndMonth ?? prev.getMonth() + 1, year ?? prev.getFullYear())
+  }
+
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.svc.getOne(id)
@@ -107,6 +116,11 @@ export class InvoicesController {
   @Post(':id/mark-retainer')
   markRetainer(@Param('id') id: string) {
     return this.svc.markRetainerIncluded(id)
+  }
+
+  @Post(':id/mark-annual')
+  markAnnual(@Param('id') id: string) {
+    return this.svc.markAnnualIncluded(id)
   }
 
   @Post(':id/cancel')

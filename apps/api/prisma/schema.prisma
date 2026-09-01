@@ -294,6 +294,17 @@ model ClientProfile {
   retainerIncomeTax           Boolean  @default(false)
   retainerWht                 Boolean  @default(false)
 
+  // ── Annual billing contract ────────────────────────────────────────────────
+  // The same idea billed once a year instead of monthly, tied to yearEnd above:
+  // the draft is raised on the 1st of the month after the client's fiscal year
+  // ends, so a June year end bills on 1 July for the year that just closed.
+  hasAnnualBilling          Boolean  @default(false)
+  annualBillingAmount       Decimal  @default(0) @db.Decimal(12, 2)
+  annualSalesTax            Boolean  @default(false)
+  annualSalesTaxAuthorities String[] @default([])
+  annualIncomeTax           Boolean  @default(false)
+  annualWht                 Boolean  @default(false)
+
   // Balance carried in from before the firm started using this system. Kept as the
   // form's stored value and mirrored into an OPENING-kind invoice so it settles
   // through Receive Payment like any other invoice.
@@ -331,6 +342,7 @@ model ClientProfile {
 enum InvoiceKind {
   TASK      // auto-drafted when a task completes
   RETAINER  // monthly retainership fee
+  ANNUAL    // yearly billing fee, raised after the client's fiscal year end
   MANUAL    // created by hand
   OPENING   // the client's opening balance, carried as an invoice so it can be paid
 }
@@ -342,6 +354,7 @@ enum InvoiceStatus {
   PARTIALLY_PAID
   PAID
   RETAINER_INCLUDED // work covered by the monthly retainer, never billed separately
+  ANNUAL_INCLUDED   // work covered by the yearly billing fee, never billed separately
   CANCELLED
 }
 
@@ -373,7 +386,9 @@ model Invoice {
   taskId String?       @unique
   task   SalesTaxTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
-  // Billing period, set for RETAINER invoices only
+  // Billing period, set for RETAINER and ANNUAL invoices only. ANNUAL covers a
+  // whole year and stores month 0 rather than null, because Postgres treats
+  // nulls as distinct and the unique index below would stop catching duplicates.
   periodMonth Int?
   periodYear  Int?
 

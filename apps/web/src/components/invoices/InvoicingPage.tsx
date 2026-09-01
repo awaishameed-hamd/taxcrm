@@ -19,6 +19,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
   PARTIALLY_PAID:    { label: 'Partially Paid', color: '#92400E', bg: '#FEF3C7' },
   PAID:              { label: 'Paid',           color: '#166534', bg: '#DCFCE7' },
   RETAINER_INCLUDED: { label: 'In Retainer',    color: '#5B21B6', bg: '#EDE9FE' },
+  ANNUAL_INCLUDED:   { label: 'In Annual',      color: '#B45309', bg: '#FDF0D5' },
   CANCELLED:         { label: 'Cancelled',      color: '#991B1B', bg: '#FEE2E2' },
 }
 
@@ -1553,6 +1554,12 @@ export default function InvoicingPage() {
                   </span>
                 )}
 
+                {ledger.client?.hasAnnualBilling && (
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 9px', borderRadius: 20, background: '#FDF0D5', color: '#B45309', flexShrink: 0 }}>
+                    Annual {money(ledger.client.annualBillingAmount)}/yr
+                  </span>
+                )}
+
                 <button onClick={() => setShowNewInvoice(true)}
                   style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 30, border: `1px solid ${TEAL}`, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: F, background: '#fff', color: TEAL }}>
                   New Invoice
@@ -1658,6 +1665,9 @@ export default function InvoicingPage() {
                               {r.description ?? ''}
                               {r.kind === 'RETAINER' && (
                                 <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>RETAINER</span>
+                              )}
+                              {r.kind === 'ANNUAL' && (
+                                <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#FDF0D5', color: '#B45309' }}>ANNUAL</span>
                               )}
                             </td>
                             <td style={{ ...td, fontWeight: 400, color: r.status === 'OVERDUE' ? '#D62828' : '#64748B' }}>{fmtDate(dueOf(r))}</td>
