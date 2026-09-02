@@ -140,35 +140,53 @@ const blankAdj = (): Adj => ({ amount: '', discount: '', incomeTaxWithheld: '', 
 const adjNum   = (a: Adj | undefined, k: keyof Adj) => Number(a?.[k]) || 0
 const adjTotal = (a: Adj | undefined) => adjNum(a, 'amount') + adjNum(a, 'discount') + adjNum(a, 'incomeTaxWithheld') + adjNum(a, 'salesTaxWithheld')
 
-function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClose: () => void; onSaved: () => void }) {
+// Receive a payment, or edit one already recorded. Editing is the same screen on
+// purpose: moving a payment booked against the wrong invoice is the same act as
+// deciding where it goes in the first place.
+function ReceivePaymentPanel({ client, payment, onClose, onSaved }: { client: any; payment?: any; onClose: () => void; onSaved: () => void }) {
+  const isEdit = !!payment
   const [open,      setOpen]      = useState<any[]>([])
   const [loading,   setLoading]   = useState(true)
-  const [received,  setReceived]  = useState('')
+  const [received,  setReceived]  = useState(isEdit ? String(Number(payment.amount)) : '')
   const [alloc,     setAlloc]     = useState<Record<string, Adj>>({})
   // Which invoices this payment is being put against, QuickBooks style. All are
   // ticked on load so the default stays "settle the oldest first".
   const [selected,  setSelected]  = useState<Record<string, boolean>>({})
-  const [method,    setMethod]    = useState('BANK_TRANSFER')
-  const [reference, setReference] = useState('')
-  const [paidAt,    setPaidAt]    = useState(new Date().toISOString().split('T')[0])
-  const [notes,     setNotes]     = useState('')
-  const [proofUrl,  setProofUrl]  = useState('')
-  const [proofName, setProofName] = useState('')
-  const [overType,  setOverType]  = useState<'ADVANCE' | 'BONUS'>('ADVANCE')
+  const [method,    setMethod]    = useState(isEdit ? payment.method : 'BANK_TRANSFER')
+  const [reference, setReference] = useState(isEdit ? (payment.reference ?? '') : '')
+  const [paidAt,    setPaidAt]    = useState(isEdit ? (payment.paidAt ?? '').split('T')[0] : new Date().toISOString().split('T')[0])
+  const [notes,     setNotes]     = useState(isEdit ? (payment.notes ?? '') : '')
+  const [proofUrl,  setProofUrl]  = useState(isEdit ? (payment.proofUrl ?? '') : '')
+  const [proofName, setProofName] = useState(isEdit && payment.proofUrl ? 'Attached receipt' : '')
+  const [overType,  setOverType]  = useState<'ADVANCE' | 'BONUS'>(isEdit ? (payment.overpaymentType ?? 'ADVANCE') : 'ADVANCE')
   const [uploading, setUploading] = useState(false)
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState('')
 
   useEffect(() => {
-    api.get(`/invoices/open/${client.id}`)
+    // Editing asks for this payment's invoices too, including any it closed
+    // outright, with balances worked out as if the payment were not there.
+    api.get(`/invoices/open/${client.id}`, { params: isEdit ? { paymentId: payment.id } : {} })
       .then(({ data }) => {
         const list = Array.isArray(data) ? data : data.data ?? []
         setOpen(list)
-        setSelected(Object.fromEntries(list.map((i: any) => [i.id, true])))
+        if (isEdit) {
+          // Start from where the payment actually sits, so opening the screen and
+          // saving again changes nothing.
+          setSelected(Object.fromEntries(list.map((i: any) => [i.id, !!i.current])))
+          setAlloc(Object.fromEntries(list.map((i: any) => [i.id, i.current ? {
+            amount:            i.current.amount            ? String(Number(i.current.amount))            : '',
+            discount:          i.current.discount          ? String(Number(i.current.discount))          : '',
+            incomeTaxWithheld: i.current.incomeTaxWithheld ? String(Number(i.current.incomeTaxWithheld)) : '',
+            salesTaxWithheld:  i.current.salesTaxWithheld  ? String(Number(i.current.salesTaxWithheld))  : '',
+          } : blankAdj()])))
+        } else {
+          setSelected(Object.fromEntries(list.map((i: any) => [i.id, true])))
+        }
       })
       .catch(() => setOpen([]))
       .finally(() => setLoading(false))
-  }, [client.id])
+  }, [client.id, isEdit, payment?.id])
 
   const totalOpen     = open.reduce((s, i) => s + Number(i.balance), 0)
   const totalApplied  = Object.values(alloc).reduce((s, a) => s + adjNum(a, 'amount'), 0)
@@ -250,15 +268,26 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
 
     setSaving(true); setError('')
     try {
-      await api.post('/invoices/receive-payment', {
-        clientId: client.id, amount: amountRecv, method,
-        reference: reference || undefined, proofUrl: proofUrl || undefined,
-        paidAt: paidAt || undefined, notes: notes || undefined,
-        overpaymentType: unapplied > 0.001 ? overType : undefined,
-        allocations,
-      })
+      if (isEdit) {
+        // Sending allocations replaces the set, which is what moves a payment
+        // from the invoice it was booked against to the right one.
+        await api.patch(`/invoices/payments/${payment.id}`, {
+          amount: amountRecv, method,
+          reference: reference || undefined, proofUrl: proofUrl || undefined,
+          paidAt: paidAt || undefined, notes: notes || undefined,
+          allocations,
+        })
+      } else {
+        await api.post('/invoices/receive-payment', {
+          clientId: client.id, amount: amountRecv, method,
+          reference: reference || undefined, proofUrl: proofUrl || undefined,
+          paidAt: paidAt || undefined, notes: notes || undefined,
+          overpaymentType: unapplied > 0.001 ? overType : undefined,
+          allocations,
+        })
+      }
       onSaved()
-    } catch (e: any) { setError(e?.response?.data?.message ?? 'Failed to record payment') }
+    } catch (e: any) { setError(e?.response?.data?.message ?? (isEdit ? 'Failed to update payment' : 'Failed to record payment')) }
     finally { setSaving(false) }
   }
 
@@ -270,7 +299,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
         <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <h2 style={{ fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
-              Receive Payment
+              {isEdit ? 'Edit Payment' : 'Receive Payment'}
             </h2>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
               {client.businessName ?? client.fullName}
@@ -484,7 +513,7 @@ function ReceivePaymentPanel({ client, onClose, onSaved }: { client: any; onClos
             <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
             <button onClick={save} disabled={saving || uploading || amountRecv <= 0 || unapplied < -0.001}
               style={{ ...btn('#16a34a'), opacity: (saving || uploading || amountRecv <= 0 || unapplied < -0.001) ? 0.6 : 1 }}>
-              {saving ? 'Saving…' : `Record ${money(amountRecv)}`}
+              {saving ? 'Saving…' : isEdit ? `Save ${money(amountRecv)}` : `Record ${money(amountRecv)}`}
             </button>
           </div>
         </div>
@@ -765,99 +794,6 @@ function PaymentView({ payment, onClose, onEdit }: { payment: any; onClose: () =
           {payment.notes && <p style={{ margin: '14px 0 0', fontSize: 12, color: '#64748B', fontFamily: F, lineHeight: 1.5 }}>{payment.notes}</p>}
         </div>
       </div>
-    </div>
-  )
-}
-
-function PaymentEditPanel({ payment, onClose, onSaved }: { payment: any; onClose: () => void; onSaved: () => void }) {
-  const [amount,    setAmount]    = useState(String(Number(payment.amount)))
-  const [method,    setMethod]    = useState(payment.method)
-  const [reference, setReference] = useState(payment.reference ?? '')
-  const [paidAt,    setPaidAt]    = useState((payment.paidAt ?? '').split('T')[0])
-  const [notes,     setNotes]     = useState(payment.notes ?? '')
-  const [saving,    setSaving]    = useState(false)
-  const [error,     setError]     = useState('')
-  const applied = Number(payment.applied ?? 0)
-
-  async function save() {
-    const amt = Number(amount) || 0
-    if (amt < applied - 0.001) { setError(`This payment already has ${money(applied)} applied to invoices. Unapply some first to go lower.`); return }
-    setSaving(true); setError('')
-    try {
-      await api.patch(`/invoices/payments/${payment.id}`, {
-        amount: amt, method,
-        reference: reference || undefined,
-        paidAt:    paidAt || undefined,
-        notes:     notes || undefined,
-      })
-      onSaved()
-    } catch (e: any) { setError(e?.response?.data?.message ?? 'Could not update the payment') }
-    finally { setSaving(false) }
-  }
-
-  return (
-    <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F }}>
-        {/* Header */}
-        <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h2 style={{ fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
-              Edit Payment
-            </h2>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
-              {payment.paymentNumber ?? METHOD_LABEL[payment.method] ?? payment.method}
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ fontWeight: 900, color: '#F1F5F9', fontSize: 14, fontFamily: F }}>{money(applied)}</span>
-              <span style={{ color: '#CBD5E1', fontWeight: 600, fontSize: 12, fontFamily: F }}>Already Applied</span>
-            </span>
-            <button onClick={onClose} style={{
-              cursor: 'pointer', color: '#E2E8F0', fontWeight: 700,
-              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 8, padding: '4px 12px', fontSize: 12, fontFamily: F,
-            }}>
-              ← Back
-            </button>
-          </div>
-        </div>
-
-        <div style={{ padding: 20 }}>
-          {/* Same three-across opening as Receive Payment, which this mirrors */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
-            <div>
-              <label style={labelStyle}>Amount <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="number" min={0} value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} autoFocus />
-              {applied > 0 && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>{money(applied)} already applied to invoices, can't go below that.</p>}
-            </div>
-            <div>
-              <label style={labelStyle}>Method</label>
-              <StyledSelect value={method} onChange={setMethod} options={PAYMENT_METHODS} />
-            </div>
-            <div>
-              <label style={labelStyle}>Date</label>
-              <input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
-            <div>
-              <label style={labelStyle}>Reference</label>
-              <input value={reference} onChange={e => setReference(e.target.value)} placeholder="Cheque no. / transaction ID" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Notes</label>
-              <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Anything worth recording against this payment" style={inputStyle} />
-            </div>
-          </div>
-
-          {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '0 0 12px' }}>{error}</p>}
-
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
-            <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
-            <button onClick={save} disabled={saving} style={{ ...btn(TEAL), opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save changes'}</button>
-          </div>
-        </div>
     </div>
   )
 }
@@ -1598,7 +1534,8 @@ export default function InvoicingPage() {
           ) : applyPay ? (
             <ApplyCreditPanel payment={applyPay} onClose={() => setApplyPay(null)} onSaved={() => { setApplyPay(null); refresh() }} />
           ) : editPay ? (
-            <PaymentEditPanel payment={editPay} onClose={() => setEditPay(null)} onSaved={() => { setEditPay(null); refresh() }} />
+            <ReceivePaymentPanel client={selectedClient ?? ledger?.client} payment={editPay}
+              onClose={() => setEditPay(null)} onSaved={() => { setEditPay(null); refresh() }} />
           ) : editInv ? (
             <InvoiceFormPanel
               clientId={editInv.clientId}

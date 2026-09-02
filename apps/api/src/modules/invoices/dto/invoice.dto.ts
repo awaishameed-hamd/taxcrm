@@ -29,6 +29,10 @@ export class UpdatePaymentDto {
   @IsOptional() @IsString() proofUrl?: string
   @IsOptional() @IsString() paidAt?: string
   @IsOptional() @IsString() notes?: string
+  // When present, replaces the payment's allocations outright, which is how a
+  // payment booked against the wrong invoice is moved to the right one.
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => PaymentAllocationDto)
+  allocations?: PaymentAllocationDto[]
 }
 
 export class UpdateOpeningBalanceDto {

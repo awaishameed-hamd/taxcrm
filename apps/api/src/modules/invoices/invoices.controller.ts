@@ -55,8 +55,8 @@ export class InvoicesController {
   }
 
   @Get('open/:clientId')
-  openInvoices(@Param('clientId') clientId: string) {
-    return this.svc.openInvoices(clientId)
+  openInvoices(@Param('clientId') clientId: string, @Query('paymentId') paymentId?: string) {
+    return this.svc.openInvoices(clientId, paymentId)
   }
 
   @Post('receive-payment')

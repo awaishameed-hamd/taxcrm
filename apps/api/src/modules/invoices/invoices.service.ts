@@ -438,21 +438,39 @@ export class InvoicesService {
   }
 
   // Invoices this client still owes money on, the "Receive Payment" picker.
-  async openInvoices(clientId: string) {
+  // Invoices a payment can be put against. With `paymentId`, this is being edited:
+  // the invoices that payment already settled come back too, even the ones it
+  // closed outright, and every balance is worked out as if that payment were not
+  // there. Otherwise an invoice paid off by the payment being edited would be
+  // missing from the list, and the rest would look more settled than they are.
+  async openInvoices(clientId: string, paymentId?: string) {
     const invoices = await this.prisma.invoice.findMany({
-      where:   { clientId, status: { in: AWAITING } },
+      where: paymentId
+        ? { clientId, OR: [{ status: { in: AWAITING } }, { allocations: { some: { paymentId } } }] }
+        : { clientId, status: { in: AWAITING } },
       orderBy: { issueDate: 'asc' }, // oldest first, that's the order payment auto-applies in
       select:  {
         id: true, invoiceNumber: true, description: true, issueDate: true, dueDate: true, amount: true,
         amountPaid: true, discountTotal: true, incomeTaxWithheld: true, salesTaxWithheld: true,
+        ...(paymentId ? { allocations: { where: { paymentId }, select: { amount: true, discount: true, incomeTaxWithheld: true, salesTaxWithheld: true } } } : {}),
       },
     })
+
     // Balance is what's left after everything that settles it, cash or not
-    return invoices.map(i => ({
-      ...i,
-      balance: Number(i.amount) - Number(i.amountPaid) - Number(i.discountTotal)
-             - Number(i.incomeTaxWithheld) - Number(i.salesTaxWithheld),
-    }))
+    return invoices.map((i: any) => {
+      const mine = (i.allocations ?? []).reduce((s: number, a: any) =>
+        s + Number(a.amount) + Number(a.discount) + Number(a.incomeTaxWithheld) + Number(a.salesTaxWithheld), 0)
+      const settled = Number(i.amountPaid) + Number(i.discountTotal)
+                    + Number(i.incomeTaxWithheld) + Number(i.salesTaxWithheld) - mine
+      const { allocations, ...rest } = i
+      return {
+        ...rest,
+        balance: Number(i.amount) - settled,
+        // What this payment currently puts on the invoice, so the form can
+        // prefill the row it is editing.
+        current: (i.allocations ?? [])[0] ?? null,
+      }
+    })
   }
 
   // Stores the opening balance on the client and mirrors it into a single
@@ -811,7 +829,35 @@ export class InvoicesService {
     const payment = await this.prisma.payment.findUnique({ where: { id: paymentId }, include: { allocations: true } })
     if (!payment) throw new NotFoundException('Payment not found')
 
-    if (dto.amount !== undefined) {
+    const amount = dto.amount ?? Number(payment.amount)
+    let touched: string[] = []
+
+    // Allocations, when sent, replace what the payment was against. This is how a
+    // payment booked to the wrong invoice gets moved to the right one: the caller
+    // sends the set it should end up with, rather than unapplying row by row.
+    if (dto.allocations !== undefined) {
+      const rows = dto.allocations
+        .map(a => ({ invoiceId: a.invoiceId, amount: a.amount, discount: a.discount, incomeTaxWithheld: a.incomeTaxWithheld, salesTaxWithheld: a.salesTaxWithheld }))
+        .filter(a => this.settledBy(a) > 0)
+
+      const cash = rows.reduce((s, a) => s + a.amount, 0)
+      if (cash > amount + 0.001) throw new BadRequestException('Applied cash is more than the payment amount')
+
+      await this.validateReplacement(payment.clientId, paymentId, rows)
+
+      touched = [...new Set([...payment.allocations.map(a => a.invoiceId), ...rows.map(a => a.invoiceId)])]
+      await this.prisma.$transaction([
+        this.prisma.paymentAllocation.deleteMany({ where: { paymentId } }),
+        ...rows.map(a => this.prisma.paymentAllocation.create({
+          data: {
+            paymentId, invoiceId: a.invoiceId, amount: a.amount,
+            discount:          a.discount ?? 0,
+            incomeTaxWithheld: a.incomeTaxWithheld ?? 0,
+            salesTaxWithheld:  a.salesTaxWithheld ?? 0,
+          },
+        })),
+      ])
+    } else if (dto.amount !== undefined) {
       const applied = payment.allocations.reduce((s, a) => s + Number(a.amount), 0)
       if (dto.amount < applied - 0.001) {
         throw new BadRequestException(`This payment already has ${applied} applied to invoices, unapply some first`)
@@ -829,7 +875,41 @@ export class InvoicesService {
         ...(dto.notes     !== undefined ? { notes: dto.notes }                : {}),
       },
     })
+    // Both the invoices it left and the ones it landed on have to be rebuilt
+    if (touched.length > 0) await this.recomputeInvoices(touched)
     return { ok: true }
+  }
+
+  // Same job as validateAllocations, for a payment whose allocations are being
+  // replaced. The payment's own current contribution is taken back out of each
+  // invoice first, otherwise re-saving a row would be rejected for money the row
+  // itself put there, and an invoice this payment closed would read as fully paid.
+  private async validateReplacement(clientId: string, paymentId: string, allocations: Alloc[]) {
+    if (allocations.length === 0) return
+    const invoices = await this.prisma.invoice.findMany({
+      where:  { id: { in: allocations.map(a => a.invoiceId) }, clientId },
+      select: {
+        id: true, invoiceNumber: true, amount: true, status: true,
+        allocations: { select: { paymentId: true, amount: true, discount: true, incomeTaxWithheld: true, salesTaxWithheld: true } },
+      },
+    })
+    if (invoices.length !== allocations.length) throw new BadRequestException('One or more invoices do not belong to this client')
+
+    for (const a of allocations) {
+      const inv = invoices.find(i => i.id === a.invoiceId)!
+      // PAID is allowed here, unlike a fresh apply: it may be paid by this very
+      // payment. Draft, cancelled and contract-covered invoices still are not.
+      if (!BILLABLE.includes(inv.status)) {
+        throw new BadRequestException(`${inv.invoiceNumber} cannot take a payment`)
+      }
+      const others = inv.allocations
+        .filter(x => x.paymentId !== paymentId)
+        .reduce((s, x) => s + Number(x.amount) + Number(x.discount) + Number(x.incomeTaxWithheld) + Number(x.salesTaxWithheld), 0)
+      const balance = Number(inv.amount) - others
+      if (this.settledBy(a) > balance + 0.001) {
+        throw new BadRequestException(`${inv.invoiceNumber} only has ${balance} outstanding`)
+      }
+    }
   }
 
   // Pull a payment's slice back off an invoice, the money returns to unapplied credit.
