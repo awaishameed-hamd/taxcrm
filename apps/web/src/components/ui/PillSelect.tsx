@@ -50,7 +50,7 @@ export default function PillSelect({ value, onChange, options, minWidth = 150, d
           {options.map(opt => (
             <div key={opt.value} onMouseDown={() => { onChange(opt.value); setOpen(false) }}
               style={{
-                padding: '9px 14px', fontSize: 13, fontFamily: "'Aptos', sans-serif", cursor: 'pointer',
+                padding: '5px 12px', fontSize: 13, fontFamily: "'Aptos', sans-serif", cursor: 'pointer',
                 color: opt.value === value ? TEAL : NAVY,
                 fontWeight: opt.value === value ? 700 : 400,
                 background: opt.value === value ? '#E5F3F5' : 'transparent',

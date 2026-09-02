@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import PillSelect from '@/components/ui/PillSelect'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -57,16 +58,6 @@ function rangeDates(key: string): { from?: string; to?: string } {
     return { from: iso(new Date(now.getFullYear(), 0, 1)), to: iso(new Date(now.getFullYear(), 11, 31)) }
   }
   return {}
-}
-
-// A dropdown that sits on the teal filter bar. Navy fill once it is narrowing
-// something, matching how the active pill reads elsewhere in the app.
-const pillSelect: React.CSSProperties = {
-  flexShrink: 0, padding: '4px 10px', paddingRight: 24, borderRadius: 30,
-  border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: F,
-  color: '#fff', outline: 'none', appearance: 'none',
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center',
 }
 
 function StatCard({ label, value, border, fill }: { label: string; value: string | number; border: string; fill: string }) {
@@ -269,21 +260,17 @@ export default function InvoiceDetailsPage() {
               {/* One dropdown instead of five pills, so the bar stays readable.
                   The count rides in the option text, which is where it was doing
                   its job anyway. */}
-              <select value={bucket} onChange={e => setBucket(e.target.value)}
-                style={{ ...pillSelect, backgroundColor: bucket === 'all' ? 'rgba(255,255,255,0.18)' : NAVY }}>
-                {BUCKETS.map(b => (
-                  <option key={b.key} value={b.key} style={{ background: NAVY }}>
-                    {b.label} ({counts[b.key] ?? 0})
-                  </option>
-                ))}
-              </select>
+              <PillSelect
+                value={bucket} onChange={setBucket} dimValue="all" minWidth={170}
+                options={BUCKETS.map(b => ({ value: b.key, label: `${b.label} (${counts[b.key] ?? 0})` }))}
+              />
 
               <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
-              <select value={range} onChange={e => setRange(e.target.value)}
-                style={{ ...pillSelect, backgroundColor: range === 'all' ? 'rgba(255,255,255,0.18)' : NAVY }}>
-                {RANGES.map(r => <option key={r.key} value={r.key} style={{ background: NAVY }}>{r.label}</option>)}
-              </select>
+              <PillSelect
+                value={range} onChange={setRange} dimValue="all" minWidth={140}
+                options={RANGES.map(r => ({ value: r.key, label: r.label }))}
+              />
 
               {range === 'custom' && (
                 <>
