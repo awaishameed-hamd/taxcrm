@@ -248,7 +248,7 @@ export default function InvoiceDetailsPage() {
           <div style={{ display: 'flex', gap: 12, flexShrink: 0, marginBottom: 16, flexWrap: 'wrap' }}>
             <StatCard label="Invoices"       value={visible.length}       border="#1565C0" fill="#BDDAF8" />
             <StatCard label="Total Invoiced" value={money(totals.invoiced)} border="#132E57" fill="#CBD5E1" />
-            <StatCard label="Received"       value={money(totals.settled)}  border="#16A34A" fill="#BBF0D6" />
+            <StatCard label="Settled"        value={money(totals.settled)}  border="#16A34A" fill="#BBF0D6" />
             <StatCard label="Balance Due"    value={money(totals.balance)}  border="#B45309" fill="#FBE3B8" />
             <StatCard label="Overdue"        value={money(totals.overdue)}  border="#DC2626" fill="#FECACA" />
           </div>
@@ -313,7 +313,9 @@ export default function InvoiceDetailsPage() {
                 <tr style={{ background: '#F2AC18' }}>
                   {['Invoice #', 'Client', 'Description', 'Type', 'Issued', 'Due'].map(l => <th key={l} style={th}>{l}</th>)}
                   <th style={{ ...th, textAlign: 'right' }}>Amount</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Received</th>
+                  {/* Settled, not received: a discount or tax withheld at source
+                      closes an invoice without any cash arriving. */}
+                  <th style={{ ...th, textAlign: 'right' }}>Settled</th>
                   <th style={{ ...th, textAlign: 'right' }}>Balance</th>
                   <th style={th}>Status</th>
                 </tr>
