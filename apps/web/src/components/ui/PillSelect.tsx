@@ -6,7 +6,7 @@ const TEAL = '#1E8496'
 
 // A dropdown whose trigger is a navy pill, to sit inside the teal filter bars
 // next to the Active/Inactive pills. The open list matches StyledSelect.
-export default function PillSelect({ value, onChange, options, minWidth = 150, dimValue }: {
+export default function PillSelect({ value, onChange, options, minWidth = 150, dimValue, triggerStyle, align = 'left' }: {
   value: string
   onChange: (v: string) => void
   options: { value: string; label: string }[]
@@ -14,6 +14,11 @@ export default function PillSelect({ value, onChange, options, minWidth = 150, d
   // When the current value equals this (e.g. the "all" default), the pill dims
   // to translucent, so an applied filter reads as navy and an unset one does not.
   dimValue?: string
+  // Overrides for the trigger only. The open list stays identical wherever this
+  // is used, which is the point: a table cell or a settings box can carry its own
+  // compact trigger without inventing a second dropdown.
+  triggerStyle?: React.CSSProperties
+  align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -34,16 +39,18 @@ export default function PillSelect({ value, onChange, options, minWidth = 150, d
           border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
           fontFamily: "'Aptos', sans-serif", color: '#fff', whiteSpace: 'nowrap',
           background: dimValue !== undefined && value === dimValue ? 'rgba(255,255,255,0.18)' : NAVY,
+          ...triggerStyle,
         }}>
-        {sel?.label}
-        <svg width={11} height={11} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <span style={{ flex: 1, textAlign: 'inherit', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel?.label}</span>
+        <svg width={11} height={11} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} style={{ flexShrink: 0 }}>
           <path strokeLinecap="round" strokeLinejoin="round" d={open ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} />
         </svg>
       </button>
 
       {open && (
         <div style={{
-          position: 'absolute', zIndex: 999, top: 'calc(100% + 5px)', left: 0, minWidth,
+          position: 'absolute', zIndex: 999, top: 'calc(100% + 5px)', minWidth,
+          ...(align === 'right' ? { right: 0 } : { left: 0 }),
           background: '#fff', border: '1.5px solid #E0DDD5', borderRadius: 8,
           boxShadow: '0 6px 20px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto',
         }}>

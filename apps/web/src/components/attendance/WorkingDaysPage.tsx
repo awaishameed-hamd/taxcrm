@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
+import PillSelect from '@/components/ui/PillSelect'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_NAMES   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -191,14 +192,10 @@ export default function WorkingDaysPage() {
       {/* Filter bar */}
       <div style={{ flexShrink: 0, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px' }}>
-          <select value={month} onChange={e => setMonth(Number(e.target.value))}
-            style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: '"Aptos", sans-serif', background: 'rgba(255,255,255,0.18)', color: '#fff', outline: 'none', appearance: 'none', paddingRight: 24, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}>
-            {availableMonths.map(m => <option key={m} value={m} style={{ background: P.navy }}>{MONTH_NAMES[m - 1]}</option>)}
-          </select>
-          <select value={year} onChange={e => setYear(Number(e.target.value))}
-            style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: '"Aptos", sans-serif', background: 'rgba(255,255,255,0.18)', color: '#fff', outline: 'none', appearance: 'none', paddingRight: 24, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}>
-            {availableYears.map(y => <option key={y} value={y} style={{ background: P.navy }}>{y}</option>)}
-          </select>
+          <PillSelect value={String(month)} onChange={v => setMonth(Number(v))} minWidth={140}
+            options={availableMonths.map(m => ({ value: String(m), label: MONTH_NAMES[m - 1] }))} />
+          <PillSelect value={String(year)} onChange={v => setYear(Number(v))} minWidth={100}
+            options={availableYears.map(y => ({ value: String(y), label: String(y) }))} />
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: '#fff', fontFamily: '"Aptos", sans-serif' }}>{MONTH_NAMES[month - 1]} {year}</span>
         </div>
@@ -259,17 +256,18 @@ export default function WorkingDaysPage() {
                               }}>
                                 {STATUS_OPTIONS.find(o => o.value === dayType)?.label ?? dayType}
                               </span>
-                            : <select
+                            : <PillSelect
                                 value={dayType}
-                                onChange={e => setDayField(idx, 'dayType', e.target.value)}
-                                style={{
-                                  ...CTRL, fontWeight: 600,
-                                  border: `1px solid ${P.border}`, cursor: 'pointer',
+                                onChange={v => setDayField(idx, 'dayType', v)}
+                                options={STATUS_OPTIONS}
+                                minWidth={132}
+                                triggerStyle={{
+                                  ...CTRL, fontWeight: 600, width: 132,
+                                  border: `1px solid ${P.border}`,
                                   background: dayType === 'HOLIDAY' ? '#FFF3E0' : dayType === 'WEEKEND' ? '#F5F5F5' : '#fff',
                                   color: dayType === 'HOLIDAY' ? P.brick : dayType === 'WEEKEND' ? P.textMuted : P.textHeading,
-                                }}>
-                                {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                              </select>
+                                }}
+                              />
                           }
                         </td>
                         <td style={{ ...CELL, borderBottom: `1px solid ${P.gridLine}`, minWidth: 180 }}>

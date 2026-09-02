@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
+import PillSelect from '@/components/ui/PillSelect'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatTime12h } from '@/lib/utils'
@@ -207,14 +208,6 @@ function CalendarView({ calendar, year, month, userName, userRole, summary }: {
 
 const dropdownArrow = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`
 
-const pillSelect: React.CSSProperties = {
-  flexShrink: 0, padding: '4px 28px 4px 10px', borderRadius: 30, border: 'none',
-  cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: '"Aptos", sans-serif',
-  background: 'rgba(255,255,255,0.18)', color: '#fff', outline: 'none',
-  appearance: 'none', backgroundImage: dropdownArrow,
-  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center',
-}
-
 export default function MyAttendancePage() {
   const { user } = useAuth()
   const now      = new Date()
@@ -302,12 +295,10 @@ export default function MyAttendancePage() {
       {/* Filter bar */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px' }}>
-          <select value={month} onChange={e => setMonth(Number(e.target.value))} style={pillSelect}>
-            {availableMonths.map(m => <option key={m} value={m} style={{ background: P.navy }}>{MONTH_NAMES[m - 1]}</option>)}
-          </select>
-          <select value={year} onChange={e => setYear(Number(e.target.value))} style={pillSelect}>
-            {availableYears.map(y => <option key={y} value={y} style={{ background: P.navy }}>{y}</option>)}
-          </select>
+          <PillSelect value={String(month)} onChange={v => setMonth(Number(v))} minWidth={140}
+            options={availableMonths.map(m => ({ value: String(m), label: MONTH_NAMES[m - 1] }))} />
+          <PillSelect value={String(year)} onChange={v => setYear(Number(v))} minWidth={100}
+            options={availableYears.map(y => ({ value: String(y), label: String(y) }))} />
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
           {/* List / Calendar toggle */}
           <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: 3 }}>

@@ -1,4 +1,5 @@
 'use client'
+import PillSelect from '@/components/ui/PillSelect'
 
 import { useState, useEffect } from 'react'
 import api from '@/lib/api'
@@ -115,15 +116,9 @@ function TimeCard({
             {/* Hour */}
             <div className="flex flex-col items-center gap-1">
               <span className="text-xs font-semibold" style={{ color: '#94A3B8' }}>Hour</span>
-              <select value={getH()} onChange={e => updateDisplay(e.target.value, getM(), getAP())}
-                className="rounded-lg px-3 py-2.5 text-center font-bold outline-none cursor-pointer"
-                style={{ border: '1.5px solid #CBD5E1', color: NAVY, fontFamily: '"Aptos", sans-serif', fontSize: '1.1rem', width: 70, appearance: 'none', textAlign: 'center' }}
-                onFocus={e => (e.target.style.borderColor = TEAL)}
-                onBlur={e  => (e.target.style.borderColor = '#CBD5E1')}>
-                {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
-                  <option key={h} value={h}>{h}</option>
-                ))}
-              </select>
+              <PillSelect value={getH()} onChange={v => updateDisplay(v, getM(), getAP())} minWidth={74}
+                options={Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(h => ({ value: h, label: h }))}
+                triggerStyle={{ border: '1.5px solid #CBD5E1', color: NAVY, fontFamily: '\"Aptos\", sans-serif', fontSize: '1.05rem', fontWeight: 700, width: 74, height: 40, borderRadius: 8, background: '#fff', justifyContent: 'center', gap: 3 }} />
             </div>
 
             <span className="font-black text-2xl pb-0.5" style={{ color: NAVY }}>:</span>
@@ -131,15 +126,9 @@ function TimeCard({
             {/* Minute */}
             <div className="flex flex-col items-center gap-1">
               <span className="text-xs font-semibold" style={{ color: '#94A3B8' }}>Minute</span>
-              <select value={getM()} onChange={e => updateDisplay(getH(), e.target.value, getAP())}
-                className="rounded-lg px-3 py-2.5 text-center font-bold outline-none cursor-pointer"
-                style={{ border: '1.5px solid #CBD5E1', color: NAVY, fontFamily: '"Aptos", sans-serif', fontSize: '1.1rem', width: 70, appearance: 'none', textAlign: 'center' }}
-                onFocus={e => (e.target.style.borderColor = TEAL)}
-                onBlur={e  => (e.target.style.borderColor = '#CBD5E1')}>
-                {['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
+              <PillSelect value={getM()} onChange={v => updateDisplay(getH(), v, getAP())} minWidth={74}
+                options={['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => ({ value: m, label: m }))}
+                triggerStyle={{ border: '1.5px solid #CBD5E1', color: NAVY, fontFamily: '\"Aptos\", sans-serif', fontSize: '1.05rem', fontWeight: 700, width: 74, height: 40, borderRadius: 8, background: '#fff', justifyContent: 'center', gap: 3 }} />
             </div>
 
             {/* AM/PM */}

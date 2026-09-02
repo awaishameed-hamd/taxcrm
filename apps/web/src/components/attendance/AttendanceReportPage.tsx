@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import type ExcelJS from 'exceljs'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
+import PillSelect from '@/components/ui/PillSelect'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { formatTime12h } from '@/lib/utils'
@@ -809,15 +810,10 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
 
           {/* Month + Year, only in monthly mode */}
           {viewMode === 'monthly' && (<>
-            <select value={month} onChange={e => setMonth(Number(e.target.value))}
-              style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: '"Aptos", sans-serif', background: 'rgba(255,255,255,0.18)', color: '#fff', outline: 'none', appearance: 'none', paddingRight: 24, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}>
-              {availableMonths.map(m => <option key={m} value={m} style={{ background: P.navy }}>{MONTH_NAMES[m - 1]}</option>)}
-            </select>
-
-            <select value={year} onChange={e => setYear(Number(e.target.value))}
-              style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: '"Aptos", sans-serif', background: 'rgba(255,255,255,0.18)', color: '#fff', outline: 'none', appearance: 'none', paddingRight: 24, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}>
-              {availableYears.map(y => <option key={y} value={y} style={{ background: P.navy }}>{y}</option>)}
-            </select>
+            <PillSelect value={String(month)} onChange={v => setMonth(Number(v))} minWidth={140}
+            options={availableMonths.map(m => ({ value: String(m), label: MONTH_NAMES[m - 1] }))} />
+          <PillSelect value={String(year)} onChange={v => setYear(Number(v))} minWidth={100}
+            options={availableYears.map(y => ({ value: String(y), label: String(y) }))} />
 
             {/* Separator */}
             <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
