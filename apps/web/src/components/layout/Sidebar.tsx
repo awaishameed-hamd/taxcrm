@@ -219,8 +219,8 @@ const NAV: Record<string, NavItem[]> = {
 
 const ATTENDANCE_KEYS = ['myAtt', 'myLeaves', 'attReport', 'attApproval', 'dailyAtt', 'workingDays']
 const TASK_KEYS       = ['tasks', 'completedTasks', 'incompleteTasks', 'taskApproval']
-// Invoice Approval stays a row of its own, it is a queue that carries a badge.
-const INVOICING_KEYS  = ['invoicing', 'invoiceDetails']
+// Invoice Approval leads the group, its pending count rides on the parent row.
+const INVOICING_KEYS  = ['invoiceApproval', 'invoicing', 'invoiceDetails']
 
 // Nav items that collapse into one row and open as a flyout, so the sidebar
 // stays short instead of listing every sub-page.
@@ -548,6 +548,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     + (si.key === 'tasks' ? navCounts.tasks
       : si.key === 'taskApproval' ? navCounts.taskApproval
       : si.key === 'attApproval' ? navCounts.attApproval
+      : si.key === 'invoiceApproval' ? navCounts.invoiceApproval
       : 0), 0)
 
   const openItems = openGroup ? (groupItems[openGroup] ?? []) : []
@@ -820,8 +821,9 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
                 <span style={{ flex: 1 }}>{item.label}</span>
                 {(() => {
                   const n = item.key === 'attApproval'  ? navCounts.attApproval
-                    : item.key === 'taskApproval' ? navCounts.taskApproval
-                    : item.key === 'tasks'        ? navCounts.tasks
+                    : item.key === 'taskApproval'    ? navCounts.taskApproval
+                    : item.key === 'tasks'           ? navCounts.tasks
+                    : item.key === 'invoiceApproval' ? navCounts.invoiceApproval
                     : 0
                   if (n <= 0) return null
                   return (

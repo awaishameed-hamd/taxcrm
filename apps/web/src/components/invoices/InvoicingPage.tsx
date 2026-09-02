@@ -1475,9 +1475,13 @@ export default function InvoicingPage() {
                 </svg>
               </button>
             )}
-            <h1 style={{ margin: 0, fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#1E8496' }}>
-              {selectedId === null ? 'All Invoices' : (ledger?.client?.businessName ?? ledger?.client?.user?.fullName ?? 'Client Account')}
-            </h1>
+            {/* The heading names the client whose account is open. With none
+                picked there is nothing to name, so it stays out of the way. */}
+            {selectedId !== null && (
+              <h1 style={{ margin: 0, fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#1E8496' }}>
+                {ledger?.client?.businessName ?? ledger?.client?.user?.fullName ?? 'Client Account'}
+              </h1>
+            )}
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px', minWidth: 0 }}>
