@@ -1015,7 +1015,7 @@ export default function TaxSummaryPage() {
                   onClick={() => setSelected(c)}
                   style={{
                     display: 'block', width: '100%', textAlign: 'left',
-                    padding: '4px 10px', cursor: 'pointer', marginBottom: 4,
+                    padding: '4px 6px', cursor: 'pointer', marginBottom: 4,
                     border: `1px solid ${isActive ? TEAL : P.border}`, borderRadius: 8,
                     background: isActive ? '#E8EEF7' : '#F8FAFC',
                     fontFamily: "'Aptos', sans-serif",

@@ -1378,10 +1378,10 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
               <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:8, paddingLeft:4 }}>
                 <span style={{ fontSize:11, fontWeight:600, color:'#64748B' }}>From:</span>
                 <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
-                  style={{ padding:'4px 10px', borderRadius:8, border:`1px solid ${P.border}`, background:'#fff', color:NAVY, fontSize:12, outline:'none' }} />
+                  style={{ padding:'4px 6px', borderRadius:8, border:`1px solid ${P.border}`, background:'#fff', color:NAVY, fontSize:12, outline:'none' }} />
                 <span style={{ fontSize:11, fontWeight:600, color:'#64748B' }}>To:</span>
                 <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
-                  style={{ padding:'4px 10px', borderRadius:8, border:`1px solid ${P.border}`, background:'#fff', color:NAVY, fontSize:12, outline:'none' }} />
+                  style={{ padding:'4px 6px', borderRadius:8, border:`1px solid ${P.border}`, background:'#fff', color:NAVY, fontSize:12, outline:'none' }} />
                 <button onClick={() => { setFilterFrom(''); setFilterTo('') }}
                   style={{ padding:'4px 12px', borderRadius:8, border:`1px solid ${P.border}`, background:'#fff', color:'#64748B', fontSize:11, fontWeight:600, cursor:'pointer' }}>
                   Clear
@@ -1732,7 +1732,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                     const clientName = t.client?.businessName ?? t.client?.user?.fullName ?? ''
                     return (
                       <button key={t.id} onClick={() => { setSelectedPipe(t); setAdvanceForm({}) }}
-                        style={{ display:'block', width:'100%', textAlign:'left', padding:'4px 10px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:4, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
+                        style={{ display:'block', width:'100%', textAlign:'left', padding:'4px 6px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:4, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
                         onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                         onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
 
@@ -1768,7 +1768,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                   const sm = GEN_STATUS[t.status] ?? { color:NAVY, bg:'#eee', label: t.status }
                   return (
                     <button key={t.id} onClick={() => setSelectedGen(t)}
-                      style={{ display:'block', width:'100%', textAlign:'left', padding:'4px 10px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:4, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
+                      style={{ display:'block', width:'100%', textAlign:'left', padding:'4px 6px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:4, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
                       <div style={{ display:'flex', gap:9, alignItems:'center' }}>
@@ -1806,7 +1806,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                         if (d) setSelectedFbr(d)
                       }).catch(() => {})
                     }}
-                      style={{ display:'block', width:'100%', textAlign:'left', padding:'4px 10px', border:`1px solid ${isActive ? '#1565C0' : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:4, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
+                      style={{ display:'block', width:'100%', textAlign:'left', padding:'4px 6px', border:`1px solid ${isActive ? '#1565C0' : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:4, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
                       <div style={{ display:'flex', gap:9, alignItems:'center' }}>
