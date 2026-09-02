@@ -59,6 +59,16 @@ function rangeDates(key: string): { from?: string; to?: string } {
   return {}
 }
 
+// A dropdown that sits on the teal filter bar. Navy fill once it is narrowing
+// something, matching how the active pill reads elsewhere in the app.
+const pillSelect: React.CSSProperties = {
+  flexShrink: 0, padding: '4px 10px', paddingRight: 24, borderRadius: 30,
+  border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: F,
+  color: '#fff', outline: 'none', appearance: 'none',
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center',
+}
+
 function StatCard({ label, value, border, fill }: { label: string; value: string | number; border: string; fill: string }) {
   return (
     <div style={{ flex: 1, minWidth: 100, background: fill, border: `1px solid ${border}30`, borderRadius: 10, padding: '11px 14px' }}>
@@ -256,28 +266,22 @@ export default function InvoiceDetailsPage() {
           {/* Status buckets + date range + search */}
           <div style={{ flexShrink: 0, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px', flexWrap: 'wrap' }}>
-              {BUCKETS.map(b => (
-                <button key={b.key} onClick={() => setBucket(b.key)} style={{
-                  flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer',
-                  fontSize: 12, fontWeight: 600, fontFamily: F, whiteSpace: 'nowrap',
-                  background: bucket === b.key ? NAVY : 'transparent',
-                  color: bucket === b.key ? '#fff' : 'rgba(255,255,255,0.85)',
-                }}>
-                  {b.label}
-                  <span style={{ marginLeft: 6, fontWeight: 900, opacity: 0.85 }}>{counts[b.key] ?? 0}</span>
-                </button>
-              ))}
+              {/* One dropdown instead of five pills, so the bar stays readable.
+                  The count rides in the option text, which is where it was doing
+                  its job anyway. */}
+              <select value={bucket} onChange={e => setBucket(e.target.value)}
+                style={{ ...pillSelect, backgroundColor: bucket === 'all' ? 'rgba(255,255,255,0.18)' : NAVY }}>
+                {BUCKETS.map(b => (
+                  <option key={b.key} value={b.key} style={{ background: NAVY }}>
+                    {b.label} ({counts[b.key] ?? 0})
+                  </option>
+                ))}
+              </select>
 
               <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
               <select value={range} onChange={e => setRange(e.target.value)}
-                style={{
-                  flexShrink: 0, padding: '4px 10px', borderRadius: 30, border: 'none', cursor: 'pointer',
-                  fontSize: 12, fontWeight: 600, fontFamily: F, background: 'rgba(255,255,255,0.18)',
-                  color: '#fff', outline: 'none', appearance: 'none', paddingRight: 24,
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center',
-                }}>
+                style={{ ...pillSelect, backgroundColor: range === 'all' ? 'rgba(255,255,255,0.18)' : NAVY }}>
                 {RANGES.map(r => <option key={r.key} value={r.key} style={{ background: NAVY }}>{r.label}</option>)}
               </select>
 
