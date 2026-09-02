@@ -769,7 +769,7 @@ function PaymentView({ payment, onClose, onEdit }: { payment: any; onClose: () =
   )
 }
 
-function PaymentEditModal({ payment, onClose, onSaved }: { payment: any; onClose: () => void; onSaved: () => void }) {
+function PaymentEditPanel({ payment, onClose, onSaved }: { payment: any; onClose: () => void; onSaved: () => void }) {
   const [amount,    setAmount]    = useState(String(Number(payment.amount)))
   const [method,    setMethod]    = useState(payment.method)
   const [reference, setReference] = useState(payment.reference ?? '')
@@ -796,19 +796,40 @@ function PaymentEditModal({ payment, onClose, onSaved }: { payment: any; onClose
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-        <div style={{ background: '#7EC8D0', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontFamily: "'Ethnocentric Rg', sans-serif", fontSize: 14, fontWeight: 300, letterSpacing: '0.04em', color: NAVY, margin: 0 }}>Edit Payment</h2>
-          <span style={{ fontSize: 12, color: NAVY, fontWeight: 700, fontFamily: F }}>{METHOD_LABEL[payment.method] ?? payment.method}</span>
-        </div>
-        <div style={{ padding: 20 }}>
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Amount <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="number" min={0} value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} autoFocus />
-            {applied > 0 && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>{money(applied)} already applied to invoices, can't go below that.</p>}
+    <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F }}>
+        {/* Header */}
+        <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h2 style={{ fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
+              Edit Payment
+            </h2>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
+              {payment.paymentNumber ?? METHOD_LABEL[payment.method] ?? payment.method}
+            </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ fontWeight: 900, color: '#F1F5F9', fontSize: 14, fontFamily: F }}>{money(applied)}</span>
+              <span style={{ color: '#CBD5E1', fontWeight: 600, fontSize: 12, fontFamily: F }}>Already Applied</span>
+            </span>
+            <button onClick={onClose} style={{
+              cursor: 'pointer', color: '#E2E8F0', fontWeight: 700,
+              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 8, padding: '4px 12px', fontSize: 12, fontFamily: F,
+            }}>
+              ← Back
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: 20 }}>
+          {/* Same three-across opening as Receive Payment, which this mirrors */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
+            <div>
+              <label style={labelStyle}>Amount <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="number" min={0} value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} autoFocus />
+              {applied > 0 && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>{money(applied)} already applied to invoices, can't go below that.</p>}
+            </div>
             <div>
               <label style={labelStyle}>Method</label>
               <StyledSelect value={method} onChange={setMethod} options={PAYMENT_METHODS} />
@@ -818,21 +839,25 @@ function PaymentEditModal({ payment, onClose, onSaved }: { payment: any; onClose
               <input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} style={inputStyle} />
             </div>
           </div>
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Reference</label>
-            <input value={reference} onChange={e => setReference(e.target.value)} placeholder="Cheque no. / transaction ID" style={inputStyle} />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+            <div>
+              <label style={labelStyle}>Reference</label>
+              <input value={reference} onChange={e => setReference(e.target.value)} placeholder="Cheque no. / transaction ID" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Notes</label>
+              <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Anything worth recording against this payment" style={inputStyle} />
+            </div>
           </div>
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Notes</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none' }} />
-          </div>
+
           {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '0 0 12px' }}>{error}</p>}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
             <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
             <button onClick={save} disabled={saving} style={{ ...btn(TEAL), opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save changes'}</button>
           </div>
         </div>
-      </div>
     </div>
   )
 }
@@ -1572,6 +1597,8 @@ export default function InvoicingPage() {
             <ReceivePaymentPanel client={payClient} onClose={() => setPayClient(null)} onSaved={() => { setPayClient(null); refresh() }} />
           ) : applyPay ? (
             <ApplyCreditPanel payment={applyPay} onClose={() => setApplyPay(null)} onSaved={() => { setApplyPay(null); refresh() }} />
+          ) : editPay ? (
+            <PaymentEditPanel payment={editPay} onClose={() => setEditPay(null)} onSaved={() => { setEditPay(null); refresh() }} />
           ) : editInv ? (
             <InvoiceFormPanel
               clientId={editInv.clientId}
@@ -1860,7 +1887,6 @@ export default function InvoicingPage() {
 
       {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} onDeleted={() => { setViewInv(null); refresh() }} onEdit={i => { setViewInv(null); setEditInv(i) }} onChanged={refresh} />}
       {openBal   && <OpeningBalanceModal client={openBal.client} mode={openBal.mode} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
-      {editPay   && <PaymentEditModal payment={editPay} onClose={() => setEditPay(null)} onSaved={() => { setEditPay(null); refresh() }} />}
       {viewPay   && <PaymentView payment={viewPay} onClose={() => setViewPay(null)} onEdit={() => { setEditPay(viewPay); setViewPay(null) }} />}
 
       {/* Right-click menu on a client */}
