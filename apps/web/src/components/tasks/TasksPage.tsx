@@ -1732,7 +1732,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                     const clientName = t.client?.businessName ?? t.client?.user?.fullName ?? ''
                     return (
                       <button key={t.id} onClick={() => { setSelectedPipe(t); setAdvanceForm({}) }}
-                        style={{ display:'block', width:'100%', textAlign:'left', padding:'7px 12px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:6, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
+                        style={{ display:'block', width:'100%', textAlign:'left', padding:'4px 10px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:4, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
                         onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                         onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
 
@@ -1741,10 +1741,14 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                           const a = authorityStyle(auth)
                           return (
                             <div style={{ display:'flex', gap:9, alignItems:'center' }}>
-                              <span style={{ flexShrink:0, width:20, height:20, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
+                              <span style={{ flexShrink:0, width:16, height:16, borderRadius:5, background: TEAL, color:'#fff', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
                               <span style={{ fontSize:12, fontWeight:700, color: isActive ? TEAL : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
                               {isSalesTaxTab && <span style={{ fontSize:10, fontWeight:700, color:a.color, background:a.bg, border:`1px solid ${a.color}22`, padding:'2px 8px', borderRadius:6, flexShrink:0 }}>{auth}</span>}
-                              <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color:ov.color, background:ov.bg, flexShrink:0 }}>{ov.label}</span>
+                              {/* Whose task it is. The stage already shows in the
+                                  detail pane, so the row names the person instead. */}
+                              <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color:ov.color, background:ov.bg, flexShrink:0, maxWidth:110, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                {t.trainee?.fullName ?? 'Unassigned'}
+                              </span>
                             </div>
                           )
                         })()}
@@ -1764,11 +1768,11 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                   const sm = GEN_STATUS[t.status] ?? { color:NAVY, bg:'#eee', label: t.status }
                   return (
                     <button key={t.id} onClick={() => setSelectedGen(t)}
-                      style={{ display:'block', width:'100%', textAlign:'left', padding:'7px 12px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:6, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
+                      style={{ display:'block', width:'100%', textAlign:'left', padding:'4px 10px', border:`1px solid ${isActive ? TEAL : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:4, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
                       <div style={{ display:'flex', gap:9, alignItems:'center' }}>
-                        <span style={{ flexShrink:0, width:20, height:20, borderRadius:5, background:TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
+                        <span style={{ flexShrink:0, width:16, height:16, borderRadius:5, background:TEAL, color:'#fff', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
                         <span style={{ fontSize:12, fontWeight:700, color: isActive ? TEAL : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</span>
                         <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color:sm.color, background:sm.bg, flexShrink:0 }}>{sm.label}</span>
                       </div>
@@ -1802,11 +1806,11 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                         if (d) setSelectedFbr(d)
                       }).catch(() => {})
                     }}
-                      style={{ display:'block', width:'100%', textAlign:'left', padding:'7px 12px', border:`1px solid ${isActive ? '#1565C0' : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:6, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
+                      style={{ display:'block', width:'100%', textAlign:'left', padding:'4px 10px', border:`1px solid ${isActive ? '#1565C0' : P.border}`, borderRadius:8, cursor:'pointer', marginBottom:4, background: isActive ? '#E8EEF7' : '#F8FAFC', fontFamily:"'Aptos',sans-serif" }}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
                       <div style={{ display:'flex', gap:9, alignItems:'center' }}>
-                        <span style={{ flexShrink:0, width:20, height:20, borderRadius:5, background: TEAL, color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
+                        <span style={{ flexShrink:0, width:16, height:16, borderRadius:5, background: TEAL, color:'#fff', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
                         <span style={{ fontSize:12, fontWeight:700, color: isActive ? '#1565C0' : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
                         {(() => { const auth = c.authority ?? 'FBR'; const a = authorityStyle(auth); return <span style={{ fontSize:10, fontWeight:700, color:a.color, background:a.bg, border:`1px solid ${a.color}22`, padding:'2px 8px', borderRadius:6, flexShrink:0 }}>{auth}</span> })()}
                         <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color: stage.color, background: stage.bg, flexShrink:0, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{stage.label}</span>
