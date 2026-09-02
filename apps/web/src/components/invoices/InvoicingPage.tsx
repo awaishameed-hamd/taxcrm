@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { uploadFile } from '@/lib/storage'
+import PillSelect from '@/components/ui/PillSelect'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
@@ -76,6 +77,24 @@ const iso = (d: Date) => d.toISOString().split('T')[0]
 
 // Date-range presets for the ledger. `null` means unbounded, the account from day one.
 type RangeKey = 'month' | 'year' | 'all' | 'custom'
+// Row actions, shared so a View or an Edit looks the same on every ledger tab
+const eyeBtn: React.CSSProperties = {
+  width: 20, height: 20, borderRadius: 6, border: '1px solid #E0DDD5', background: '#fff',
+  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#132E57',
+}
+const pencilBtn: React.CSSProperties = { ...eyeBtn, color: '#3B82F6' }
+const eyeIcon = (
+  <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+  </svg>
+)
+const pencilIcon = (
+  <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931z" />
+  </svg>
+)
+
 const RANGES: { key: RangeKey; label: string }[] = [
   { key: 'month',  label: 'This Month' },
   { key: 'year',   label: 'This Year' },
@@ -712,6 +731,44 @@ function ApplyCreditPanel({ payment, onClose, onSaved }: { payment: any; onClose
 }
 
 // ─── Edit a recorded payment (fix a wrong amount, method or date) ─────────────
+// Read-only look at a payment, the counterpart to viewing an invoice
+function PaymentView({ payment, onClose, onEdit }: { payment: any; onClose: () => void; onEdit: () => void }) {
+  const line = (label: string, value: React.ReactNode) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '7px 0', borderBottom: `1px solid ${P.gridLine}` }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: '#64748B', fontFamily: F }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', fontFamily: F, textAlign: 'right' }}>{value}</span>
+    </div>
+  )
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 460, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+        <div style={{ background: P.teal, padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <h2 style={{ fontFamily: F, fontSize: 18, fontWeight: 800, color: '#F1F5F9', margin: 0 }}>
+            {payment.paymentNumber ?? 'Payment'}
+          </h2>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onEdit} style={{ cursor: 'pointer', color: '#E2E8F0', fontWeight: 700, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, padding: '4px 12px', fontSize: 12, fontFamily: F }}>Edit</button>
+            <button onClick={onClose} style={{ cursor: 'pointer', color: '#E2E8F0', fontWeight: 700, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, padding: '4px 12px', fontSize: 12, fontFamily: F }}>Close</button>
+          </div>
+        </div>
+        <div style={{ padding: 20 }}>
+          {line('Amount Received', money(payment.amount))}
+          {line('Method', METHOD_LABEL[payment.method] ?? payment.method)}
+          {line('Date', fmtDate(payment.paidAt))}
+          {line('Reference', payment.reference || '-')}
+          {line('Unapplied', money(payment.unapplied))}
+          {payment.bonus > 0 && line('Kept as bonus', money(payment.bonus))}
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#94A3B8', fontFamily: F, margin: '16px 0 6px' }}>APPLIED TO</div>
+          {(payment.allocations ?? []).length === 0
+            ? <p style={{ margin: 0, fontSize: 12, color: '#94A3B8', fontFamily: F }}>Nothing yet, this is sitting as credit.</p>
+            : payment.allocations.map((a: any) => line(a.invoice?.invoiceNumber ?? '', money(a.amount)))}
+          {payment.notes && <p style={{ margin: '14px 0 0', fontSize: 12, color: '#64748B', fontFamily: F, lineHeight: 1.5 }}>{payment.notes}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PaymentEditModal({ payment, onClose, onSaved }: { payment: any; onClose: () => void; onSaved: () => void }) {
   const [amount,    setAmount]    = useState(String(Number(payment.amount)))
   const [method,    setMethod]    = useState(payment.method)
@@ -1305,6 +1362,7 @@ export default function InvoicingPage() {
   const [customTo,   setCustomTo]   = useState('')
 
   const [viewInv,    setViewInv]    = useState<Invoice | null>(null)
+  const [viewPay,    setViewPay]    = useState<any>(null)
   const [editInv,    setEditInv]    = useState<Invoice | null>(null)
   const [showNewInvoice, setShowNewInvoice] = useState(false)
   const [payClient,  setPayClient]  = useState<any>(null)
@@ -1394,10 +1452,8 @@ export default function InvoicingPage() {
   function actions(r: Invoice) {
     return (
       <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-        <button onClick={() => setViewInv(r)} title="View / Print"
-          style={{ width: 20, height: 20, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
-          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-        </button>
+        <button onClick={() => setViewInv(r)} title="View / Print" style={eyeBtn}>{eyeIcon}</button>
+        <button onClick={() => setEditInv(r)} title="Edit invoice" style={pencilBtn}>{pencilIcon}</button>
       </div>
     )
   }
@@ -1571,14 +1627,10 @@ export default function InvoicingPage() {
 
                 <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 
-                {RANGES.map(r => (
-                  <button key={r.key} onClick={() => setRange(r.key)} style={{
-                    flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer',
-                    fontSize: 12, fontWeight: 600, fontFamily: F, whiteSpace: 'nowrap',
-                    background: range === r.key ? NAVY : 'transparent',
-                    color: range === r.key ? '#fff' : 'rgba(255,255,255,0.85)',
-                  }}>{r.label}</button>
-                ))}
+                <PillSelect
+                  value={range} onChange={v => setRange(v as RangeKey)} dimValue="all" minWidth={140}
+                  options={RANGES.map(r => ({ value: r.key, label: r.label }))}
+                />
 
                 {range === 'custom' && (
                   <>
@@ -1647,6 +1699,9 @@ export default function InvoicingPage() {
                         // rows can open the printable document.
                         const invMatch = ledger.invoices?.find((i: Invoice) => i.invoiceNumber === t.ref)
                         const pay = t.type === 'PAYMENT' ? ledger.payments?.find((p: any) => p.id === t.paymentId) : null
+                        // Payment, discount and withholding rows all trace back to
+                        // a payment, so they act on that rather than on an invoice.
+                        const rowPay = t.paymentId ? ledger.payments?.find((p: any) => p.id === t.paymentId) : null
                         return (
                           <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}
                             onContextMenu={pay ? e => openPayMenu(e, pay) : undefined}>
@@ -1660,19 +1715,32 @@ export default function InvoicingPage() {
                             <td style={{ ...td, textAlign: 'right', color: '#16a34a' }}>{t.credit ? money(t.credit) : ''}</td>
                             <td style={{ ...td, textAlign: 'right', color: t.balance > 0 ? '#D62828' : '#16a34a' }}>{money(t.balance)}</td>
                             <td style={{ ...td, overflow: 'visible', textAlign: 'right' }}>
-                              {t.type === 'PAYMENT' ? (
-                                pay && Number(t.unapplied) > 0 ? (
+                              {/* Every row gets View and Edit, routed by what the
+                                  row is. A discount or withholding line belongs to
+                                  the payment that created it, so both open that
+                                  payment rather than the invoice it settled. */}
+                              <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                                {pay && Number(t.unapplied) > 0 && (
                                   <button onClick={() => setApplyPay(pay)} title="Apply this unapplied credit to an invoice"
                                     style={{ padding: '0 8px', height: 20, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
                                     Apply
                                   </button>
-                                ) : null
-                              ) : invMatch ? (
-                                <button onClick={() => setViewInv(invMatch)} title="View / Print invoice"
-                                  style={{ width: 20, height: 20, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
-                                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-                                </button>
-                              ) : null}
+                                )}
+                                {rowPay ? (
+                                  <button onClick={() => setViewPay(rowPay)} title="View payment"
+                                    style={eyeBtn}>{eyeIcon}</button>
+                                ) : invMatch ? (
+                                  <button onClick={() => setViewInv(invMatch)} title="View / Print invoice"
+                                    style={eyeBtn}>{eyeIcon}</button>
+                                ) : null}
+                                {rowPay ? (
+                                  <button onClick={() => setEditPay(rowPay)} title="Edit payment"
+                                    style={pencilBtn}>{pencilIcon}</button>
+                                ) : invMatch ? (
+                                  <button onClick={() => setEditInv(invMatch)} title="Edit invoice"
+                                    style={pencilBtn}>{pencilIcon}</button>
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                         )
@@ -1751,7 +1819,7 @@ export default function InvoicingPage() {
                           onContextMenu={e => openPayMenu(e, p)}>
                           <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(p.paidAt)}</td>
                           <td style={td}>{METHOD_LABEL[p.method] ?? p.method}</td>
-                          <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{p.reference || ''}</td>
+                          <td style={{ ...td, fontWeight: 400, color: '#64748B' }}><span style={{ color: TEAL, fontWeight: 700 }}>{p.paymentNumber ?? ''}</span>{p.reference ? <span style={{ marginLeft: 6 }}>{p.reference}</span> : null}</td>
                           <td style={{ ...td, fontWeight: 400 }}>
                             {p.allocations.length === 0 ? (
                               <span style={{ fontSize: 10, fontWeight: 900, padding: '1px 7px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>ADVANCE</span>
@@ -1767,12 +1835,16 @@ export default function InvoicingPage() {
                           <td style={{ ...td, textAlign: 'right' }}>{money(p.amount)}</td>
                           <td style={{ ...td, textAlign: 'right', color: p.unapplied > 0 ? '#5B21B6' : '#94A3B8' }}>{money(p.unapplied)}</td>
                           <td style={{ ...td, overflow: 'visible', textAlign: 'right' }}>
-                            {p.unapplied > 0 && (
-                              <button onClick={() => setApplyPay(p)} title="Apply this credit to an invoice"
-                                style={{ padding: '0 8px', height: 20, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
-                                Apply
-                              </button>
-                            )}
+                            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                              {p.unapplied > 0 && (
+                                <button onClick={() => setApplyPay(p)} title="Apply this credit to an invoice"
+                                  style={{ padding: '0 8px', height: 20, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
+                                  Apply
+                                </button>
+                              )}
+                              <button onClick={() => setViewPay(p)} title="View payment" style={eyeBtn}>{eyeIcon}</button>
+                              <button onClick={() => setEditPay(p)} title="Edit payment" style={pencilBtn}>{pencilIcon}</button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1789,6 +1861,7 @@ export default function InvoicingPage() {
       {viewInv   && <InvoiceView inv={viewInv} onClose={() => setViewInv(null)} onDeleted={() => { setViewInv(null); refresh() }} onEdit={i => { setViewInv(null); setEditInv(i) }} onChanged={refresh} />}
       {openBal   && <OpeningBalanceModal client={openBal.client} mode={openBal.mode} onClose={() => setOpenBal(null)} onSaved={() => { setOpenBal(null); refresh() }} />}
       {editPay   && <PaymentEditModal payment={editPay} onClose={() => setEditPay(null)} onSaved={() => { setEditPay(null); refresh() }} />}
+      {viewPay   && <PaymentView payment={viewPay} onClose={() => setViewPay(null)} onEdit={() => { setEditPay(viewPay); setViewPay(null) }} />}
 
       {/* Right-click menu on a client */}
       {ctxMenu && (

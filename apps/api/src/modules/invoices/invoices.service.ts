@@ -71,6 +71,16 @@ export class InvoicesService {
     return `INV-${year}-${String(counter.value).padStart(4, '0')}`
   }
 
+  private async nextPaymentNumber(): Promise<string> {
+    const year = new Date().getFullYear()
+    const counter = await this.prisma.sequenceCounter.upsert({
+      where:  { key: `payment:${year}` },
+      update: { value: { increment: 1 } },
+      create: { key: `payment:${year}`, value: 1 },
+    })
+    return `PMT-${year}-${String(counter.value).padStart(4, '0')}`
+  }
+
   // Would this task's fee already be covered by the client's monthly retainer?
   // Only a hint for the UI, the manager still makes the call.
   private isRetainerCovered(inv: any): boolean {
@@ -342,8 +352,11 @@ export class InvoicesService {
       // A bonus doesn't: only the applied part settles the account, the rest is our income.
       const credit = p.bonus > 0 ? p.applied : Number(p.amount)
       txns.push({
-        date: p.paidAt.toISOString(), type: 'PAYMENT', ref: against,
+        // The payment's own number, not the invoices it settled. Those move into
+        // the description, so the reference column identifies one row one way.
+        date: p.paidAt.toISOString(), type: 'PAYMENT', ref: p.paymentNumber ?? 'Payment',
         description: `Payment received, ${p.method.replace(/_/g, ' ').toLowerCase()}${p.reference ? ` (${p.reference})` : ''}`
+          + (p.allocations.length > 0 ? ` · against ${against}` : '')
           + (p.unapplied > 0 ? ` · ${p.unapplied} unapplied` : '')
           + (p.bonus     > 0 ? ` · ${p.bonus} kept as bonus` : ''),
         charge: 0, credit,
@@ -357,7 +370,7 @@ export class InvoicesService {
         if (Number(a.discount) > 0) {
           txns.push({
             date: p.paidAt.toISOString(), type: 'DISCOUNT', ref: a.invoice.invoiceNumber,
-            description: 'Discount allowed', charge: 0, credit: Number(a.discount),
+            description: 'Discount allowed', charge: 0, credit: Number(a.discount), paymentId: p.id,
           })
         }
         const withheld = Number(a.incomeTaxWithheld) + Number(a.salesTaxWithheld)
@@ -370,7 +383,7 @@ export class InvoicesService {
           ].filter(Boolean).join(', ')
           txns.push({
             date: p.paidAt.toISOString(), type: 'WITHHOLDING', ref: a.invoice.invoiceNumber,
-            description: `Withheld at source, ${bits}`, charge: 0, credit: withheld,
+            description: `Withheld at source, ${bits}`, charge: 0, credit: withheld, paymentId: p.id,
           })
         }
       }
@@ -697,6 +710,7 @@ export class InvoicesService {
     const payment = await this.prisma.payment.create({
       data: {
         clientId:        dto.clientId,
+        paymentNumber:   await this.nextPaymentNumber(),
         amount:          dto.amount,
         method:          dto.method,
         reference:       dto.reference,

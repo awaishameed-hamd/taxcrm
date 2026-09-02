@@ -440,6 +440,12 @@ model Payment {
   clientId String
   client   ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
+  // A payment's own reference, PMT-2026-0001. The ledger used to label a payment
+  // with the invoice numbers it was applied against, which made a payment row
+  // indistinguishable from an invoice row. Nullable for payments recorded before
+  // this existed.
+  paymentNumber String? @unique
+
   amount    Decimal       @db.Decimal(12, 2) // cash actually received
   method    PaymentMethod @default(BANK_TRANSFER)
   reference String?       // cheque no, transaction id, etc.
