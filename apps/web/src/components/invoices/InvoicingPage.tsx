@@ -1388,12 +1388,12 @@ export default function InvoicingPage() {
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
 
         {/* ── Left panel: clients ──
-            A 280px rail beside the account leaves nothing usable on a phone, so
+            A 340px rail beside the account leaves nothing usable on a phone, so
             there the list and the account take turns: list is the screen until
             you pick a client, then the account is, and the header chevron walks
             back. listCollapsed doubles as that master/detail switch. */}
         <div style={{
-          width: phone ? (listCollapsed ? 0 : '100%') : (listCollapsed ? 0 : 280),
+          width: phone ? (listCollapsed ? 0 : '100%') : (listCollapsed ? 0 : 340),
           flexShrink: 0,
           display: phone && listCollapsed ? 'none' : 'flex',
           flexDirection: 'column',
@@ -1405,7 +1405,7 @@ export default function InvoicingPage() {
 
           <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: phone ? '0 14px 0 58px' : '0 14px' }}>
-              <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, color: '#1E8496', display: 'inline-block' }}>Invoicing</h2>
+              <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 18, color: '#1E8496', display: 'inline-block', whiteSpace: 'nowrap' }}>Invoicing</h2>
               <button onClick={() => setListCollapsed(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: P.iconMuted, padding: 4, borderRadius: 6 }}>
                 <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
               </button>
@@ -1424,7 +1424,7 @@ export default function InvoicingPage() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
             {clients.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>No clients found.</div>
-            ) : clients.map(c => {
+            ) : clients.map((c, idx) => {
               const active = selectedId === c.id
               return (
                 <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history'); setPayClient(null); if (phone) setListCollapsed(true) }}
@@ -1432,8 +1432,9 @@ export default function InvoicingPage() {
                   style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${active ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 6, background: active ? '#E8EEF7' : '#F8FAFC', fontFamily: F, opacity: c.isActive ? 1 : 0.55 }}
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ flexShrink: 0, width: 7, height: 7, borderRadius: '50%', background: active ? TEAL : NAVY }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                    {/* Numbered teal square, the same marker the Tasks rail uses */}
+                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, background: TEAL, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{idx + 1}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: active ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.businessName ?? c.fullName}
                     </span>
