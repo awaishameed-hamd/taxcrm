@@ -1437,10 +1437,10 @@ export default function InvoicingPage() {
                         client the firm has, so a four-digit number would sit badly
                         in the square. The client's initial keeps the same marker
                         and stays one character however long the list gets. */}
-                    <span style={{ flexShrink: 0, width: 16, height: 16, borderRadius: 5, background: '#F97316', color: '#fff', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
+                    <span style={{ flexShrink: 0, width: 16, height: 16, borderRadius: 5, background: '#A5D8DD', color: '#000', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
                       {(c.businessName ?? c.fullName ?? '?').trim().charAt(0) || '?'}
                     </span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: active ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#000', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.businessName ?? c.fullName}
                     </span>
                     {c.overdueCount > 0 && (

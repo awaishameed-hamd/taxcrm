@@ -1741,8 +1741,8 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                           const a = authorityStyle(auth)
                           return (
                             <div style={{ display:'flex', gap:9, alignItems:'center' }}>
-                              <span style={{ flexShrink:0, width:16, height:16, borderRadius:5, background: TEAL, color:'#fff', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
-                              <span style={{ fontSize:12, fontWeight:700, color: isActive ? TEAL : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
+                              <span style={{ flexShrink:0, width:16, height:16, borderRadius:5, background:'#A5D8DD', color:'#000', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
+                              <span style={{ fontSize:12, fontWeight:700, color:'#000', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
                               {isSalesTaxTab && <span style={{ fontSize:10, fontWeight:700, color:a.color, background:a.bg, border:`1px solid ${a.color}22`, padding:'2px 8px', borderRadius:6, flexShrink:0 }}>{auth}</span>}
                               {/* Whose task it is. The stage already shows in the
                                   detail pane, so the row names the person instead. */}
@@ -1772,8 +1772,8 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
                       <div style={{ display:'flex', gap:9, alignItems:'center' }}>
-                        <span style={{ flexShrink:0, width:16, height:16, borderRadius:5, background:TEAL, color:'#fff', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
-                        <span style={{ fontSize:12, fontWeight:700, color: isActive ? TEAL : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</span>
+                        <span style={{ flexShrink:0, width:16, height:16, borderRadius:5, background:'#A5D8DD', color:'#000', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
+                        <span style={{ fontSize:12, fontWeight:700, color:'#000', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</span>
                         <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color:sm.color, background:sm.bg, flexShrink:0 }}>{sm.label}</span>
                       </div>
                     </button>
@@ -1810,8 +1810,8 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#EEF2F7' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background='#F8FAFC' }}>
                       <div style={{ display:'flex', gap:9, alignItems:'center' }}>
-                        <span style={{ flexShrink:0, width:16, height:16, borderRadius:5, background: TEAL, color:'#fff', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
-                        <span style={{ fontSize:12, fontWeight:700, color: isActive ? '#1565C0' : NAVY, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
+                        <span style={{ flexShrink:0, width:16, height:16, borderRadius:5, background:'#A5D8DD', color:'#000', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{idx + 1}</span>
+                        <span style={{ fontSize:12, fontWeight:700, color:'#000', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</span>
                         {(() => { const auth = c.authority ?? 'FBR'; const a = authorityStyle(auth); return <span style={{ fontSize:10, fontWeight:700, color:a.color, background:a.bg, border:`1px solid ${a.color}22`, padding:'2px 8px', borderRadius:6, flexShrink:0 }}>{auth}</span> })()}
                         <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, color: stage.color, background: stage.bg, flexShrink:0, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{stage.label}</span>
                       </div>

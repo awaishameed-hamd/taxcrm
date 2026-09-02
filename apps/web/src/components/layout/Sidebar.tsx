@@ -218,7 +218,7 @@ const NAV: Record<string, NavItem[]> = {
 }
 
 const ATTENDANCE_KEYS = ['myAtt', 'myLeaves', 'attReport', 'attApproval', 'dailyAtt', 'workingDays']
-const TASK_KEYS       = ['tasks', 'completedTasks', 'incompleteTasks', 'taskApproval']
+const TASK_KEYS       = ['taskApproval', 'tasks', 'completedTasks', 'incompleteTasks']
 // Invoice Approval leads the group, its pending count rides on the parent row.
 const INVOICING_KEYS  = ['invoiceApproval', 'invoicing', 'invoiceDetails']
 
@@ -518,9 +518,16 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     return (permissions as Record<string, boolean>)[item.permission] === true
   }).filter(item => item.key !== 'myAtt' || user?.attendanceApplicable !== false)
 
-  // Sub-items for each collapsible group, in the order the nav defines them
+  // Sub-items for each collapsible group. The group's own key list sets the
+  // order, not the nav array, so a flyout can lead with its approval queue while
+  // the nav keeps whatever order the top level needs.
   const groupItems: Record<string, NavItem[]> = Object.fromEntries(
-    NAV_GROUPS.map(g => [g.id, navItems.filter(item => (g.keys as readonly string[]).includes(item.key))]),
+    NAV_GROUPS.map(g => {
+      const keys = g.keys as readonly string[]
+      return [g.id, navItems
+        .filter(item => keys.includes(item.key))
+        .sort((a, b) => keys.indexOf(a.key) - keys.indexOf(b.key))]
+    }),
   )
 
   // Collapse each group's items into a single trigger, placed where its first item was

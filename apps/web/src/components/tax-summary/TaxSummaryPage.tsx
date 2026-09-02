@@ -1024,10 +1024,10 @@ export default function TaxSummaryPage() {
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = '#F8FAFC' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {/* Client's initial, the same marker Client Ledgers uses */}
-                    <span style={{ flexShrink: 0, width: 16, height: 16, borderRadius: 5, background: '#F97316', color: '#fff', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
+                    <span style={{ flexShrink: 0, width: 16, height: 16, borderRadius: 5, background: '#A5D8DD', color: '#000', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
                       {(displayName(c) ?? '?').trim().charAt(0) || '?'}
                     </span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#000', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {displayName(c)}
                     </span>
                   </div>
