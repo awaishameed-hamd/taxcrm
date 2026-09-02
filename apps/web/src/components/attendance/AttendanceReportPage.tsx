@@ -143,7 +143,7 @@ function OpeningBalanceModal({ onClose, onSaved }: { onClose: () => void; onSave
           {loading ? (
             <div style={{ padding: 40, textAlign: 'center', color: P.textMuted, fontSize: 13 }}>Loading…</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: '"Aptos", sans-serif' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: '"Aptos", sans-serif' }}>
               <thead>
                 <tr style={{ background: '#F2AC18', position: 'sticky', top: 0, zIndex: 1 }}>
                   {['Name', 'Role', 'Present', 'Late', 'Absent', 'Leave', 'Working Days'].map(h => (
@@ -154,15 +154,15 @@ function OpeningBalanceModal({ onClose, onSaved }: { onClose: () => void; onSave
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={r.userId} style={{ background: i % 2 === 0 ? '#fff' : '#FAFCFC', borderBottom: `1px solid ${P.border}30` }}>
-                    <td style={{ padding: '7px 14px', fontWeight: 700, color: P.navy }}>{r.userName}</td>
-                    <td style={{ padding: '7px 14px' }}>
+                    <td style={{ padding: '6px 12px', fontWeight: 700, color: P.navy }}>{r.userName}</td>
+                    <td style={{ padding: '6px 12px' }}>
                       <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 9999, background: '#E8EAED', color: P.textMuted }}>{roleLabel(r.userRole)}</span>
                     </td>
-                    <td style={{ padding: '7px 14px', textAlign: 'center' }}>{numInput(r, 'presents')}</td>
-                    <td style={{ padding: '7px 14px', textAlign: 'center' }}>{numInput(r, 'late')}</td>
-                    <td style={{ padding: '7px 14px', textAlign: 'center' }}>{numInput(r, 'absents')}</td>
-                    <td style={{ padding: '7px 14px', textAlign: 'center' }}>{numInput(r, 'leaves')}</td>
-                    <td style={{ padding: '7px 14px', textAlign: 'center' }}>{numInput(r, 'workingDays')}</td>
+                    <td style={{ padding: '6px 12px', textAlign: 'center' }}>{numInput(r, 'presents')}</td>
+                    <td style={{ padding: '6px 12px', textAlign: 'center' }}>{numInput(r, 'late')}</td>
+                    <td style={{ padding: '6px 12px', textAlign: 'center' }}>{numInput(r, 'absents')}</td>
+                    <td style={{ padding: '6px 12px', textAlign: 'center' }}>{numInput(r, 'leaves')}</td>
+                    <td style={{ padding: '6px 12px', textAlign: 'center' }}>{numInput(r, 'workingDays')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -258,7 +258,7 @@ function AllTimeDetailModal({ emp, onClose }: { emp: EmpSummary; onClose: () => 
               {monthLabel}
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: '"Aptos", sans-serif' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: '"Aptos", sans-serif' }}>
               <thead>
                 <tr style={{ background: '#F8FAFC' }}>
                   {['Date', 'Day', 'Status', 'Login Time', 'Late Min.', 'Notes'].map(h => (
@@ -874,7 +874,7 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr style={{ background: '#F2AC18' }}>
                   {['#','Name','Role','Present','Late','Absent','Leave','Working Days',''].map(h => (
-                    <th key={h} style={{ padding: '7px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.07em', whiteSpace: 'nowrap', background: 'transparent' }}>
+                    <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.07em', whiteSpace: 'nowrap', background: 'transparent' }}>
                       {h}
                     </th>
                   ))}
@@ -885,7 +885,7 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
                   Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#F8FAFC' }}>
                       {Array.from({ length: 9 }).map((_, c) => (
-                        <td key={c} style={{ padding: '6px 14px', borderBottom: '1px solid #F1F5F9' }}>
+                        <td key={c} style={{ padding: '6px 12px', borderBottom: '1px solid #F1F5F9' }}>
                           <div style={{ height: 12, background: '#F1F5F9', borderRadius: 4, width: '75%' }} />
                         </td>
                       ))}
@@ -904,7 +904,7 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
                     ? { bg: '#FEF3C7', color: '#92400E' }
                     : s.userRole === 'MANAGER' ? { bg: '#DBEAFE', color: '#1D4ED8' } : { bg: '#CFFAFE', color: '#0E7490' }
                   const workingDays = s.present + s.absent + s.leave
-                  const tdBase: React.CSSProperties = { padding: '6px 14px', borderBottom: '1px solid #F1F5F9', fontSize: 13, fontFamily: '"Aptos", sans-serif' }
+                  const tdBase: React.CSSProperties = { padding: '6px 12px', borderBottom: '1px solid #F1F5F9', fontSize: 12, fontFamily: '"Aptos", sans-serif' }
                   return (
                     <tr key={s.userId} style={{ background: '#fff', transition: 'background .15s' }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F8FAFC'}

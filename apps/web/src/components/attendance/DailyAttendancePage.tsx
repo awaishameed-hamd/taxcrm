@@ -38,8 +38,8 @@ function AttendanceTable({ present, absent, leave }: { present: any[]; absent: a
     { bg: '#F5F5F5', color: '#9E9E9E', label: status }
 
   const tdBase: React.CSSProperties = {
-    padding: '6px 14px', borderBottom: '1px solid #F1F5F9',
-    fontSize: 13, fontFamily: '"Aptos", sans-serif', color: P.navy,
+    padding: '6px 12px', borderBottom: '1px solid #F1F5F9',
+    fontSize: 12, fontFamily: '"Aptos", sans-serif', color: P.navy,
   }
 
   const sections = [
@@ -59,7 +59,7 @@ function AttendanceTable({ present, absent, leave }: { present: any[]; absent: a
         <thead>
           <tr style={{ background: '#F2AC18' }}>
             {['#', 'Name', 'Role', 'Login Time', 'Status'].map(h => (
-              <th key={h} style={{ padding: '7px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
+              <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
                 {h}
               </th>
             ))}
