@@ -1405,7 +1405,7 @@ export default function InvoicingPage() {
 
           <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: phone ? '0 14px 0 58px' : '0 14px' }}>
-              <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 18, color: '#1E8496', display: 'inline-block', whiteSpace: 'nowrap' }}>Invoicing</h2>
+              <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 18, color: '#1E8496', display: 'inline-block', whiteSpace: 'nowrap' }}>Client Ledgers</h2>
               <button onClick={() => setListCollapsed(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: P.iconMuted, padding: 4, borderRadius: 6 }}>
                 <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
               </button>
@@ -1424,7 +1424,7 @@ export default function InvoicingPage() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
             {clients.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>No clients found.</div>
-            ) : clients.map((c, idx) => {
+            ) : clients.map(c => {
               const active = selectedId === c.id
               return (
                 <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history'); setPayClient(null); if (phone) setListCollapsed(true) }}
@@ -1433,8 +1433,13 @@ export default function InvoicingPage() {
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    {/* Numbered teal square, the same marker the Tasks rail uses */}
-                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, background: TEAL, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{idx + 1}</span>
+                    {/* The Tasks rail numbers its rows, but this list runs to every
+                        client the firm has, so a four-digit number would sit badly
+                        in the square. The client's initial keeps the same marker
+                        and stays one character however long the list gets. */}
+                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, background: TEAL, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
+                      {(c.businessName ?? c.fullName ?? '?').trim().charAt(0) || '?'}
+                    </span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: active ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.businessName ?? c.fullName}
                     </span>
