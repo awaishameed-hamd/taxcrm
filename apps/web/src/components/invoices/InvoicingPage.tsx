@@ -1429,15 +1429,15 @@ export default function InvoicingPage() {
               return (
                 <button key={c.id} onClick={() => { setSelectedId(c.id); setTab('history'); setPayClient(null); if (phone) setListCollapsed(true) }}
                   onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, client: c }) }}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px', border: `1px solid ${active ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 6, background: active ? '#E8EEF7' : '#F8FAFC', fontFamily: F, opacity: c.isActive ? 1 : 0.55 }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '4px 10px', border: `1px solid ${active ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 4, background: active ? '#E8EEF7' : '#F8FAFC', fontFamily: F, opacity: c.isActive ? 1 : 0.55 }}
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {/* The Tasks rail numbers its rows, but this list runs to every
                         client the firm has, so a four-digit number would sit badly
                         in the square. The client's initial keeps the same marker
                         and stays one character however long the list gets. */}
-                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)`, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
+                    <span style={{ flexShrink: 0, width: 16, height: 16, borderRadius: 5, background: '#E6D5AB', color: NAVY, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
                       {(c.businessName ?? c.fullName ?? '?').trim().charAt(0) || '?'}
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: active ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

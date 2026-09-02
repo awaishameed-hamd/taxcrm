@@ -1015,16 +1015,16 @@ export default function TaxSummaryPage() {
                   onClick={() => setSelected(c)}
                   style={{
                     display: 'block', width: '100%', textAlign: 'left',
-                    padding: '7px 12px', cursor: 'pointer', marginBottom: 6,
+                    padding: '4px 10px', cursor: 'pointer', marginBottom: 4,
                     border: `1px solid ${isActive ? TEAL : P.border}`, borderRadius: 8,
                     background: isActive ? '#E8EEF7' : '#F8FAFC',
                     fontFamily: "'Aptos', sans-serif",
                   }}
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#EEF2F7' }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = '#F8FAFC' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {/* Client's initial, the same marker Client Ledgers uses */}
-                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, background: `linear-gradient(135deg, ${NAVY} 0%, ${TEAL} 100%)`, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
+                    <span style={{ flexShrink: 0, width: 16, height: 16, borderRadius: 5, background: '#E6D5AB', color: NAVY, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
                       {(displayName(c) ?? '?').trim().charAt(0) || '?'}
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
