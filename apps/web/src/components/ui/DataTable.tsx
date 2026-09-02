@@ -27,7 +27,7 @@ const lsSet = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.st
 
 export default function DataTable<T>({
   id, columns, rows, loading, emptyText = 'Nothing to show.', rowKey,
-  onRowClick, rowStyle, minWidth, skeletonRows = 6, stickyHeader, footer,
+  onRowClick, rowStyle, minWidth, skeletonRows = 6, stickyHeader, footer, containerStyle,
 }: {
   // Storage key for this table's column widths. Leave it out to skip persisting.
   id?: string
@@ -42,6 +42,9 @@ export default function DataTable<T>({
   skeletonRows?: number
   stickyHeader?: boolean
   footer?: React.ReactNode
+  // For a table that already sits inside a card or a scroll pane, so it can drop
+  // the border and let the parent own the scrolling.
+  containerStyle?: React.CSSProperties
 }) {
   const defaults = useCallback(
     () => Object.fromEntries(columns.map(c => [c.key, c.width ?? 140])) as Record<string, number>,
@@ -92,7 +95,7 @@ export default function DataTable<T>({
   }
 
   return (
-    <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflowX: 'auto' }}>
+    <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflowX: 'auto', ...containerStyle }}>
       <table style={{ width: '100%', minWidth, borderCollapse: 'separate', borderSpacing: 0, fontSize: 13, tableLayout: 'fixed' }}>
         <colgroup>
           {columns.map(c => <col key={c.key} style={{ width: widths[c.key] ?? c.width ?? 140 }} />)}

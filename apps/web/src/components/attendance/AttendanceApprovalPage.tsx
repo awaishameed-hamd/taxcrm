@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import DataTable from '@/components/ui/DataTable'
 import { formatTime12h } from '@/lib/utils'
 
 const labelCls     = 'block text-xs font-bold uppercase tracking-widest mb-1'
@@ -324,88 +325,52 @@ export default function AttendanceApprovalPage() {
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-              <tr style={{ background: '#F2AC18' }}>
-                {['#','Name','Role','Date','Login Time','Status','Late','Approval','Actions'].map(h => (
-                  <th key={h} style={{ padding: '7px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.07em', whiteSpace: 'nowrap', background: 'transparent' }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#F8FAFC' }}>
-                    {Array.from({ length: 9 }).map((_, c) => (
-                      <td key={c} style={{ padding: '6px 14px', borderBottom: '1px solid #F1F5F9' }}>
-                        <div style={{ height: 12, background: '#F1F5F9', borderRadius: 4, width: '75%' }} />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={9} style={{ padding: '48px 14px', textAlign: 'center', color: '#94A3B8', fontSize: 13, fontFamily: '"Aptos", sans-serif' }}>
-                    No records found.
-                  </td>
-                </tr>
-              ) : filtered.map((rec, idx) => {
-                const isPending = rec.approvalStatus === 'pending'
-                const roleStyle = rec.userRole === 'PARTNER'
-                  ? { bg: '#FEF3C7', color: '#92400E' }
+          <DataTable
+            id="attApproval" minWidth={820} rows={filtered} loading={loading} skeletonRows={8}
+            stickyHeader containerStyle={{ border: 'none', borderRadius: 0 }}
+            rowKey={(rec: any) => rec.id}
+            emptyText="No records found."
+            columns={[
+              { key: 'n', label: '#', width: 52, resizable: false,
+                cellStyle: { fontWeight: 700, color: '#94A3B8' }, render: (_r: any, i: number) => i + 1 },
+              { key: 'userName', label: 'Name', width: 170, wrap: true, cellStyle: { fontWeight: 700, color: P.navy } },
+              { key: 'userRole', label: 'Role', width: 110, render: (rec: any) => {
+                const s = rec.userRole === 'PARTNER' ? { bg: '#FEF3C7', color: '#92400E' }
                   : rec.userRole === 'MANAGER' ? { bg: '#DBEAFE', color: '#1D4ED8' } : { bg: '#CFFAFE', color: '#0E7490' }
-                const attStyle =
-                  rec.status === 'PRESENT' ? { bg: '#E6F4F6', color: '#0E7490' } :
-                  rec.status === 'LATE'    ? { bg: '#FEF3C7', color: '#B45309' } :
-                  rec.status === 'ABSENT'  ? { bg: '#FEE2E2', color: '#DC2626' } :
-                  rec.status === 'LEAVE'   ? { bg: '#DBEAFE', color: '#1565C0' } : { bg: '#F3F4F6', color: '#6B7280' }
-                const apprStyle =
-                  rec.approvalStatus === 'approved' ? { bg: '#F0FDF4', color: '#16A34A' } :
-                  rec.approvalStatus === 'rejected'  ? { bg: '#FEF2F2', color: '#DC2626' } : { bg: '#F1F5F9', color: '#64748B' }
-                const tdStyle: React.CSSProperties = { padding: '6px 14px', borderBottom: '1px solid #F1F5F9', fontSize: 13, fontFamily: '"Aptos", sans-serif', color: P.navy }
-                return (
-                  <tr key={rec.id} style={{ background: '#fff', transition: 'background .15s' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F8FAFC'}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#fff'}>
-                    <td style={{ ...tdStyle, fontWeight: 700, color: '#94A3B8', width: 40 }}>{idx + 1}</td>
-                    <td style={{ ...tdStyle, fontWeight: 700 }}>{rec.userName}</td>
-                    <td style={tdStyle}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: roleStyle.bg, color: roleStyle.color }}>{rec.userRole.replace(/_/g, ' ')}</span>
-                    </td>
-                    <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{rec.date}</td>
-                    <td style={tdStyle}><EditTimeCell rec={rec} onSaved={onTimeSaved} /></td>
-                    <td style={tdStyle}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: attStyle.bg, color: attStyle.color }}>{rec.status}</span>
-                    </td>
-                    <td style={tdStyle}>
-                      {rec.isLate
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: P.brick + '18', color: P.brick, border: `1px solid ${P.brick}40` }}>{rec.lateMinutes}m</span>
-                        : <span style={{ fontSize: 12, color: '#94A3B8' }}>No</span>}
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: apprStyle.bg, color: apprStyle.color }}>{rec.approvalStatus}</span>
-                    </td>
-                    <td style={tdStyle}>
-                      {isPending && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <button onClick={() => approveDirect(rec.id)}
-                            style={{ padding: '3px 10px', borderRadius: 6, background: '#16A34A', color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
-                            Approve
-                          </button>
-                          <button onClick={() => setConfirm({ id: rec.id, name: rec.userName })}
-                            style={{ padding: '3px 10px', borderRadius: 6, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
-                            Mark Absent
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: s.bg, color: s.color }}>{rec.userRole.replace(/_/g, ' ')}</span>
+              } },
+              { key: 'date', label: 'Date', width: 104, cellStyle: { color: P.navy } },
+              { key: 'loginTime', label: 'Login Time', width: 130, cellStyle: { overflow: 'visible' },
+                render: (rec: any) => <EditTimeCell rec={rec} onSaved={onTimeSaved} /> },
+              { key: 'status', label: 'Status', width: 100, render: (rec: any) => {
+                const s = rec.status === 'PRESENT' ? { bg: '#E6F4F6', color: '#0E7490' }
+                  : rec.status === 'LATE'   ? { bg: '#FEF3C7', color: '#B45309' }
+                  : rec.status === 'ABSENT' ? { bg: '#FEE2E2', color: '#DC2626' }
+                  : rec.status === 'LEAVE'  ? { bg: '#DBEAFE', color: '#1565C0' } : { bg: '#F3F4F6', color: '#6B7280' }
+                return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: s.bg, color: s.color }}>{rec.status}</span>
+              } },
+              { key: 'isLate', label: 'Late', width: 76, render: (rec: any) => rec.isLate
+                ? <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: P.brick + '18', color: P.brick, border: `1px solid ${P.brick}40` }}>{rec.lateMinutes}m</span>
+                : <span style={{ fontSize: 12, color: '#94A3B8' }}>No</span> },
+              { key: 'approvalStatus', label: 'Approval', width: 104, render: (rec: any) => {
+                const s = rec.approvalStatus === 'approved' ? { bg: '#F0FDF4', color: '#16A34A' }
+                  : rec.approvalStatus === 'rejected' ? { bg: '#FEF2F2', color: '#DC2626' } : { bg: '#F1F5F9', color: '#64748B' }
+                return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: s.bg, color: s.color }}>{rec.approvalStatus}</span>
+              } },
+              { key: 'actions', label: 'Actions', width: 190, resizable: false, render: (rec: any) => rec.approvalStatus !== 'pending' ? null : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => approveDirect(rec.id)}
+                    style={{ padding: '3px 10px', borderRadius: 6, background: '#16A34A', color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
+                    Approve
+                  </button>
+                  <button onClick={() => setConfirm({ id: rec.id, name: rec.userName })}
+                    style={{ padding: '3px 10px', borderRadius: 6, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
+                    Mark Absent
+                  </button>
+                </div>
+              ) },
+            ]}
+          />
         </div>
       </div>
 
@@ -448,80 +413,47 @@ export default function AttendanceApprovalPage() {
         {/* Leave Table */}
         <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                <tr style={{ background: '#F2AC18' }}>
-                  {['#', 'Applicant', 'Role', 'Type', 'From', 'To', 'Days', 'Reason', 'Status', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '7px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.07em', whiteSpace: 'nowrap', background: 'transparent' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {leaveLoading ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i}>
-                      {Array.from({ length: 10 }).map((_, c) => (
-                        <td key={c} style={{ padding: '8px 14px', borderBottom: '1px solid #F1F5F9' }}>
-                          <div style={{ height: 12, background: '#F1F5F9', borderRadius: 4, width: '75%' }} />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : leaveFiltered.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} style={{ padding: '48px 14px', textAlign: 'center', color: '#94A3B8', fontSize: 13, fontFamily: '"Aptos", sans-serif' }}>
-                      No leave applications found.
-                    </td>
-                  </tr>
-                ) : leaveFiltered.map((l, idx) => {
-                  const roleStyle = l.applicant?.role === 'PARTNER'
-                    ? { bg: '#FEF3C7', color: '#92400E' }
-                    : l.applicant?.role === 'MANAGER' ? { bg: '#DBEAFE', color: '#1D4ED8' }
+            <DataTable
+              id="leaveApproval" minWidth={860} rows={leaveFiltered} loading={leaveLoading}
+              stickyHeader containerStyle={{ border: 'none', borderRadius: 0 }}
+              rowKey={(l: any) => l.id}
+              emptyText="No leave applications found."
+              columns={[
+                { key: 'n', label: '#', width: 48, resizable: false,
+                  cellStyle: { color: '#94A3B8' }, render: (_l: any, i: number) => i + 1 },
+                { key: 'applicant', label: 'Applicant', width: 160, wrap: true,
+                  cellStyle: { fontWeight: 700, color: P.navy }, render: (l: any) => l.applicant?.fullName },
+                { key: 'role', label: 'Role', width: 110, render: (l: any) => {
+                  const s = l.applicant?.role === 'PARTNER' ? { bg: '#FEF3C7', color: '#92400E' }
+                    : l.applicant?.role === 'MANAGER'   ? { bg: '#DBEAFE', color: '#1D4ED8' }
                     : l.applicant?.role === 'TEAM_LEAD' ? { bg: '#F0FDF4', color: '#15803D' }
                     : { bg: '#CFFAFE', color: '#0E7490' }
-                  const statusStyle =
-                    l.status === 'approved' ? { bg: '#F0FDF4', color: '#16A34A' } :
-                    l.status === 'rejected'  ? { bg: '#FEF2F2', color: '#DC2626' } :
-                    { bg: '#F1F5F9', color: '#64748B' }
-                  const tdS: React.CSSProperties = { padding: '7px 14px', borderBottom: '1px solid #F1F5F9', fontSize: 13, fontFamily: '"Aptos", sans-serif', color: P.navy }
-                  return (
-                    <tr key={l.id} style={{ background: '#fff', transition: 'background .15s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F8FAFC'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#fff'}>
-                      <td style={{ ...tdS, color: '#94A3B8', width: 36 }}>{idx + 1}</td>
-                      <td style={{ ...tdS, fontWeight: 700 }}>{l.applicant?.fullName}</td>
-                      <td style={tdS}>
-                        <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: roleStyle.bg, color: roleStyle.color }}>{l.applicant?.role?.replace(/_/g, ' ')}</span>
-                      </td>
-                      <td style={{ ...tdS, textTransform: 'capitalize' }}>{l.leaveType}</td>
-                      <td style={{ ...tdS, whiteSpace: 'nowrap' }}>{l.fromDate?.split('T')[0]}</td>
-                      <td style={{ ...tdS, whiteSpace: 'nowrap' }}>{l.toDate?.split('T')[0]}</td>
-                      <td style={{ ...tdS, fontWeight: 700 }}>{l.days}</td>
-                      <td style={{ ...tdS, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.reason}</td>
-                      <td style={tdS}>
-                        <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: statusStyle.bg, color: statusStyle.color, textTransform: 'capitalize' }}>{l.status}</span>
-                      </td>
-                      <td style={tdS}>
-                        {l.status === 'pending' && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <button onClick={() => setLeaveConfirm({ id: l.id, action: 'approve', name: l.applicant?.fullName })}
-                              style={{ padding: '3px 10px', borderRadius: 6, background: '#16A34A', color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
-                              Approve
-                            </button>
-                            <button onClick={() => { setLeaveConfirm({ id: l.id, action: 'reject', name: l.applicant?.fullName }); setLeaveReason('') }}
-                              style={{ padding: '3px 10px', borderRadius: 6, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
-                              Reject
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  return <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: s.bg, color: s.color }}>{l.applicant?.role?.replace(/_/g, ' ')}</span>
+                } },
+                { key: 'leaveType', label: 'Type', width: 100, cellStyle: { textTransform: 'capitalize', color: P.navy } },
+                { key: 'fromDate', label: 'From', width: 100, cellStyle: { color: P.navy }, render: (l: any) => l.fromDate?.split('T')[0] },
+                { key: 'toDate',   label: 'To',   width: 100, cellStyle: { color: P.navy }, render: (l: any) => l.toDate?.split('T')[0] },
+                { key: 'days', label: 'Days', width: 64, cellStyle: { fontWeight: 700, color: P.navy } },
+                { key: 'reason', label: 'Reason', width: 190, wrap: true, cellStyle: { color: P.navy } },
+                { key: 'status', label: 'Status', width: 104, render: (l: any) => {
+                  const s = l.status === 'approved' ? { bg: '#F0FDF4', color: '#16A34A' }
+                    : l.status === 'rejected' ? { bg: '#FEF2F2', color: '#DC2626' } : { bg: '#F1F5F9', color: '#64748B' }
+                  return <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: s.bg, color: s.color, textTransform: 'capitalize' }}>{l.status}</span>
+                } },
+                { key: 'actions', label: 'Actions', width: 170, resizable: false, render: (l: any) => l.status !== 'pending' ? null : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button onClick={() => setLeaveConfirm({ id: l.id, action: 'approve', name: l.applicant?.fullName })}
+                      style={{ padding: '3px 10px', borderRadius: 6, background: '#16A34A', color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
+                      Approve
+                    </button>
+                    <button onClick={() => { setLeaveConfirm({ id: l.id, action: 'reject', name: l.applicant?.fullName }); setLeaveReason('') }}
+                      style={{ padding: '3px 10px', borderRadius: 6, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: '"Aptos", sans-serif' }}>
+                      Reject
+                    </button>
+                  </div>
+                ) },
+              ]}
+            />
           </div>
         </div>
 
