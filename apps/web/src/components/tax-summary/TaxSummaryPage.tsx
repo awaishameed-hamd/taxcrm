@@ -964,16 +964,16 @@ export default function TaxSummaryPage() {
 
       {/* ── Left panel ── */}
       <div style={{
-        width: listCollapsed ? 0 : 280, flexShrink: 0,
+        width: listCollapsed ? 0 : 340, flexShrink: 0,
         display: 'flex', flexDirection: 'column',
         background: '#EDF0F3', borderRight: `1px solid ${P.border}`,
         overflow: 'hidden', transition: 'width .25s',
       }}>
-        <div style={{ minWidth: 280, display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ minWidth: 340, display: 'flex', flexDirection: 'column', height: '100%' }}>
 
           <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: '0 14px' }}>
-              <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
+              <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 18, display: 'inline-block', whiteSpace: 'nowrap', color: '#1E8496' }}>
                 Tax Summary
               </h2>
               <button
@@ -1001,7 +1001,7 @@ export default function TaxSummaryPage() {
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
             {cLoading && <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>Loading…</div>}
             {!cLoading && filtered.length === 0 && (
               <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>
@@ -1015,16 +1015,19 @@ export default function TaxSummaryPage() {
                   onClick={() => setSelected(c)}
                   style={{
                     display: 'block', width: '100%', textAlign: 'left',
-                    padding: '7px 14px', border: 'none', cursor: 'pointer',
-                    borderBottom: `1px solid ${P.border}`,
+                    padding: '7px 12px', cursor: 'pointer', marginBottom: 6,
+                    border: `1px solid ${isActive ? TEAL : P.border}`, borderRadius: 8,
                     background: isActive ? '#E8EEF7' : '#F8FAFC',
-                    borderLeft: isActive ? `3px solid ${TEAL}` : '3px solid transparent',
+                    fontFamily: "'Aptos', sans-serif",
                   }}
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#EEF2F7' }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = '#F8FAFC' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ flexShrink: 0, width: 7, height: 7, borderRadius: '50%', background: isActive ? TEAL : NAVY }} />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? TEAL : NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                    {/* Client's initial, the same marker Client Ledgers uses */}
+                    <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, background: TEAL, color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
+                      {(displayName(c) ?? '?').trim().charAt(0) || '?'}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? TEAL : NAVY, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {displayName(c)}
                     </span>
                   </div>
