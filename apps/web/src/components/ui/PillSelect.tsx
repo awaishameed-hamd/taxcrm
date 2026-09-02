@@ -57,7 +57,9 @@ export default function PillSelect({ value, onChange, options, minWidth = 150, d
           {options.map(opt => (
             <div key={opt.value} onMouseDown={() => { onChange(opt.value); setOpen(false) }}
               style={{
-                padding: '5px 12px', fontSize: 13, fontFamily: "'Aptos', sans-serif", cursor: 'pointer',
+                // Never wrap an option: the panel grows to fit the longest label
+                // instead of breaking it over two lines.
+                padding: '5px 12px', fontSize: 13, fontFamily: "'Aptos', sans-serif", cursor: 'pointer', whiteSpace: 'nowrap',
                 color: opt.value === value ? TEAL : NAVY,
                 fontWeight: opt.value === value ? 700 : 400,
                 background: opt.value === value ? '#E5F3F5' : 'transparent',

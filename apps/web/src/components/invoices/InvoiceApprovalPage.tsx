@@ -299,7 +299,7 @@ export default function InvoiceApprovalPage() {
       <div style={{ flexShrink: 0, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px', flexWrap: 'wrap' }}>
           <PillSelect
-            value={kind} onChange={setKind} dimValue="ALL" minWidth={140}
+            value={kind} onChange={setKind} dimValue="ALL" minWidth={190}
             options={FILTERS.map(f => ({ value: f.key, label: f.label }))}
           />
 
