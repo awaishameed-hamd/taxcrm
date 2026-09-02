@@ -6,6 +6,7 @@ import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import DataTable from '@/components/ui/DataTable'
 import PillSelect from '@/components/ui/PillSelect'
+import InvoiceFormPanel from '@/components/invoices/InvoiceFormPanel'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -50,14 +51,6 @@ function rangeDates(key: string): { from?: string; to?: string } {
 
 const LS_FILTERS = 'invoiceApproval:filters'
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box', padding: '8px 12px', borderRadius: 8,
-  border: `1px solid ${P.border}`, fontSize: 13, outline: 'none', fontFamily: F,
-}
-const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 10, fontWeight: 900, letterSpacing: '0.1em',
-  textTransform: 'uppercase', color: '#5C5C5C', marginBottom: 4, fontFamily: F,
-}
 const btn = (bg: string, color = '#fff'): React.CSSProperties => ({
   padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
   fontSize: 13, fontWeight: 700, fontFamily: F, background: bg, color,
@@ -68,134 +61,6 @@ function StatCard({ label, value, border, fill }: { label: string; value: string
     <div style={{ flex: 1, minWidth: 100, background: fill, border: `1px solid ${border}30`, borderRadius: 10, padding: '11px 14px' }}>
       <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#111827', fontFamily: '"Aptos", sans-serif' }}>{value}</p>
       <p style={{ margin: '2px 0 0', fontSize: 10, fontWeight: 300, fontFamily: "'Ethnocentric Rg', sans-serif", color: '#64748B' }}>{label}</p>
-    </div>
-  )
-}
-
-// ─── Price the draft before it goes out ───────────────────────────────────────
-// Renders in place of the list, matching New Invoice and Receive Payment, so
-// pricing an invoice looks the same wherever you reach it from.
-function PricePanel({ inv, onClose, onSaved }: { inv: any; onClose: () => void; onSaved: () => void }) {
-  const [subtotal,    setSubtotal]    = useState(inv.subtotal    != null ? String(Number(inv.subtotal))    : '')
-  const [salesTax,    setSalesTax]    = useState(inv.salesTax    != null ? String(Number(inv.salesTax))    : '')
-  const [outOfPocket, setOutOfPocket] = useState(inv.outOfPocket != null ? String(Number(inv.outOfPocket)) : '')
-  const [description, setDescription] = useState(inv.description ?? '')
-  // Default a new draft's due date to a week out; the manager can change it.
-  const [dueDate,     setDueDate]     = useState(() => {
-    if (inv.dueDate) return inv.dueDate.split('T')[0]
-    const d = new Date(inv.issueDate ?? Date.now())
-    d.setDate(d.getDate() + 7)
-    return d.toISOString().split('T')[0]
-  })
-  const [notes,       setNotes]       = useState(inv.notes ?? '')
-  const [saving,      setSaving]      = useState(false)
-  const [error,       setError]       = useState('')
-
-  const nSub  = Number(subtotal) || 0
-  const nTax  = Number(salesTax) || 0
-  const nOop  = Number(outOfPocket) || 0
-  const total = nSub + nTax + nOop
-
-  async function save(alsoSend: boolean) {
-    if (alsoSend && total <= 0) { setError('Set an amount before sending'); return }
-    setSaving(true); setError('')
-    try {
-      await api.patch(`/invoices/${inv.id}`, {
-        subtotal: nSub, salesTax: nTax, outOfPocket: nOop,
-        description, dueDate: dueDate || undefined, notes,
-      })
-      if (alsoSend) await api.post(`/invoices/${inv.id}/send`)
-      onSaved()
-    } catch (e: any) { setError(e?.response?.data?.message ?? 'Failed to save') }
-    finally { setSaving(false) }
-  }
-
-  return (
-    <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F }}>
-        {/* Header */}
-        <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h2 style={{ fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
-              {inv.invoiceNumber}
-            </h2>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
-              {inv.client?.businessName ?? inv.client?.user?.fullName}
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ fontWeight: 900, color: '#F1F5F9', fontSize: 14, fontFamily: F }}>{money(total)}</span>
-              <span style={{ color: '#CBD5E1', fontWeight: 600, fontSize: 12, fontFamily: F }}>Invoice Total</span>
-            </span>
-            <button onClick={onClose} style={{
-              cursor: 'pointer', color: '#E2E8F0', fontWeight: 700,
-              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 8, padding: '4px 12px', fontSize: 12, fontFamily: F,
-            }}>
-              ← Back
-            </button>
-          </div>
-        </div>
-
-        <div style={{ padding: 20 }}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Description <span style={{ color: '#ef4444' }}>*</span></label>
-            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What is being billed" style={inputStyle} autoFocus />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
-            <div>
-              <label style={labelStyle}>Professional Fee</label>
-              <input type="number" min={0} value={subtotal} onChange={e => setSubtotal(e.target.value)} placeholder="0" style={inputStyle} />
-              {inv.kind === 'RETAINER' && (
-                <p style={{ margin: '5px 0 0', fontSize: 11, color: '#5B21B6', fontFamily: F, fontWeight: 700 }}>
-                  Pre-filled from the client's agreed monthly retainer
-                </p>
-              )}
-              {inv.kind === 'ANNUAL' && (
-                <p style={{ margin: '5px 0 0', fontSize: 11, color: '#B45309', fontFamily: F, fontWeight: 700 }}>
-                  Pre-filled from the client's agreed yearly billing fee
-                </p>
-              )}
-            </div>
-            <div>
-              <label style={labelStyle}>Sales Tax</label>
-              <input type="number" min={0} value={salesTax} onChange={e => setSalesTax(e.target.value)} placeholder="0" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Out of Pocket</label>
-              <input type="number" min={0} value={outOfPocket} onChange={e => setOutOfPocket(e.target.value)} placeholder="0" style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 14, marginBottom: 16 }}>
-            <div>
-              <label style={labelStyle}>Due Date</label>
-              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Notes</label>
-              <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Anything worth recording against this invoice" style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', fontSize: 13, fontFamily: F, borderTop: `1px solid ${P.border}`, borderBottom: `1px solid ${P.border}` }}>
-            <span style={{ fontWeight: 800, color: '#64748B' }}>Invoice Total</span>
-            <span style={{ fontWeight: 900, color: NAVY }}>{money(total)}</span>
-          </div>
-
-          {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '12px 0 0' }}>{error}</p>}
-
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
-            <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
-            <button onClick={() => save(false)} disabled={saving} style={{ ...btn('#fff', NAVY), border: `1px solid ${P.border}`, opacity: saving ? 0.6 : 1 }}>
-              Save Draft
-            </button>
-            <button onClick={() => save(true)} disabled={saving || total <= 0} style={{ ...btn(TEAL), opacity: (saving || total <= 0) ? 0.6 : 1 }}>
-              {saving ? 'Saving…' : 'Save & Send'}
-            </button>
-          </div>
-        </div>
     </div>
   )
 }
@@ -283,7 +148,13 @@ export default function InvoiceApprovalPage() {
       </div>
 
       {priceInv ? (
-        <PricePanel inv={priceInv} onClose={() => setPriceInv(null)} onSaved={() => { setPriceInv(null); fetchDrafts() }} />
+        <InvoiceFormPanel
+          clientId={priceInv.clientId}
+          clientName={priceInv.client?.businessName ?? priceInv.client?.user?.fullName ?? 'Client'}
+          inv={priceInv}
+          onClose={() => setPriceInv(null)}
+          onSaved={() => { setPriceInv(null); fetchDrafts() }}
+        />
       ) : (
        <>
       {/* Stat cards */}

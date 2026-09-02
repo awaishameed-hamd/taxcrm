@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { uploadFile } from '@/lib/storage'
 import PillSelect from '@/components/ui/PillSelect'
+import InvoiceFormPanel from '@/components/invoices/InvoiceFormPanel'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
@@ -799,126 +800,6 @@ function PaymentView({ payment, onClose, onEdit }: { payment: any; onClose: () =
 }
 
 // ─── Invoice view / print ─────────────────────────────────────────────────────
-// Create a manual invoice, or edit an existing one. clientId is required for
-// create; when `inv` is passed it edits that invoice instead.
-function InvoiceFormPanel({ clientId, clientName, inv, onClose, onSaved }: {
-  clientId: string; clientName: string; inv?: Invoice | null; onClose: () => void; onSaved: () => void
-}) {
-  const isEdit = !!inv
-  const [description, setDescription] = useState(inv?.description ?? '')
-  const [subtotal,    setSubtotal]    = useState(inv?.subtotal    != null ? String(Number(inv.subtotal))    : '')
-  const [salesTax,    setSalesTax]    = useState(inv?.salesTax    != null ? String(Number(inv.salesTax))    : '')
-  const [outOfPocket, setOutOfPocket] = useState(inv?.outOfPocket != null ? String(Number(inv.outOfPocket)) : '')
-  const [dueDate,     setDueDate]     = useState(() => {
-    if (inv?.dueDate) return inv.dueDate.split('T')[0]
-    const d = new Date(inv?.issueDate ?? Date.now()); d.setDate(d.getDate() + 7)
-    return d.toISOString().split('T')[0]
-  })
-  const [notes,  setNotes]  = useState(inv?.notes ?? '')
-  const [saving, setSaving] = useState(false)
-  const [error,  setError]  = useState('')
-
-  const nSub = Number(subtotal) || 0, nTax = Number(salesTax) || 0, nOop = Number(outOfPocket) || 0
-  const total = nSub + nTax + nOop
-
-  async function save() {
-    if (!isEdit && total <= 0) { setError('Enter an amount for the invoice'); return }
-    if (!description.trim())   { setError('Add a description'); return }
-    setSaving(true); setError('')
-    try {
-      const body = { subtotal: nSub, salesTax: nTax, outOfPocket: nOop, description: description.trim(), dueDate: dueDate || undefined, notes: notes.trim() || undefined }
-      if (isEdit) {
-        await api.patch(`/invoices/${inv!.id}`, body)
-      } else {
-        // New manual invoices are sent straight away so they land in the client's
-        // ledger and can be paid, rather than sitting as a hidden draft.
-        const { data } = await api.post('/invoices', { clientId, ...body })
-        const created = data?.data ?? data
-        await api.post(`/invoices/${created.id}/send`)
-      }
-      onSaved()
-    } catch (e: any) {
-      setError(e?.response?.data?.message ?? 'Could not save the invoice')
-    } finally { setSaving(false) }
-  }
-
-  return (
-    <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F }}>
-        {/* Header */}
-        <div style={{ background: P.teal, color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h2 style={{ fontFamily: "'Aptos', sans-serif", fontSize: 22, fontWeight: 800, display: 'inline-block', color: '#F1F5F9', letterSpacing: '0.04em', margin: 0 }}>
-              {isEdit ? `Edit ${inv!.invoiceNumber}` : 'New Invoice'}
-            </h2>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.18)', color: '#E2E8F0', fontWeight: 700, fontFamily: F }}>
-              {clientName}
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ fontWeight: 900, color: '#F1F5F9', fontSize: 14, fontFamily: F }}>{money(total)}</span>
-              <span style={{ color: '#CBD5E1', fontWeight: 600, fontSize: 12, fontFamily: F }}>Invoice Total</span>
-            </span>
-            <button onClick={onClose} style={{
-              cursor: 'pointer', color: '#E2E8F0', fontWeight: 700,
-              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 8, padding: '4px 12px', fontSize: 12, fontFamily: F,
-            }}>
-              ← Back
-            </button>
-          </div>
-        </div>
-
-        <div style={{ padding: 20 }}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Description <span style={{ color: '#ef4444' }}>*</span></label>
-            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What is being billed" style={inputStyle} autoFocus />
-          </div>
-
-          {/* The three amounts sit on one row, the way Receive Payment lays its
-              figures out, now that the panel has the full pane to work with. */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
-            <div>
-              <label style={labelStyle}>Professional Fee</label>
-              <input type="number" min={0} value={subtotal} onChange={e => setSubtotal(e.target.value)} placeholder="0" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Sales Tax</label>
-              <input type="number" min={0} value={salesTax} onChange={e => setSalesTax(e.target.value)} placeholder="0" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Out of Pocket</label>
-              <input type="number" min={0} value={outOfPocket} onChange={e => setOutOfPocket(e.target.value)} placeholder="0" style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 14, marginBottom: 16 }}>
-            <div>
-              <label style={labelStyle}>Due Date</label>
-              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Notes</label>
-              <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Anything worth recording against this invoice" style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', fontSize: 13, fontFamily: F, borderTop: `1px solid ${P.border}`, borderBottom: `1px solid ${P.border}` }}>
-            <span style={{ fontWeight: 800, color: '#64748B' }}>Invoice Total</span>
-            <span style={{ fontWeight: 900, color: NAVY }}>{money(total)}</span>
-          </div>
-
-          {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '12px 0 0' }}>{error}</p>}
-
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
-            <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
-            <button onClick={save} disabled={saving} style={{ ...btn(TEAL), opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create & Send'}</button>
-          </div>
-        </div>
-    </div>
-  )
-}
-
 function InvoiceView({ inv: initialInv, onClose, onDeleted, onEdit, onChanged }: { inv: Invoice; onClose: () => void; onDeleted?: () => void; onEdit?: (inv: Invoice) => void; onChanged?: () => void }) {
   // Kept in local state so removing a payment can refresh the view in place, at
   // which point the invoice has no payments and can be deleted.
