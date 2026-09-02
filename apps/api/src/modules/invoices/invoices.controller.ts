@@ -29,6 +29,17 @@ export class InvoicesController {
     return this.svc.summary()
   }
 
+  // Every issued invoice across all clients, for the Invoicing Details page
+  @Get('register')
+  register(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('clientId') clientId?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.svc.register(from, to, clientId, search)
+  }
+
   @Get('clients')
   clients(@Query('search') search?: string) {
     return this.svc.clientsWithBalances(search)

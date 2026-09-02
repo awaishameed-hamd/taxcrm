@@ -124,6 +124,73 @@ export class InvoicesService {
     return this.decorate(inv)
   }
 
+  // ── Invoice register ───────────────────────────────────────────────────────
+  // Every invoice that actually went out to a client, across all of them, with
+  // the balance and ageing worked out here so the page is only a renderer.
+  // Drafts are excluded on purpose, they belong to Invoice Approval; so is work
+  // absorbed by a retainer or annual contract, which was never billed.
+  //
+  // Each row carries the bucket it falls in, which is how it stands today rather
+  // than its stored status:
+  //   notdue  its due date has not passed, or it has none
+  //   overdue past its due date with a balance left
+  //   partial something has been settled but not all of it
+  //   paid    settled in full, by cash, discount or tax withheld at source
+  // The caller groups and totals by that, so the pills can switch without a refetch.
+  async register(from?: string, to?: string, clientId?: string, search?: string) {
+    await this.sweepOverdue()
+
+    const where: Prisma.InvoiceWhereInput = { status: { in: BILLABLE } }
+    if (clientId) where.clientId = clientId
+    if (from || to) {
+      where.issueDate = {
+        ...(from ? { gte: new Date(from) } : {}),
+        // `to` names a day, so take everything up to the end of it
+        ...(to   ? { lt: new Date(new Date(to).getTime() + 24 * 60 * 60 * 1000) } : {}),
+      }
+    }
+    if (search) {
+      where.OR = [
+        { invoiceNumber: { contains: search, mode: 'insensitive' } },
+        { description:   { contains: search, mode: 'insensitive' } },
+        { client: { businessName: { contains: search, mode: 'insensitive' } } },
+        { client: { user: { fullName: { contains: search, mode: 'insensitive' } } } },
+      ]
+    }
+
+    const invoices = await this.prisma.invoice.findMany({
+      where,
+      select: {
+        id: true, invoiceNumber: true, kind: true, status: true, description: true,
+        issueDate: true, dueDate: true, sentAt: true, paidAt: true,
+        amount: true, subtotal: true, salesTax: true, outOfPocket: true,
+        amountPaid: true, discountTotal: true, incomeTaxWithheld: true, salesTaxWithheld: true,
+        client: { select: { id: true, businessName: true, user: { select: { fullName: true } } } },
+      },
+      orderBy: [{ issueDate: 'desc' }, { createdAt: 'desc' }],
+    })
+
+    const today = startOfToday()
+    return invoices.map(i => {
+      // Balance is the amount less everything that settled it, never amount less
+      // cash: clients routinely take a discount and withhold tax at source.
+      const settled = Number(i.amountPaid) + Number(i.discountTotal)
+                    + Number(i.incomeTaxWithheld) + Number(i.salesTaxWithheld)
+      const balance = Number(i.amount) - settled
+      const overdue = balance > 0.001 && !!i.dueDate && i.dueDate < today
+      const daysOverdue = overdue && i.dueDate
+        ? Math.floor((today.getTime() - new Date(i.dueDate).setHours(0, 0, 0, 0)) / 86400000)
+        : 0
+
+      return {
+        ...i,
+        clientName: i.client?.businessName || i.client?.user?.fullName || '',
+        settled, balance, daysOverdue,
+        bucket: balance <= 0.001 ? 'paid' : overdue ? 'overdue' : settled > 0.001 ? 'partial' : 'notdue',
+      }
+    })
+  }
+
   // Totals for the page header, outstanding excludes drafts and retainer-covered work.
   async summary() {
     await this.sweepOverdue()
