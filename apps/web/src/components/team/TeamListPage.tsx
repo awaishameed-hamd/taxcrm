@@ -427,7 +427,7 @@ export default function TeamListPage() {
                 ? Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFCFC' }}>
                     {Array.from({ length: visibleCols.length + 1 }).map((__, j) => (
-                      <td key={j} style={{ padding: '6px 14px', borderBottom: `1px solid ${P.border}50` }}>
+                      <td key={j} style={{ padding: '6px 12px', borderBottom: `1px solid ${P.border}50` }}>
                         <div style={{ height: 12, borderRadius: 4, background: '#E5EAF0', animation: 'pulse 1.5s infinite' }} />
                       </td>
                     ))}
@@ -452,7 +452,7 @@ export default function TeamListPage() {
                       }}>
 
                         {visibleCols.includes('userCode') && (
-                          <td style={{ padding: '6px 14px' }}>
+                          <td style={{ padding: '6px 12px' }}>
                             <span style={{ fontFamily: '"Aptos", sans-serif', fontSize: 12, fontWeight: 700, color: P.teal, letterSpacing: '0.04em' }}>
                               {u.userCode}
                             </span>
@@ -460,10 +460,10 @@ export default function TeamListPage() {
                         )}
 
                         {visibleCols.includes('name') && (
-                          <td style={{ padding: '6px 14px' }}>
+                          <td style={{ padding: '6px 12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                               <div style={{
-                                width: 30, height: 30, borderRadius: '50%',
+                                width: 26, height: 26, borderRadius: '50%',
                                 background: isInactive ? '#9CA3AF' : P.navy,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0,
@@ -476,7 +476,7 @@ export default function TeamListPage() {
                         )}
 
                         {visibleCols.includes('role') && (
-                          <td style={{ padding: '6px 14px' }}>
+                          <td style={{ padding: '6px 12px' }}>
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', padding: '2px 10px',
                               borderRadius: 9999, fontSize: 11, fontWeight: 700,
@@ -488,7 +488,7 @@ export default function TeamListPage() {
                         )}
 
                         {visibleCols.includes('teamLead') && (
-                          <td style={{ padding: '6px 14px', color: P.textMuted, fontSize: 12 }}>
+                          <td style={{ padding: '6px 12px', color: P.textMuted, fontSize: 12 }}>
                             {/* Only trainees report to a team lead, so everyone
                                 above them shows Not Applicable instead of blank. */}
                             {u.teamLead?.fullName
@@ -499,19 +499,19 @@ export default function TeamListPage() {
                         )}
 
                         {visibleCols.includes('email') && (
-                          <td style={{ padding: '6px 14px', color: P.textMuted, fontSize: 12 }}>{u.email}</td>
+                          <td style={{ padding: '6px 12px', color: P.textMuted, fontSize: 12 }}>{u.email}</td>
                         )}
 
                         {visibleCols.includes('phone') && (
-                          <td style={{ padding: '6px 14px', color: P.textMuted, fontSize: 12 }}>{u.phone ?? ''}</td>
+                          <td style={{ padding: '6px 12px', color: P.textMuted, fontSize: 12 }}>{u.phone ?? ''}</td>
                         )}
 
                         {visibleCols.includes('joined') && (
-                          <td style={{ padding: '6px 14px', color: P.textMuted, fontSize: 12 }}>{fmt(u.createdAt)}</td>
+                          <td style={{ padding: '6px 12px', color: P.textMuted, fontSize: 12 }}>{fmt(u.createdAt)}</td>
                         )}
 
                         {visibleCols.includes('status') && (
-                          <td style={{ padding: '6px 14px' }}>
+                          <td style={{ padding: '6px 12px' }}>
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', padding: '2px 10px',
                               borderRadius: 9999, fontSize: 11, fontWeight: 600,
@@ -524,7 +524,7 @@ export default function TeamListPage() {
                         )}
 
                         {/* Actions */}
-                        <td style={{ padding: '6px 14px' }}>
+                        <td style={{ padding: '6px 12px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
 
                             {/* Edit, only if current user outranks this user */}

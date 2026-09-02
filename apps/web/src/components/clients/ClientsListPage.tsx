@@ -1353,7 +1353,7 @@ function RepresentativesSection({ canCreate, canEdit, canDelete, showNewRep, set
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                             {canEdit && (
                               <button onClick={() => setEditRep(r)} title="Edit"
-                                style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}
+                                style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}
                                 onMouseEnter={e => { e.currentTarget.style.background = '#EFF6FF' }}
                                 onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
                                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1362,7 +1362,7 @@ function RepresentativesSection({ canCreate, canEdit, canDelete, showNewRep, set
                               </button>
                             )}
                             <button onClick={() => handleToggleActive(r)} title={r.isActive !== false ? 'Deactivate' : 'Activate'}
-                              style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: r.isActive !== false ? '#EF4444' : '#22C55E' }}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: r.isActive !== false ? '#EF4444' : '#22C55E' }}
                               onMouseEnter={e => { e.currentTarget.style.background = r.isActive !== false ? '#FEF2F2' : '#F0FDF4' }}
                               onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
                               {r.isActive !== false
@@ -1372,7 +1372,7 @@ function RepresentativesSection({ canCreate, canEdit, canDelete, showNewRep, set
                             </button>
                             {canDelete && (
                               <button onClick={() => setConfirmDelete(r)} title="Delete permanently"
-                                style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B91C1C' }}
+                                style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B91C1C' }}
                                 onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2' }}
                                 onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
                                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2200,7 +2200,7 @@ export default function ClientsListPage() {
                                 disabled={inviteSending === c.id}
                                 title="Send portal invite"
                                 style={{
-                                  padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                                  height: 26, padding: '0 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
                                   border: `1px solid ${TEAL}`, background: inviteSending === c.id ? '#E6F4F6' : '#fff',
                                   color: TEAL, cursor: inviteSending === c.id ? 'default' : 'pointer',
                                   whiteSpace: 'nowrap',
@@ -2209,7 +2209,7 @@ export default function ClientsListPage() {
                               </button>
                             )}
                             <button onClick={() => setEditClient(c)} title="Edit"
-                              style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}
                               onMouseEnter={e => { e.currentTarget.style.background = '#EFF6FF' }}
                               onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
                               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2217,7 +2217,7 @@ export default function ClientsListPage() {
                               </svg>
                             </button>
                             <button onClick={() => setConfirmToggle(c)} title={c.user?.isActive !== false ? 'Deactivate' : 'Activate'}
-                              style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.user?.isActive !== false ? '#EF4444' : '#22C55E' }}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.user?.isActive !== false ? '#EF4444' : '#22C55E' }}
                               onMouseEnter={e => { e.currentTarget.style.background = c.user?.isActive !== false ? '#FEF2F2' : '#F0FDF4' }}
                               onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
                               {c.user?.isActive !== false
@@ -2229,7 +2229,7 @@ export default function ClientsListPage() {
                         )}
                         {canDelete && (
                           <button onClick={() => setConfirmDelete(c)} title="Delete permanently"
-                            style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B91C1C' }}
+                            style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#B91C1C' }}
                             onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2' }}
                             onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
                             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

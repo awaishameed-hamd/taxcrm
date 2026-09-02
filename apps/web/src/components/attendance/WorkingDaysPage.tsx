@@ -29,7 +29,7 @@ const CTRL: React.CSSProperties = {
   height: 26, boxSizing: 'border-box', borderRadius: 6,
   padding: '0 8px', fontSize: 12, outline: 'none', lineHeight: '24px',
 }
-const CELL: React.CSSProperties = { padding: '3px 16px' }
+const CELL: React.CSSProperties = { padding: '6px 12px' }
 
 function Toast({ msg, type, onClose }: { msg: string; type: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t) }, [onClose])
@@ -224,7 +224,7 @@ export default function WorkingDaysPage() {
                 ? Array.from({ length: 10 }).map((_, i) => (
                   <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#F9FAFB' }}>
                     {[1,2,3,4,5].map(c => (
-                      <td key={c} style={{ ...CELL, height: 32, borderBottom: `1px solid ${P.gridLine}` }}>
+                      <td key={c} style={{ ...CELL, borderBottom: `1px solid ${P.gridLine}` }}>
                         <div style={{ height: 12, borderRadius: 4, background: P.gridLine }} />
                       </td>
                     ))}
