@@ -339,6 +339,18 @@ model ClientProfile {
 // Invoicing & Payments
 // ─────────────────────────────────────────────────────────────────────────────
 
+// What the firm was paid for. Set automatically from the task an invoice was
+// drafted against, and picked by hand on a manual one, so revenue can be read
+// per service rather than only per client.
+enum InvoiceService {
+  SALES_TAX
+  INCOME_TAX
+  WHT
+  NOTICES_APPEALS
+  RETAINERSHIP // a monthly or annual fee, covering whatever the contract names
+  OTHER
+}
+
 enum InvoiceKind {
   TASK      // auto-drafted when a task completes
   RETAINER  // monthly retainership fee
@@ -381,6 +393,10 @@ model Invoice {
 
   kind   InvoiceKind   @default(TASK)
   status InvoiceStatus @default(DRAFT)
+
+  // Nullable: invoices raised before this existed carry no service until one is
+  // picked, and there is no sensible value to invent for them.
+  service InvoiceService?
 
   // Source task, set for TASK invoices only, at most one invoice per task
   taskId String?       @unique
@@ -429,6 +445,7 @@ model Invoice {
   @@index([clientId])
   @@index([status])
   @@index([issueDate])
+  @@index([service])
   @@map("invoices")
 }
 

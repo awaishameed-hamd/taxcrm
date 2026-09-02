@@ -6,6 +6,7 @@ import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import PillSelect from '@/components/ui/PillSelect'
 import DataTable from '@/components/ui/DataTable'
+import { SERVICE_LABEL } from '@/components/invoices/InvoiceFormPanel'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -283,7 +284,7 @@ export default function InvoiceDetailsPage() {
           </div>
 
           <DataTable
-            id="invoiceDetails" minWidth={940} rows={visible} loading={loading}
+            id="invoiceDetails" minWidth={1060} rows={visible} loading={loading}
             rowKey={(r: any) => r.id} onRowClick={(r: any) => setOpenId(r.id)}
             emptyText={search
               ? `No invoices matching "${search}".`
@@ -293,6 +294,8 @@ export default function InvoiceDetailsPage() {
               { key: 'clientName',    label: 'Client',    width: 180, cellStyle: { fontWeight: 600 } },
               { key: 'description',   label: 'Description', width: 240,
                 render: (r: any) => r.description ?? '' },
+              { key: 'service', label: 'Service', width: 118, cellStyle: { color: '#475569' },
+                render: (r: any) => SERVICE_LABEL[r.service] ?? '' },
               { key: 'kind', label: 'Type', width: 82, render: (r: any) => {
                 const km = KIND_META[r.kind] ?? KIND_META.MANUAL
                 return <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 9999, fontSize: 10, fontWeight: 800, color: km.color, background: km.bg }}>{km.label}</span>

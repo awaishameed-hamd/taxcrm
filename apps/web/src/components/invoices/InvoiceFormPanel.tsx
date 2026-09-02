@@ -3,6 +3,20 @@
 import { useState } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
+import StyledSelect from '@/components/ui/StyledSelect'
+
+// What the firm was paid for, so revenue reads per service and not only per
+// client. An auto-drafted invoice arrives with this already set from its task.
+export const INVOICE_SERVICES = [
+  { value: 'SALES_TAX',       label: 'Sales Tax' },
+  { value: 'INCOME_TAX',      label: 'Income Tax' },
+  { value: 'WHT',             label: 'Withholding Tax' },
+  { value: 'NOTICES_APPEALS', label: 'Notices & Appeals' },
+  { value: 'RETAINERSHIP',    label: 'Retainership' },
+  { value: 'OTHER',           label: 'Other' },
+]
+export const SERVICE_LABEL: Record<string, string> =
+  Object.fromEntries(INVOICE_SERVICES.map(s => [s.value, s.label]))
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -51,9 +65,10 @@ export default function InvoiceFormPanel({ clientId, clientName, inv, onClose, o
     const d = new Date(inv?.issueDate ?? Date.now()); d.setDate(d.getDate() + 7)
     return d.toISOString().split('T')[0]
   })
-  const [notes,  setNotes]  = useState(inv?.notes ?? '')
-  const [saving, setSaving] = useState(false)
-  const [error,  setError]  = useState('')
+  const [notes,   setNotes]   = useState(inv?.notes ?? '')
+  const [service, setService] = useState(inv?.service ?? 'OTHER')
+  const [saving,  setSaving]  = useState(false)
+  const [error,   setError]   = useState('')
 
   const nSub = Number(subtotal) || 0, nTax = Number(salesTax) || 0, nOop = Number(outOfPocket) || 0
   const total = nSub + nTax + nOop
@@ -70,6 +85,7 @@ export default function InvoiceFormPanel({ clientId, clientName, inv, onClose, o
         description: description.trim(),
         dueDate: dueDate || undefined,
         notes: notes.trim() || undefined,
+        service,
       }
       let id = inv?.id
       if (isEdit) {
@@ -115,9 +131,15 @@ export default function InvoiceFormPanel({ clientId, clientName, inv, onClose, o
       </div>
 
       <div style={{ padding: 20 }}>
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Description <span style={{ color: '#ef4444' }}>*</span></label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What is being billed" style={inputStyle} autoFocus />
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 16 }}>
+          <div>
+            <label style={labelStyle}>Description <span style={{ color: '#ef4444' }}>*</span></label>
+            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What is being billed" style={inputStyle} autoFocus />
+          </div>
+          <div>
+            <label style={labelStyle}>Service</label>
+            <StyledSelect value={service} onChange={setService} options={INVOICE_SERVICES} />
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { InvoiceKind, InvoiceStatus, OverpaymentType, Prisma } from '@prisma/client'
+import { InvoiceKind, InvoiceService, InvoiceStatus, OverpaymentType, Prisma } from '@prisma/client'
 import { CreateInvoiceDto, UpdateInvoiceDto, ReceivePaymentDto, ApplyPaymentDto, UpdatePaymentDto } from './dto/invoice.dto'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -20,6 +20,14 @@ const yearEndMonthOf = (yearEnd?: string | null): number => {
 // (Jul 2026 to Jun 2027) while Jan 2027 work belongs to that same FY 2027.
 const fiscalYearOf = (month: number, year: number, yearEndMonth: number): number =>
   month <= yearEndMonth ? year : year + 1
+
+// A task's type is the service it was billed for, so an auto-drafted invoice
+// carries it without anyone having to pick.
+const serviceOfTaskType = (taskType?: string | null): InvoiceService =>
+  taskType === 'INCOME_TAX' ? InvoiceService.INCOME_TAX
+  : taskType === 'WHT'      ? InvoiceService.WHT
+  : taskType === 'SALES_TAX' ? InvoiceService.SALES_TAX
+  : InvoiceService.OTHER
 
 type Alloc = { invoiceId: string; amount: number; discount?: number; incomeTaxWithheld?: number; salesTaxWithheld?: number }
 
@@ -171,7 +179,7 @@ export class InvoicesService {
     const invoices = await this.prisma.invoice.findMany({
       where,
       select: {
-        id: true, invoiceNumber: true, kind: true, status: true, description: true,
+        id: true, invoiceNumber: true, kind: true, status: true, service: true, description: true,
         issueDate: true, dueDate: true, sentAt: true, paidAt: true,
         amount: true, subtotal: true, salesTax: true, outOfPocket: true,
         amountPaid: true, discountTotal: true, incomeTaxWithheld: true, salesTaxWithheld: true,
@@ -530,6 +538,7 @@ export class InvoicesService {
         subtotal, salesTax, outOfPocket,
         amount:        subtotal + salesTax + outOfPocket,
         description:   dto.description,
+        service:       dto.service ?? InvoiceService.OTHER,
         dueDate:       dto.dueDate ? new Date(dto.dueDate) : undefined,
         notes:         dto.notes,
         createdById:   userId,
@@ -547,6 +556,7 @@ export class InvoicesService {
     if (dto.notes       !== undefined) data.notes       = dto.notes
     if (dto.dueDate     !== undefined) data.dueDate     = dto.dueDate ? new Date(dto.dueDate) : null
     if (dto.status      !== undefined) data.status      = dto.status
+    if (dto.service     !== undefined) data.service     = dto.service
 
     // The total is always the three parts added up, never trust a client-sent total
     const priced = dto.subtotal !== undefined || dto.salesTax !== undefined || dto.outOfPocket !== undefined
@@ -1020,6 +1030,7 @@ export class InvoicesService {
           taskId:        task.id,
           kind:          InvoiceKind.TASK,
           status:        InvoiceStatus.DRAFT,
+          service:       serviceOfTaskType(task.taskType),
           subtotal:      0,
           amount:        0,
           description:   label,
@@ -1047,6 +1058,7 @@ export class InvoicesService {
           invoiceNumber: await this.nextInvoiceNumber(),
           clientId,
           kind:        InvoiceKind.RETAINER,
+          service:     InvoiceService.RETAINERSHIP,
           status:      InvoiceStatus.DRAFT,
           subtotal:    retainerAmount,
           amount:      retainerAmount,
@@ -1081,6 +1093,7 @@ export class InvoicesService {
           invoiceNumber: await this.nextInvoiceNumber(),
           clientId,
           kind:        InvoiceKind.ANNUAL,
+          service:     InvoiceService.RETAINERSHIP,
           status:      InvoiceStatus.DRAFT,
           subtotal:    amount,
           amount,

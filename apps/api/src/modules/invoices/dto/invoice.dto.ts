@@ -1,6 +1,6 @@
 import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
-import { InvoiceStatus, PaymentMethod, OverpaymentType } from '@prisma/client'
+import { InvoiceStatus, InvoiceService, PaymentMethod, OverpaymentType } from '@prisma/client'
 
 export class CreateInvoiceDto {
   @IsString() @IsNotEmpty() clientId: string
@@ -10,6 +10,7 @@ export class CreateInvoiceDto {
   @IsOptional() @IsString() description?: string
   @IsOptional() @IsString() dueDate?: string
   @IsOptional() @IsString() notes?: string
+  @IsOptional() @IsEnum(InvoiceService) service?: InvoiceService
 }
 
 export class UpdateInvoiceDto {
@@ -20,6 +21,7 @@ export class UpdateInvoiceDto {
   @IsOptional() @IsString() dueDate?: string
   @IsOptional() @IsString() notes?: string
   @IsOptional() @IsEnum(InvoiceStatus) status?: InvoiceStatus
+  @IsOptional() @IsEnum(InvoiceService) service?: InvoiceService
 }
 
 export class UpdatePaymentDto {
