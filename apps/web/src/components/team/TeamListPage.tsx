@@ -463,7 +463,7 @@ export default function TeamListPage() {
                           <td style={{ padding: '6px 12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                               <div style={{
-                                width: 26, height: 26, borderRadius: '50%',
+                                width: 20, height: 20, borderRadius: '50%',
                                 background: isInactive ? '#9CA3AF' : P.navy,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0,

@@ -26,7 +26,7 @@ function pktToday(offset = 0): string {
 // One height for every in-row control, so the type dropdown, the reason box and
 // the login time sit level instead of each taking its own browser default.
 const CTRL: React.CSSProperties = {
-  height: 26, boxSizing: 'border-box', borderRadius: 6,
+  height: 20, boxSizing: 'border-box', borderRadius: 6,
   padding: '0 8px', fontSize: 12, outline: 'none', lineHeight: '24px',
 }
 const CELL: React.CSSProperties = { padding: '6px 12px' }

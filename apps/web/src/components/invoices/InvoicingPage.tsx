@@ -1376,7 +1376,7 @@ export default function InvoicingPage() {
     return (
       <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
         <button onClick={() => setViewInv(r)} title="View / Print"
-          style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
+          style={{ width: 20, height: 20, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
           <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
         </button>
       </div>
@@ -1619,13 +1619,13 @@ export default function InvoicingPage() {
                               {t.type === 'PAYMENT' ? (
                                 pay && Number(t.unapplied) > 0 ? (
                                   <button onClick={() => setApplyPay(pay)} title="Apply this unapplied credit to an invoice"
-                                    style={{ padding: '0 10px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
+                                    style={{ padding: '0 8px', height: 20, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
                                     Apply
                                   </button>
                                 ) : null
                               ) : invMatch ? (
                                 <button onClick={() => setViewInv(invMatch)} title="View / Print invoice"
-                                  style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
+                                  style={{ width: 20, height: 20, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: NAVY }}>
                                   <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
                                 </button>
                               ) : null}
@@ -1725,7 +1725,7 @@ export default function InvoicingPage() {
                           <td style={{ ...td, overflow: 'visible', textAlign: 'right' }}>
                             {p.unapplied > 0 && (
                               <button onClick={() => setApplyPay(p)} title="Apply this credit to an invoice"
-                                style={{ padding: '0 9px', height: 26, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
+                                style={{ padding: '0 8px', height: 20, borderRadius: 6, border: 'none', background: '#7B2D8E', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
                                 Apply
                               </button>
                             )}

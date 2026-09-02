@@ -284,7 +284,7 @@ export default function LoginDetailsPage() {
             return (
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                     <button onClick={() => setEditRow(r)} title="Edit"
-                      style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}
+                      style={{ width: 20, height: 20, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}
                       onMouseEnter={e => { e.currentTarget.style.background = '#EFF6FF' }}
                       onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
                       <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -292,7 +292,7 @@ export default function LoginDetailsPage() {
                       </svg>
                     </button>
                     <button onClick={() => toggleClientActive(r)} disabled={toggling === r.id} title={isActive ? 'Deactivate client' : 'Activate client'}
-                      style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: toggling === r.id ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isActive ? '#EF4444' : '#22C55E', opacity: toggling === r.id ? 0.5 : 1 }}
+                      style={{ width: 20, height: 20, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: toggling === r.id ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isActive ? '#EF4444' : '#22C55E', opacity: toggling === r.id ? 0.5 : 1 }}
                       onMouseEnter={e => { e.currentTarget.style.background = isActive ? '#FEF2F2' : '#F0FDF4' }}
                       onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
                       {isActive
@@ -301,7 +301,7 @@ export default function LoginDetailsPage() {
                       }
                     </button>
                     <button onClick={() => setDeleteConfirm(r)} title="Delete row"
-                      style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}
+                      style={{ width: 20, height: 20, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}
                       onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2' }}
                       onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}>
                       <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
