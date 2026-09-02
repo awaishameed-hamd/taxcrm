@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
+import DataTable from '@/components/ui/DataTable'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 const LEAVE_TYPE_OPTIONS = [
@@ -133,52 +134,32 @@ export default function MyLeavesPage() {
         ))}
       </div>
 
-      {/* History table */}
-      <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 750 }}>
-            <thead>
-              <tr style={{ background: '#F2AC18' }}>
-                {['#', 'Type', 'From', 'To', 'Days', 'Reason', 'Status', 'Reviewed By', 'Rejection Reason'].map(h => (
-                  <th key={h} style={{ padding: '7px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: '"Aptos", sans-serif', letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: '#64748B', fontSize: 13, fontFamily: '"Aptos", sans-serif' }}>Loading…</td></tr>
-              ) : leaves.length === 0 ? (
-                <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: '#64748B', fontSize: 13, fontFamily: '"Aptos", sans-serif' }}>No leave applications yet. Click "Apply for Leave" to submit one.</td></tr>
-              ) : leaves.map((l, i) => (
-                <tr key={l.id}
-                  style={{ borderBottom: '1px solid #F1F5F9', background: i % 2 === 0 ? '#fff' : '#FAFBFC' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F8FAFC'}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? '#fff' : '#FAFBFC'}>
-                  <td style={{ padding: '8px 14px', fontSize: 12, color: '#94A3B8', fontFamily: '"Aptos", sans-serif' }}>{i + 1}</td>
-                  <td style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, color: P.navy, fontFamily: '"Aptos", sans-serif' }}>{LEAVE_TYPE_LABELS[l.leaveType] ?? l.leaveType}</td>
-                  <td style={{ padding: '8px 14px', fontSize: 12, color: '#374151', fontFamily: '"Aptos", sans-serif', whiteSpace: 'nowrap' }}>{l.fromDate?.split('T')[0] ?? ''}</td>
-                  <td style={{ padding: '8px 14px', fontSize: 12, color: '#374151', fontFamily: '"Aptos", sans-serif', whiteSpace: 'nowrap' }}>{l.toDate?.split('T')[0] ?? ''}</td>
-                  <td style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, color: P.navy, fontFamily: '"Aptos", sans-serif' }}>{l.days}</td>
-                  <td style={{ padding: '8px 14px', fontSize: 12, color: '#374151', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: '"Aptos", sans-serif' }}>{l.reason}</td>
-                  <td style={{ padding: '8px 14px' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, fontFamily: '"Aptos", sans-serif', textTransform: 'capitalize', ...(STATUS_BADGE[l.status] ?? {}) }}>
-                      {l.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: '8px 14px', fontSize: 12, color: '#64748B', fontFamily: '"Aptos", sans-serif' }}>
-                    {l.reviewedBy ? `${l.reviewedBy.fullName} (${l.reviewedBy.role.replace(/_/g, ' ')})` : 'Pending'}
-                  </td>
-                  <td style={{ padding: '8px 14px', fontSize: 12, color: '#DC2626', fontFamily: '"Aptos", sans-serif' }}>
-                    {l.rejectionReason ?? ''}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        id="myLeaves" minWidth={860} rows={leaves} loading={loading}
+        rowKey={(l: any) => l.id}
+        emptyText='No leave applications yet. Click "Apply for Leave" to submit one.'
+        columns={[
+          { key: 'n', label: '#', width: 52, resizable: false, cellStyle: { color: '#94A3B8', fontSize: 12 },
+            render: (_l: any, i: number) => i + 1 },
+          { key: 'leaveType', label: 'Type', width: 120, cellStyle: { fontWeight: 700, color: P.navy },
+            render: (l: any) => LEAVE_TYPE_LABELS[l.leaveType] ?? l.leaveType },
+          { key: 'fromDate', label: 'From', width: 100, cellStyle: { fontSize: 12, color: '#374151' },
+            render: (l: any) => l.fromDate?.split('T')[0] ?? '' },
+          { key: 'toDate', label: 'To', width: 100, cellStyle: { fontSize: 12, color: '#374151' },
+            render: (l: any) => l.toDate?.split('T')[0] ?? '' },
+          { key: 'days', label: 'Days', width: 64, cellStyle: { fontWeight: 700, color: P.navy } },
+          { key: 'reason', label: 'Reason', width: 190, wrap: true, cellStyle: { fontSize: 12, color: '#374151' } },
+          { key: 'status', label: 'Status', width: 110, render: (l: any) => (
+            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, fontFamily: '"Aptos", sans-serif', textTransform: 'capitalize', ...(STATUS_BADGE[l.status] ?? {}) }}>
+              {l.status}
+            </span>
+          ) },
+          { key: 'reviewedBy', label: 'Reviewed By', width: 160, wrap: true, cellStyle: { fontSize: 12, color: '#64748B' },
+            render: (l: any) => l.reviewedBy ? `${l.reviewedBy.fullName} (${l.reviewedBy.role.replace(/_/g, ' ')})` : 'Pending' },
+          { key: 'rejectionReason', label: 'Rejection Reason', width: 170, wrap: true, cellStyle: { fontSize: 12, color: '#DC2626' },
+            render: (l: any) => l.rejectionReason ?? '' },
+        ]}
+      />
 
       {/* Apply Leave Modal */}
       {showForm && (

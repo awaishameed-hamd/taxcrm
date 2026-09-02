@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import PillSelect from '@/components/ui/PillSelect'
+import DataTable from '@/components/ui/DataTable'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -221,17 +222,6 @@ export default function InvoiceDetailsPage() {
     overdue:  rows.filter(r => r.bucket === 'overdue').reduce((s, r) => s + Number(r.balance), 0),
   }), [visible, rows])
 
-  const th: React.CSSProperties = {
-    padding: '7px 12px', textAlign: 'left', fontSize: 10, fontWeight: 900,
-    textTransform: 'uppercase', color: '#1a1a1a', fontFamily: F,
-    letterSpacing: '0.07em', whiteSpace: 'nowrap',
-  }
-  const td: React.CSSProperties = {
-    padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#1a1a1a',
-    fontFamily: F, borderBottom: `1px solid ${P.gridLine}`,
-    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-  }
-
   return (
     <div className="flex flex-col" style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
 
@@ -292,67 +282,43 @@ export default function InvoiceDetailsPage() {
             </div>
           </div>
 
-          {/* Table */}
-          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: 940, borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: 108 }} /><col style={{ width: '18%' }} /><col style={{ width: '24%' }} />
-                <col style={{ width: 78 }} /><col style={{ width: 96 }} /><col style={{ width: 108 }} />
-                <col style={{ width: 92 }} /><col style={{ width: 92 }} /><col style={{ width: 92 }} /><col style={{ width: 110 }} />
-              </colgroup>
-              <thead>
-                <tr style={{ background: '#F2AC18' }}>
-                  {['Invoice #', 'Client', 'Description', 'Type', 'Issued', 'Due'].map(l => <th key={l} style={th}>{l}</th>)}
-                  <th style={{ ...th, textAlign: 'right' }}>Amount</th>
-                  {/* Settled, not received: a discount or tax withheld at source
-                      closes an invoice without any cash arriving. */}
-                  <th style={{ ...th, textAlign: 'right' }}>Settled</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Balance</th>
-                  <th style={th}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFCFC' }}>
-                      {Array.from({ length: 10 }).map((__, c) => (
-                        <td key={c} style={td}><div style={{ height: 12, borderRadius: 4, background: P.gridLine }} /></td>
-                      ))}
-                    </tr>
-                  ))
-                ) : visible.length === 0 ? (
-                  <tr><td colSpan={10} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>
-                    {search ? `No invoices matching "${search}".` : 'No issued invoices in this range. An invoice shows up here the moment it is sent.'}
-                  </td></tr>
-                ) : visible.map((r: any, idx: number) => {
-                  const km = KIND_META[r.kind] ?? KIND_META.MANUAL
-                  const bm = BUCKET_META[r.bucket] ?? BUCKET_META.notdue
-                  return (
-                    <tr key={r.id} onClick={() => setOpenId(r.id)}
-                      style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC', cursor: 'pointer' }}>
-                      <td style={{ ...td, color: TEAL }}>{r.invoiceNumber}</td>
-                      <td style={td} title={r.clientName}>{r.clientName}</td>
-                      <td style={{ ...td, fontWeight: 400 }} title={r.description ?? ''}>{r.description ?? ''}</td>
-                      <td style={td}>
-                        <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 9999, fontSize: 10, fontWeight: 800, color: km.color, background: km.bg }}>{km.label}</span>
-                      </td>
-                      <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(r.issueDate)}</td>
-                      <td style={{ ...td, fontWeight: 400, color: r.bucket === 'overdue' ? '#D62828' : '#64748B' }}>
-                        {fmtDate(r.dueDate) || 'Not set'}
-                        {r.daysOverdue > 0 && <span style={{ fontWeight: 800 }}> · {r.daysOverdue}d</span>}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right' }}>{money(r.amount)}</td>
-                      <td style={{ ...td, textAlign: 'right', color: '#16a34a' }}>{money(r.settled)}</td>
-                      <td style={{ ...td, textAlign: 'right', color: r.balance > 0.001 ? '#D62828' : '#16a34a' }}>{money(r.balance)}</td>
-                      <td style={td}>
-                        <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: bm.color, background: bm.bg }}>{bm.label}</span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            id="invoiceDetails" minWidth={940} rows={visible} loading={loading}
+            rowKey={(r: any) => r.id} onRowClick={(r: any) => setOpenId(r.id)}
+            emptyText={search
+              ? `No invoices matching "${search}".`
+              : 'No issued invoices in this range. An invoice shows up here the moment it is sent.'}
+            columns={[
+              { key: 'invoiceNumber', label: 'Invoice #', width: 108, cellStyle: { color: TEAL, fontWeight: 600 } },
+              { key: 'clientName',    label: 'Client',    width: 180, wrap: true, cellStyle: { fontWeight: 600 } },
+              { key: 'description',   label: 'Description', width: 240, wrap: true,
+                render: (r: any) => r.description ?? '' },
+              { key: 'kind', label: 'Type', width: 82, render: (r: any) => {
+                const km = KIND_META[r.kind] ?? KIND_META.MANUAL
+                return <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 9999, fontSize: 10, fontWeight: 800, color: km.color, background: km.bg }}>{km.label}</span>
+              } },
+              { key: 'issueDate', label: 'Issued', width: 100, cellStyle: { color: '#64748B' },
+                render: (r: any) => fmtDate(r.issueDate) },
+              { key: 'dueDate', label: 'Due', width: 116, render: (r: any) => (
+                <span style={{ color: r.bucket === 'overdue' ? '#D62828' : '#64748B' }}>
+                  {fmtDate(r.dueDate) || 'Not set'}
+                  {r.daysOverdue > 0 && <span style={{ fontWeight: 800 }}> · {r.daysOverdue}d</span>}
+                </span>
+              ) },
+              { key: 'amount', label: 'Amount', width: 94, align: 'right',
+                cellStyle: { fontWeight: 600 }, render: (r: any) => money(r.amount) },
+              // Settled, not received: a discount or tax withheld at source closes
+              // an invoice without any cash arriving.
+              { key: 'settled', label: 'Settled', width: 94, align: 'right',
+                cellStyle: { color: '#16a34a', fontWeight: 600 }, render: (r: any) => money(r.settled) },
+              { key: 'balance', label: 'Balance', width: 94, align: 'right',
+                render: (r: any) => <span style={{ color: r.balance > 0.001 ? '#D62828' : '#16a34a', fontWeight: 600 }}>{money(r.balance)}</span> },
+              { key: 'bucket', label: 'Status', width: 120, render: (r: any) => {
+                const bm = BUCKET_META[r.bucket] ?? BUCKET_META.notdue
+                return <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: bm.color, background: bm.bg }}>{bm.label}</span>
+              } },
+            ]}
+          />
         </>
       )}
     </div>

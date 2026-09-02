@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import DataTable from '@/components/ui/DataTable'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -198,15 +199,6 @@ export default function InvoiceApprovalPage() {
     finally { setBusy(null) }
   }
 
-  const td: React.CSSProperties = {
-    padding: '6px 12px', borderBottom: `1px solid ${P.border}50`, fontFamily: F,
-    fontSize: 13, fontWeight: 700, color: '#000', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-  }
-  const th: React.CSSProperties = {
-    padding: '8px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase',
-    color: '#1a1a1a', fontFamily: F, letterSpacing: '0.07em', whiteSpace: 'nowrap',
-  }
-
   const totalValue = rows.reduce((s, r) => s + Number(r.amount), 0)
   const unpriced   = rows.filter(r => Number(r.amount) <= 0).length
 
@@ -255,50 +247,29 @@ export default function InvoiceApprovalPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
-          <colgroup>
-            <col style={{ width: '13%' }} /><col style={{ width: '18%' }} /><col style={{ width: '26%' }} />
-            <col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '11%' }} /><col style={{ width: 243 }} />
-          </colgroup>
-          <thead>
-            <tr style={{ background: '#F2AC18' }}>
-              {['Invoice #', 'Client', 'Description', 'Type', 'Created'].map(l => <th key={l} style={th}>{l}</th>)}
-              <th style={{ ...th, textAlign: 'right' }}>Amount</th>
-              <th style={th} />
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFCFC' }}>
-                  {Array.from({ length: 7 }).map((__, c) => (
-                    <td key={c} style={td}><div style={{ height: 12, borderRadius: 4, background: P.gridLine }} /></td>
-                  ))}
-                </tr>
-              ))
-            ) : visible.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted, fontFamily: F }}>
-                {search ? `No drafts matching "${search}".` : 'Nothing waiting. Drafts land here automatically when a task is completed.'}
-              </td></tr>
-            ) : visible.map((r, idx) => {
-              const km       = KIND_META[r.kind] ?? KIND_META.MANUAL
-              const disabled = busy === r.id
-              const priced   = Number(r.amount) > 0
-              return (
-                <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC' }}>
-                  <td style={{ ...td, color: TEAL }}>{r.invoiceNumber}</td>
-                  <td style={td}>{r.client?.businessName ?? r.client?.user?.fullName ?? ''}</td>
-                  <td style={{ ...td, fontWeight: 400 }}>{r.description ?? ''}</td>
-                  <td style={td}>
-                    <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: km.color, background: km.bg }}>{km.label}</span>
-                  </td>
-                  <td style={{ ...td, fontWeight: 400, color: '#64748B' }}>{fmtDate(r.createdAt)}</td>
-                  <td style={{ ...td, textAlign: 'right', color: priced ? '#000' : '#D62828' }}>
-                    {priced ? money(r.amount) : 'Not priced'}
-                  </td>
-                  <td style={{ ...td, overflow: 'visible' }}>
+      <DataTable
+        id="invoiceApproval" minWidth={980} rows={visible} loading={loading} skeletonRows={5}
+        rowKey={(r: any) => r.id}
+        emptyText={search ? `No drafts matching "${search}".` : 'Nothing waiting. Drafts land here automatically when a task is completed.'}
+        columns={[
+          { key: 'invoiceNumber', label: 'Invoice #', width: 120, cellStyle: { color: TEAL, fontWeight: 600 } },
+          { key: 'client', label: 'Client', width: 180, wrap: true, cellStyle: { fontWeight: 600 },
+            render: (r: any) => r.client?.businessName ?? r.client?.user?.fullName ?? '' },
+          { key: 'description', label: 'Description', width: 260, wrap: true, render: (r: any) => r.description ?? '' },
+          { key: 'kind', label: 'Type', width: 96, render: (r: any) => {
+            const km = KIND_META[r.kind] ?? KIND_META.MANUAL
+            return <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: km.color, background: km.bg }}>{km.label}</span>
+          } },
+          { key: 'createdAt', label: 'Created', width: 104, cellStyle: { color: '#64748B' }, render: (r: any) => fmtDate(r.createdAt) },
+          { key: 'amount', label: 'Amount', width: 100, align: 'right', render: (r: any) => (
+            <span style={{ color: Number(r.amount) > 0 ? '#000' : '#D62828', fontWeight: 600 }}>
+              {Number(r.amount) > 0 ? money(r.amount) : 'Not priced'}
+            </span>
+          ) },
+          { key: 'actions', label: '', width: 243, resizable: false, cellStyle: { overflow: 'visible' }, render: (r: any) => {
+            const disabled = busy === r.id
+            const priced   = Number(r.amount) > 0
+            return (
                     <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
                       <button onClick={() => setPriceInv(r)} disabled={disabled}
                         style={{ padding: '0 10px', height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', color: '#3B82F6', cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: F }}>
@@ -321,13 +292,10 @@ export default function InvoiceApprovalPage() {
                         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                       </button>
                     </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+            )
+          } },
+        ]}
+      />
 
       {priceInv && <PriceModal inv={priceInv} onClose={() => setPriceInv(null)} onSaved={() => { setPriceInv(null); fetchDrafts() }} />}
 

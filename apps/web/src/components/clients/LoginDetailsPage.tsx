@@ -7,6 +7,7 @@ import StyledSelect from '@/components/ui/StyledSelect'
 import BulkImportModal from '@/components/ui/BulkImportModal'
 import ModalHeader from '@/components/ui/ModalHeader'
 import PillSelect from '@/components/ui/PillSelect'
+import DataTable from '@/components/ui/DataTable'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -267,48 +268,20 @@ export default function LoginDetailsPage() {
         />
       )}
 
-      {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13, tableLayout: 'fixed' }}>
-          <colgroup>
-            <col style={{ width: '26%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '27%' }} />
-            <col style={{ width: '25%' }} />
-            <col style={{ width: '10%' }} />
-          </colgroup>
-          <thead>
-            <tr style={{ background: '#F2AC18' }}>
-              {['Client', 'Authority', 'Login ID', 'Password'].map(label => (
-                <th key={label} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#1a1a1a', fontFamily: F, letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
-                  {label}
-                </th>
-              ))}
-              <th style={{ padding: '8px 14px' }} />
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFCFC' }}>
-                  {Array.from({ length: 5 }).map((__, c) => (
-                    <td key={c} style={td}><div style={{ height: 12, borderRadius: 4, background: P.gridLine }} /></td>
-                  ))}
-                </tr>
-              ))
-            ) : visibleRows.length === 0 ? (
-              <tr><td colSpan={5} style={{ padding: '48px 16px', textAlign: 'center', color: P.textMuted }}>
-                {search ? `No clients matching "${search}".` : 'No login details yet. Click + Add to create one.'}
-              </td></tr>
-            ) : visibleRows.map((r, idx) => {
-              const isActive = r.client?.user?.isActive !== false
-              return (
-              <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#FAFCFC', opacity: isActive ? 1 : 0.55 }}>
-                <td style={td}>{r.client?.businessName ?? r.client?.user?.fullName ?? na}</td>
-                <td style={td}>{r.authority}</td>
-                <td style={td}>{r.loginId ?? na}</td>
-                <td style={td}>{r.password ?? na}</td>
-                <td style={td}>
+      <DataTable
+        id="loginDetails" minWidth={860} rows={visibleRows} loading={loading} skeletonRows={5}
+        rowKey={(r: any) => r.id}
+        rowStyle={(r: any) => r.client?.user?.isActive === false ? { opacity: 0.55 } : undefined}
+        emptyText={search ? `No clients matching "${search}".` : 'No login details yet. Click + Add to create one.'}
+        columns={[
+          { key: 'client', label: 'Client', width: 240, wrap: true,
+            render: (r: any) => r.client?.businessName ?? r.client?.user?.fullName ?? na },
+          { key: 'authority', label: 'Authority', width: 110 },
+          { key: 'loginId',  label: 'Login ID', width: 230, wrap: true, render: (r: any) => r.loginId ?? na },
+          { key: 'password', label: 'Password', width: 200, wrap: true, render: (r: any) => r.password ?? na },
+          { key: 'actions', label: '', width: 110, resizable: false, render: (r: any) => {
+            const isActive = r.client?.user?.isActive !== false
+            return (
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                     <button onClick={() => setEditRow(r)} title="Edit"
                       style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}
@@ -336,13 +309,10 @@ export default function LoginDetailsPage() {
                       </svg>
                     </button>
                   </div>
-                </td>
-              </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+            )
+          } },
+        ]}
+      />
 
       {editRow && (
         <EditModal row={editRow} isNew={false}
