@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import DataTable from '@/components/ui/DataTable'
+import PillSelect from '@/components/ui/PillSelect'
 
 const NAVY = '#132E57'
 const TEAL = '#1E8496'
@@ -14,18 +15,40 @@ const money   = (n: any) => Number(n ?? 0).toLocaleString('en-PK', { minimumFrac
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
 
 const KIND_META: Record<string, { label: string; color: string; bg: string }> = {
-  TASK:     { label: 'Task',     color: '#1E40AF', bg: '#DBEAFE' },
-  RETAINER: { label: 'Retainer', color: '#5B21B6', bg: '#EDE9FE' },
-  ANNUAL:   { label: 'Annual',   color: '#B45309', bg: '#FDF0D5' },
-  MANUAL:   { label: 'Manual',   color: '#5C5C5C', bg: '#F1F5F9' },
+  TASK:     { label: 'Task',                color: '#1E40AF', bg: '#DBEAFE' },
+  RETAINER: { label: 'Monthly Retainership', color: '#5B21B6', bg: '#EDE9FE' },
+  ANNUAL:   { label: 'Annual Retainership',  color: '#B45309', bg: '#FDF0D5' },
+  MANUAL:   { label: 'Manual',              color: '#5C5C5C', bg: '#F1F5F9' },
 }
 const FILTERS = [
-  { key: 'ALL',      label: 'All' },
+  { key: 'ALL',      label: 'All Types' },
   { key: 'TASK',     label: 'Task' },
-  { key: 'RETAINER', label: 'Retainer' },
-  { key: 'ANNUAL',   label: 'Annual' },
+  { key: 'RETAINER', label: 'Monthly Retainership' },
+  { key: 'ANNUAL',   label: 'Annual Retainership' },
   { key: 'MANUAL',   label: 'Manual' },
 ]
+
+// Date presets over the draft's creation date
+const RANGES = [
+  { key: 'all',       label: 'All Time'   },
+  { key: 'thisMonth', label: 'This Month' },
+  { key: 'lastMonth', label: 'Last Month' },
+  { key: 'thisYear',  label: 'This Year'  },
+  { key: 'custom',    label: 'Custom'     },
+]
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+function rangeDates(key: string): { from?: string; to?: string } {
+  const now = new Date()
+  if (key === 'thisMonth') return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)),     to: iso(new Date(now.getFullYear(), now.getMonth() + 1, 0)) }
+  if (key === 'lastMonth') return { from: iso(new Date(now.getFullYear(), now.getMonth() - 1, 1)), to: iso(new Date(now.getFullYear(), now.getMonth(), 0)) }
+  if (key === 'thisYear')  return { from: iso(new Date(now.getFullYear(), 0, 1)),                  to: iso(new Date(now.getFullYear(), 11, 31)) }
+  return {}
+}
+
+const LS_FILTERS = 'invoiceApproval:filters'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', padding: '8px 12px', borderRadius: 8,
@@ -183,6 +206,26 @@ export default function InvoiceApprovalPage() {
   const [loading, setLoading] = useState(true)
   const [kind,    setKind]    = useState('ALL')
   const [search,  setSearch]  = useState('')
+  const [range,   setRange]   = useState('all')
+  const [from,    setFrom]    = useState('')
+  const [to,      setTo]      = useState('')
+
+  // The type and date filters are remembered, so a manager who works one kind of
+  // draft comes back to it instead of resetting to All every visit. Read after
+  // mount so the server and client first render agree.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS_FILTERS) ?? '{}')
+      if (saved.kind)  setKind(saved.kind)
+      if (saved.range) setRange(saved.range)
+      if (saved.from)  setFrom(saved.from)
+      if (saved.to)    setTo(saved.to)
+    } catch { /* private mode, first visit */ }
+  }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem(LS_FILTERS, JSON.stringify({ kind, range, from, to })) } catch { /* ignore */ }
+  }, [kind, range, from, to])
   const [busy,    setBusy]    = useState<string | null>(null)
 
   const [priceInv,   setPriceInv]   = useState<any>(null)
@@ -199,7 +242,18 @@ export default function InvoiceApprovalPage() {
   useEffect(() => { fetchDrafts() }, [fetchDrafts])
   useAutoRefresh(() => fetchDrafts(true))
 
-  const visible = useMemo(() => kind === 'ALL' ? rows : rows.filter(r => r.kind === kind), [rows, kind])
+  const visible = useMemo(() => {
+    const d = range === 'custom' ? { from: from || undefined, to: to || undefined } : rangeDates(range)
+    // `to` names a day, so run the window to the end of it
+    const fromMs = d.from ? new Date(d.from).getTime() : null
+    const toMs   = d.to   ? new Date(d.to).getTime() + 86400000 : null
+    return rows.filter(r => {
+      if (kind !== 'ALL' && r.kind !== kind) return false
+      if (fromMs === null && toMs === null)  return true
+      const t = new Date(r.createdAt).getTime()
+      return (fromMs === null || t >= fromMs) && (toMs === null || t < toMs)
+    })
+  }, [rows, kind, range, from, to])
 
   async function act(id: string, path: string) {
     setBusy(id)
@@ -236,22 +290,33 @@ export default function InvoiceApprovalPage() {
       <div style={{ display: 'flex', gap: 12, flexShrink: 0, marginBottom: 16 }}>
         <StatCard label="Pending Drafts" value={rows.length}                              border="#1565C0" fill="#BDDAF8" />
         <StatCard label="Needs Pricing"  value={unpriced}                                 border="#DC2626" fill="#FECACA" />
-        <StatCard label="Retainer"       value={rows.filter(r => r.kind === 'RETAINER').length} border="#7B2D8E" fill="#E4D4EC" />
-        <StatCard label="Annual"         value={rows.filter(r => r.kind === 'ANNUAL').length}   border="#B45309" fill="#FBE3B8" />
+        <StatCard label="Monthly Retainership" value={rows.filter(r => r.kind === "RETAINER").length} border="#7B2D8E" fill="#E4D4EC" />
+        <StatCard label="Annual Retainership"  value={rows.filter(r => r.kind === "ANNUAL").length}   border="#B45309" fill="#FBE3B8" />
         <StatCard label="Total Value"    value={money(totalValue)}                        border="#16A34A" fill="#BBF0D6" />
       </div>
 
       {/* Filters */}
       <div style={{ flexShrink: 0, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px', flexWrap: 'wrap' }}>
-          {FILTERS.map(f => (
-            <button key={f.key} onClick={() => setKind(f.key)} style={{
-              flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer',
-              fontSize: 12, fontWeight: 600, fontFamily: F, whiteSpace: 'nowrap',
-              background: kind === f.key ? NAVY : 'transparent',
-              color: kind === f.key ? '#fff' : 'rgba(255,255,255,0.85)',
-            }}>{f.label}</button>
-          ))}
+          <PillSelect
+            value={kind} onChange={setKind} dimValue="ALL" minWidth={140}
+            options={FILTERS.map(f => ({ value: f.key, label: f.label }))}
+          />
+
+          <PillSelect
+            value={range} onChange={setRange} dimValue="all" minWidth={140}
+            options={RANGES.map(r => ({ value: r.key, label: r.label }))}
+          />
+
+          {range === 'custom' && (
+            <>
+              <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+                style={{ flexShrink: 0, padding: '3px 8px', borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 11, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: F }} />
+              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: 700 }}>to</span>
+              <input type="date" value={to} onChange={e => setTo(e.target.value)}
+                style={{ flexShrink: 0, padding: '3px 8px', borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 11, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: F }} />
+            </>
+          )}
 
           <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
 

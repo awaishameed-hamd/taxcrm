@@ -841,23 +841,6 @@ export class InvoicesService {
     return { ok: true }
   }
 
-  // Which services a contract covers, for the invoice's description
-  private contractServices(salesTax: boolean, authorities: string[], incomeTax: boolean, wht: boolean): string {
-    const parts: string[] = []
-    if (salesTax && authorities.length > 0) parts.push(`Sales Tax (${authorities.join(', ')})`)
-    if (incomeTax) parts.push('Income Tax')
-    if (wht)       parts.push('WHT')
-    return parts.join(', ')
-  }
-
-  private retainerServices(c: { retainerSalesTax: boolean; retainerSalesTaxAuthorities: string[]; retainerIncomeTax: boolean; retainerWht: boolean }): string {
-    return this.contractServices(c.retainerSalesTax, c.retainerSalesTaxAuthorities, c.retainerIncomeTax, c.retainerWht)
-  }
-
-  private annualServices(c: { annualSalesTax: boolean; annualSalesTaxAuthorities: string[]; annualIncomeTax: boolean; annualWht: boolean }): string {
-    return this.contractServices(c.annualSalesTax, c.annualSalesTaxAuthorities, c.annualIncomeTax, c.annualWht)
-  }
-
   // Does this contract's service selection cover the task in hand?
   private covers(taskType: string, authority: string | null, salesTax: boolean, authorities: string[], incomeTax: boolean, wht: boolean): boolean {
     if (taskType === 'INCOME_TAX') return incomeTax
@@ -912,7 +895,7 @@ export class InvoicesService {
       const year  = hasPeriod ? (task.periodYear ?? prev.getFullYear()) : prev.getFullYear()
 
       if (covered) {
-        return await this.ensureRetainerInvoice(task.clientId, month, year, Number(c.retainerAmount), this.retainerServices(c))
+        return await this.ensureRetainerInvoice(task.clientId, month, year, Number(c.retainerAmount))
       }
 
       // A monthly retainer wins where both contracts name the same service, so
@@ -927,7 +910,7 @@ export class InvoicesService {
         // An income tax return names its own tax year, everything else is placed
         // by the month it covers.
         const fy = hasPeriod ? fiscalYearOf(month, year, yem) : year
-        return await this.ensureAnnualInvoice(task.clientId, fy, yem, Number(c.annualBillingAmount), this.annualServices(c))
+        return await this.ensureAnnualInvoice(task.clientId, fy, yem, Number(c.annualBillingAmount))
       }
 
       const label = task.taskType === 'SALES_TAX'
@@ -957,7 +940,7 @@ export class InvoicesService {
 
   // One retainer draft per client per month. Both the monthly cron and a covered task
   // completing land here; the unique index on (clientId, kind, period) settles any race.
-  private async ensureRetainerInvoice(clientId: string, month: number, year: number, retainerAmount: number, services: string) {
+  private async ensureRetainerInvoice(clientId: string, month: number, year: number, retainerAmount: number) {
     const existing = await this.prisma.invoice.findFirst({
       where: { clientId, kind: InvoiceKind.RETAINER, periodMonth: month, periodYear: year },
     })
@@ -975,7 +958,7 @@ export class InvoicesService {
           amount:      retainerAmount,
           periodMonth: month,
           periodYear:  year,
-          description: services ? `${label} (${services})` : label,
+          description: label,
         },
       })
     } catch (e: any) {
@@ -991,7 +974,7 @@ export class InvoicesService {
   // One annual draft per client per fiscal year. Month 0 stands for the whole
   // year, so the unique index on (clientId, kind, periodMonth, periodYear) still
   // catches a duplicate; a null there would not, Postgres treats nulls as distinct.
-  private async ensureAnnualInvoice(clientId: string, year: number, yearEndMonth: number, amount: number, services: string) {
+  private async ensureAnnualInvoice(clientId: string, year: number, yearEndMonth: number, amount: number) {
     const existing = await this.prisma.invoice.findFirst({
       where: { clientId, kind: InvoiceKind.ANNUAL, periodMonth: 0, periodYear: year },
     })
@@ -1009,7 +992,7 @@ export class InvoicesService {
           amount,
           periodMonth: 0,
           periodYear:  year,
-          description: services ? `${label} (${services})` : label,
+          description: label,
         },
       })
     } catch (e: any) {
@@ -1045,7 +1028,7 @@ export class InvoicesService {
       })
       if (before) { skipped++; continue }
 
-      await this.ensureAnnualInvoice(c.id, year, yearEndMonth, Number(c.annualBillingAmount), this.annualServices(c))
+      await this.ensureAnnualInvoice(c.id, year, yearEndMonth, Number(c.annualBillingAmount))
       created++
     }
     return { created, skipped }
@@ -1070,7 +1053,7 @@ export class InvoicesService {
       })
       if (before) { skipped++; continue }
 
-      await this.ensureRetainerInvoice(c.id, month, year, Number(c.retainerAmount), this.retainerServices(c))
+      await this.ensureRetainerInvoice(c.id, month, year, Number(c.retainerAmount))
       created++
     }
     return { created, skipped }

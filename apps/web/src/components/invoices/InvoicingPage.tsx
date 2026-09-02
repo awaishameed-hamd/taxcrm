@@ -18,8 +18,8 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
   OVERDUE:           { label: 'Overdue',        color: '#991B1B', bg: '#FEE2E2' },
   PARTIALLY_PAID:    { label: 'Partially Paid', color: '#92400E', bg: '#FEF3C7' },
   PAID:              { label: 'Paid',           color: '#166534', bg: '#DCFCE7' },
-  RETAINER_INCLUDED: { label: 'In Retainer',    color: '#5B21B6', bg: '#EDE9FE' },
-  ANNUAL_INCLUDED:   { label: 'In Annual',      color: '#B45309', bg: '#FDF0D5' },
+  RETAINER_INCLUDED: { label: 'In Monthly Retainership', color: '#5B21B6', bg: '#EDE9FE' },
+  ANNUAL_INCLUDED:   { label: 'In Annual Retainership',  color: '#B45309', bg: '#FDF0D5' },
   CANCELLED:         { label: 'Cancelled',      color: '#991B1B', bg: '#FEE2E2' },
 }
 
@@ -1708,10 +1708,10 @@ export default function InvoicingPage() {
                             <td style={{ ...td, fontWeight: 400 }}>
                               {r.description ?? ''}
                               {r.kind === 'RETAINER' && (
-                                <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>RETAINER</span>
+                                <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#5B21B6' }}>MONTHLY RETAINERSHIP</span>
                               )}
                               {r.kind === 'ANNUAL' && (
-                                <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#FDF0D5', color: '#B45309' }}>ANNUAL</span>
+                                <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: '#FDF0D5', color: '#B45309' }}>ANNUAL RETAINERSHIP</span>
                               )}
                             </td>
                             <td style={{ ...td, fontWeight: 400, color: r.status === 'OVERDUE' ? '#D62828' : '#64748B' }}>{fmtDate(dueOf(r))}</td>

@@ -28,8 +28,8 @@ const BUCKET_META = Object.fromEntries(BUCKETS.map(b => [b.key, b]))
 
 const KIND_META: Record<string, { label: string; color: string; bg: string }> = {
   TASK:     { label: 'Task',     color: '#1E40AF', bg: '#DBEAFE' },
-  RETAINER: { label: 'Retainer', color: '#5B21B6', bg: '#EDE9FE' },
-  ANNUAL:   { label: 'Annual',   color: '#B45309', bg: '#FDF0D5' },
+  RETAINER: { label: 'Monthly Retainership', color: '#5B21B6', bg: '#EDE9FE' },
+  ANNUAL:   { label: 'Annual Retainership',  color: '#B45309', bg: '#FDF0D5' },
   MANUAL:   { label: 'Manual',   color: '#5C5C5C', bg: '#F1F5F9' },
   OPENING:  { label: 'Opening',  color: '#0F766E', bg: '#CCFBF1' },
 }
