@@ -253,9 +253,9 @@ export default function InvoiceApprovalPage() {
         emptyText={search ? `No drafts matching "${search}".` : 'Nothing waiting. Drafts land here automatically when a task is completed.'}
         columns={[
           { key: 'invoiceNumber', label: 'Invoice #', width: 120, cellStyle: { color: TEAL, fontWeight: 600 } },
-          { key: 'client', label: 'Client', width: 180, wrap: true, cellStyle: { fontWeight: 600 },
+          { key: 'client', label: 'Client', width: 180, cellStyle: { fontWeight: 600 },
             render: (r: any) => r.client?.businessName ?? r.client?.user?.fullName ?? '' },
-          { key: 'description', label: 'Description', width: 260, wrap: true, render: (r: any) => r.description ?? '' },
+          { key: 'description', label: 'Description', width: 260, render: (r: any) => r.description ?? '' },
           { key: 'kind', label: 'Type', width: 96, render: (r: any) => {
             const km = KIND_META[r.kind] ?? KIND_META.MANUAL
             return <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: km.color, background: km.bg }}>{km.label}</span>

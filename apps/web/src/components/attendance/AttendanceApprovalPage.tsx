@@ -333,7 +333,7 @@ export default function AttendanceApprovalPage() {
             columns={[
               { key: 'n', label: '#', width: 52, resizable: false,
                 cellStyle: { fontWeight: 700, color: '#94A3B8' }, render: (_r: any, i: number) => i + 1 },
-              { key: 'userName', label: 'Name', width: 170, wrap: true, cellStyle: { fontWeight: 700, color: P.navy } },
+              { key: 'userName', label: 'Name', width: 170, cellStyle: { fontWeight: 700, color: P.navy } },
               { key: 'userRole', label: 'Role', width: 110, render: (rec: any) => {
                 const s = rec.userRole === 'PARTNER' ? { bg: '#FEF3C7', color: '#92400E' }
                   : rec.userRole === 'MANAGER' ? { bg: '#DBEAFE', color: '#1D4ED8' } : { bg: '#CFFAFE', color: '#0E7490' }
@@ -421,7 +421,7 @@ export default function AttendanceApprovalPage() {
               columns={[
                 { key: 'n', label: '#', width: 48, resizable: false,
                   cellStyle: { color: '#94A3B8' }, render: (_l: any, i: number) => i + 1 },
-                { key: 'applicant', label: 'Applicant', width: 160, wrap: true,
+                { key: 'applicant', label: 'Applicant', width: 160,
                   cellStyle: { fontWeight: 700, color: P.navy }, render: (l: any) => l.applicant?.fullName },
                 { key: 'role', label: 'Role', width: 110, render: (l: any) => {
                   const s = l.applicant?.role === 'PARTNER' ? { bg: '#FEF3C7', color: '#92400E' }
@@ -434,7 +434,7 @@ export default function AttendanceApprovalPage() {
                 { key: 'fromDate', label: 'From', width: 100, cellStyle: { color: P.navy }, render: (l: any) => l.fromDate?.split('T')[0] },
                 { key: 'toDate',   label: 'To',   width: 100, cellStyle: { color: P.navy }, render: (l: any) => l.toDate?.split('T')[0] },
                 { key: 'days', label: 'Days', width: 64, cellStyle: { fontWeight: 700, color: P.navy } },
-                { key: 'reason', label: 'Reason', width: 190, wrap: true, cellStyle: { color: P.navy } },
+                { key: 'reason', label: 'Reason', width: 190, cellStyle: { color: P.navy } },
                 { key: 'status', label: 'Status', width: 104, render: (l: any) => {
                   const s = l.status === 'approved' ? { bg: '#F0FDF4', color: '#16A34A' }
                     : l.status === 'rejected' ? { bg: '#FEF2F2', color: '#DC2626' } : { bg: '#F1F5F9', color: '#64748B' }

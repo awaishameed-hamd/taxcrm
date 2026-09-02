@@ -274,11 +274,11 @@ export default function LoginDetailsPage() {
         rowStyle={(r: any) => r.client?.user?.isActive === false ? { opacity: 0.55 } : undefined}
         emptyText={search ? `No clients matching "${search}".` : 'No login details yet. Click + Add to create one.'}
         columns={[
-          { key: 'client', label: 'Client', width: 240, wrap: true,
+          { key: 'client', label: 'Client', width: 240,
             render: (r: any) => r.client?.businessName ?? r.client?.user?.fullName ?? na },
           { key: 'authority', label: 'Authority', width: 110 },
-          { key: 'loginId',  label: 'Login ID', width: 230, wrap: true, render: (r: any) => r.loginId ?? na },
-          { key: 'password', label: 'Password', width: 200, wrap: true, render: (r: any) => r.password ?? na },
+          { key: 'loginId',  label: 'Login ID', width: 230, render: (r: any) => r.loginId ?? na },
+          { key: 'password', label: 'Password', width: 200, render: (r: any) => r.password ?? na },
           { key: 'actions', label: '', width: 110, resizable: false, render: (r: any) => {
             const isActive = r.client?.user?.isActive !== false
             return (

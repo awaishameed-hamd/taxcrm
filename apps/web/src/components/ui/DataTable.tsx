@@ -12,8 +12,6 @@ export interface Column<T> {
   label: string
   width?: number
   align?: 'left' | 'right' | 'center'
-  // Wrap long text onto more lines rather than cutting it off with an ellipsis.
-  wrap?: boolean
   render?: (row: T, index: number) => React.ReactNode
   cellStyle?: React.CSSProperties
   headerStyle?: React.CSSProperties
@@ -84,14 +82,17 @@ export default function DataTable<T>({
   }, [widths])
 
   const th: React.CSSProperties = {
-    padding: '6px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600,
+    padding: '7px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700,
     textTransform: 'uppercase', color: '#1a1a1a', fontFamily: "'Aptos', sans-serif",
     letterSpacing: '0.07em', whiteSpace: 'nowrap', position: 'relative',
     userSelect: 'none', overflow: 'hidden',
   }
+  // Cells never wrap: a row stays one line tall and long text ends in an
+  // ellipsis, so widening the column is what reveals it.
   const tdBase: React.CSSProperties = {
-    padding: '6px 14px', fontSize: 13, fontFamily: "'Aptos', sans-serif",
+    padding: '6px 12px', fontSize: 12, fontFamily: "'Aptos', sans-serif",
     color: '#1a1a1a', borderBottom: `1px solid ${P.border}50`,
+    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
   }
 
   return (
@@ -144,16 +145,7 @@ export default function DataTable<T>({
                 ...rowStyle?.(row, idx),
               }}>
               {columns.map(c => (
-                <td key={c.key} style={{
-                  ...tdBase,
-                  textAlign: c.align ?? 'left',
-                  // Wrapping columns break long words so a narrow drag cannot push
-                  // content past the cell; the rest stay on one line and ellipsis.
-                  ...(c.wrap
-                    ? { whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.5 }
-                    : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }),
-                  ...c.cellStyle,
-                }}>
+                <td key={c.key} style={{ ...tdBase, textAlign: c.align ?? 'left', ...c.cellStyle }}>
                   {c.render ? c.render(row, idx) : String((row as any)[c.key] ?? '')}
                 </td>
               ))}

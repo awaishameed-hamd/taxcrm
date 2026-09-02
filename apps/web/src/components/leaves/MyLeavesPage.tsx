@@ -148,15 +148,15 @@ export default function MyLeavesPage() {
           { key: 'toDate', label: 'To', width: 100, cellStyle: { fontSize: 12, color: '#374151' },
             render: (l: any) => l.toDate?.split('T')[0] ?? '' },
           { key: 'days', label: 'Days', width: 64, cellStyle: { fontWeight: 700, color: P.navy } },
-          { key: 'reason', label: 'Reason', width: 190, wrap: true, cellStyle: { fontSize: 12, color: '#374151' } },
+          { key: 'reason', label: 'Reason', width: 190, cellStyle: { fontSize: 12, color: '#374151' } },
           { key: 'status', label: 'Status', width: 110, render: (l: any) => (
             <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, fontFamily: '"Aptos", sans-serif', textTransform: 'capitalize', ...(STATUS_BADGE[l.status] ?? {}) }}>
               {l.status}
             </span>
           ) },
-          { key: 'reviewedBy', label: 'Reviewed By', width: 160, wrap: true, cellStyle: { fontSize: 12, color: '#64748B' },
+          { key: 'reviewedBy', label: 'Reviewed By', width: 160, cellStyle: { fontSize: 12, color: '#64748B' },
             render: (l: any) => l.reviewedBy ? `${l.reviewedBy.fullName} (${l.reviewedBy.role.replace(/_/g, ' ')})` : 'Pending' },
-          { key: 'rejectionReason', label: 'Rejection Reason', width: 170, wrap: true, cellStyle: { fontSize: 12, color: '#DC2626' },
+          { key: 'rejectionReason', label: 'Rejection Reason', width: 170, cellStyle: { fontSize: 12, color: '#DC2626' },
             render: (l: any) => l.rejectionReason ?? '' },
         ]}
       />

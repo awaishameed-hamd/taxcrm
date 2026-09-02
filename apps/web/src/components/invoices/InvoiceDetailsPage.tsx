@@ -290,8 +290,8 @@ export default function InvoiceDetailsPage() {
               : 'No issued invoices in this range. An invoice shows up here the moment it is sent.'}
             columns={[
               { key: 'invoiceNumber', label: 'Invoice #', width: 108, cellStyle: { color: TEAL, fontWeight: 600 } },
-              { key: 'clientName',    label: 'Client',    width: 180, wrap: true, cellStyle: { fontWeight: 600 } },
-              { key: 'description',   label: 'Description', width: 240, wrap: true,
+              { key: 'clientName',    label: 'Client',    width: 180, cellStyle: { fontWeight: 600 } },
+              { key: 'description',   label: 'Description', width: 240,
                 render: (r: any) => r.description ?? '' },
               { key: 'kind', label: 'Type', width: 82, render: (r: any) => {
                 const km = KIND_META[r.kind] ?? KIND_META.MANUAL
