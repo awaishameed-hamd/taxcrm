@@ -25,7 +25,7 @@ const lsSet = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.st
 
 export default function DataTable<T>({
   id, columns, rows, loading, emptyText = 'Nothing to show.', rowKey,
-  onRowClick, rowStyle, minWidth, skeletonRows = 6, stickyHeader, footer, containerStyle,
+  onRowClick, onRowContextMenu, rowStyle, minWidth, skeletonRows = 6, stickyHeader, footer, containerStyle,
 }: {
   // Storage key for this table's column widths. Leave it out to skip persisting.
   id?: string
@@ -35,6 +35,8 @@ export default function DataTable<T>({
   emptyText?: React.ReactNode
   rowKey: (row: T, index: number) => string
   onRowClick?: (row: T, index: number) => void
+  // Right-click on a row, for pages that keep a context menu of row actions
+  onRowContextMenu?: (e: React.MouseEvent, row: T, index: number) => void
   rowStyle?: (row: T, index: number) => React.CSSProperties | undefined
   minWidth?: number
   skeletonRows?: number
@@ -139,6 +141,7 @@ export default function DataTable<T>({
           ) : rows.map((row, idx) => (
             <tr key={rowKey(row, idx)}
               onClick={onRowClick ? () => onRowClick(row, idx) : undefined}
+              onContextMenu={onRowContextMenu ? e => onRowContextMenu(e, row, idx) : undefined}
               style={{
                 background: idx % 2 === 0 ? '#fff' : '#FAFCFC',
                 cursor: onRowClick ? 'pointer' : undefined,
