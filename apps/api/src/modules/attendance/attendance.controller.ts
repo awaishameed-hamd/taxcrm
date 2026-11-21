@@ -37,7 +37,7 @@ export class AttendanceController {
   @Get('pending-count')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD)
   getPendingCount(@CurrentUser() user: any) {
-    return this.svc.pendingApprovalCount(user.role, user.id)
+    return this.svc.pendingApprovalCount(user.role, user.id, user.division)
   }
 
   // ── Report (manager / partner) ─────────────────────────────────────────────
@@ -51,7 +51,7 @@ export class AttendanceController {
     @Query('userId') userId?: string,
   ) {
     const all = mode === 'all'
-    return this.svc.getReport(all ? null : month, all ? null : year, user.role, user.id, userId)
+    return this.svc.getReport(all ? null : month, all ? null : year, user.role, user.id, userId, user.division)
   }
 
   // ── Daily snapshot ─────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export class AttendanceController {
     @Query('date') date?: string,
   ) {
     const d = date ?? new Date().toISOString().split('T')[0]
-    return this.svc.getDailyAttendance(d, user.role, user.id)
+    return this.svc.getDailyAttendance(d, user.role, user.id, user.division)
   }
 
   // ── Opening balance ────────────────────────────────────────────────────────

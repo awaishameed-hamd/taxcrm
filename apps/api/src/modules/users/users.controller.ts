@@ -39,12 +39,12 @@ export class UsersController {
   @Get()
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
   findAll(
-    @CurrentUser() user: { role: Role },
+    @CurrentUser() user: { role: Role; division?: string },
     @Query('role')   roleFilter?: Role,
     @Query('search') search?: string,
     @Query('status') status?: string,
   ) {
-    return this.usersService.findAll(user.role, roleFilter, search, status)
+    return this.usersService.findAll(user.role, roleFilter, search, status, user.division)
   }
 
   @Get(':id')

@@ -62,13 +62,21 @@ const PAD: Record<string, number> = {
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(actorRole: Role, roleFilter?: Role, search?: string, status?: string) {
+  async findAll(actorRole: Role, roleFilter?: Role, search?: string, status?: string, actorDivision?: string) {
     const visibleRoles = this.getVisibleRoles(actorRole)
 
     const where: any = {
       role: roleFilter && visibleRoles.includes(roleFilter)
         ? roleFilter
         : { in: visibleRoles },
+    }
+
+    // My Team follows the department wall: an audit manager sees audit staff,
+    // a tax manager sees tax staff. Partner and Admin run the whole firm and
+    // are never narrowed, and neither is anyone whose department is Both.
+    if (actorRole !== Role.ADMIN && actorRole !== Role.PARTNER
+        && actorDivision && actorDivision !== 'BOTH') {
+      where.division = actorDivision
     }
 
     if (status === 'active')   where.isActive = true
