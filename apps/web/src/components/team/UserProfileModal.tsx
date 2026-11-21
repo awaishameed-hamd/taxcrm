@@ -428,6 +428,26 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
                       </div>
                     </div>
 
+                    {/* Which half of the firm. Tax staff never see audit work
+                        and audit staff never see tax work; Both is for people
+                        who straddle the two. */}
+                    {!['CLIENT', 'REPRESENTATIVE'].includes(String(form.role)) && (
+                      <div className="grid grid-cols-2 gap-4" style={{ marginTop: 12 }}>
+                        <div>
+                          <label style={labelStyle}>Department</label>
+                          <StyledSelect
+                            value={form.division ?? 'TAX'}
+                            onChange={val => setForm(p => ({ ...p, division: val }))}
+                            options={[
+                              { value: 'TAX',   label: 'Tax' },
+                              { value: 'AUDIT', label: 'Audit' },
+                              { value: 'BOTH',  label: 'Both' },
+                            ]}
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     {/* Edit: Team Lead assignment for TRAINEE */}
                     {form.role === 'TRAINEE' && (
                       <div style={{ marginTop: 12 }}>
@@ -444,13 +464,25 @@ export default function UserProfileModal({ userId, creatableRoles, onClose, onSu
                 ) : (
                   /* Create: role selector + auto code + required fields */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <label style={labelStyle}>Role *</label>
                         <StyledSelect
                           value={form.role}
                           onChange={val => handleRoleChange(val)}
                           options={creatableRoles.map(r => ({ value: r, label: r === 'TEAM_LEAD' ? 'Team Lead' : r.charAt(0) + r.slice(1).toLowerCase() }))}
+                        />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Department *</label>
+                        <StyledSelect
+                          value={form.division ?? 'TAX'}
+                          onChange={val => setForm(p => ({ ...p, division: val }))}
+                          options={[
+                            { value: 'TAX',   label: 'Tax' },
+                            { value: 'AUDIT', label: 'Audit' },
+                            { value: 'BOTH',  label: 'Both' },
+                          ]}
                         />
                       </div>
                       <div>

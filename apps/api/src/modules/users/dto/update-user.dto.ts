@@ -1,8 +1,9 @@
 import { IsBoolean, IsDateString, IsEmail, IsEnum, IsObject, IsOptional, IsString, MaxLength } from 'class-validator'
-import { Role } from '@ca-firm/shared'
+import { Division, Role } from '@ca-firm/shared'
 
 export class UpdateUserDto {
   @IsOptional() @IsEnum(Role)                 role?: Role
+  @IsOptional() @IsEnum(Division)             division?: Division
   @IsOptional() @IsString()                   teamLeadId?: string | null
   @IsOptional() @IsString() @MaxLength(255) fullName?:  string
   @IsOptional() @IsString() @MaxLength(100) firstName?: string

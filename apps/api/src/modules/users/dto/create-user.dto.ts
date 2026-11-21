@@ -1,5 +1,5 @@
 import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator'
-import { Role } from '@ca-firm/shared'
+import { Division, Role } from '@ca-firm/shared'
 
 export class CreateUserDto {
   @IsOptional() @IsString()
@@ -17,6 +17,10 @@ export class CreateUserDto {
 
   @IsEnum(Role)
   role: Role
+
+  // Which half of the firm. Shown as Department in the UI.
+  @IsOptional() @IsEnum(Division)
+  division?: Division
 
   // Optional profile fields that can be set at creation time
   @IsOptional() @IsString() teamLeadId?:         string | null

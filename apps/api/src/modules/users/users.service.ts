@@ -124,7 +124,7 @@ export class UsersService {
     const {
       fullName, email, phone, password, role,
       teamLeadId, dateOfBirth, dateOfJoining, extraFields,
-      firstName, midName, lastName, department, experience,
+      firstName, midName, lastName, department, experience, division,
       cnic, permanentAddress, currentAddress,
       bank, accountTitle, bankAccountNo, ibanNo,
       basicSalary, punctualityAllowance, travellingAllowance, otherAllowance,
@@ -141,6 +141,7 @@ export class UsersService {
         ...(midName       !== undefined ? { midName }            : {}),
         ...(lastName      !== undefined ? { lastName }           : {}),
         ...(department    !== undefined ? { department }         : {}),
+        ...(division      !== undefined ? { division }           : {}),
         ...(experience    !== undefined ? { experience }         : {}),
         ...(cnic          !== undefined ? { cnic }               : {}),
         ...(permanentAddress !== undefined ? { permanentAddress } : {}),

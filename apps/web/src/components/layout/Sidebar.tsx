@@ -535,6 +535,10 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     // keeping division separate from role.
     .filter(item => {
       if (!item.division) return true
+      // Partner and Admin oversee the whole firm, so they see both halves
+      // whatever their stored division says. The API agrees, and tying this to
+      // role rather than data means a wrong column cannot hide a section.
+      if (user?.role === Role.ADMIN || user?.role === Role.PARTNER) return true
       const d = user?.division ?? 'TAX'
       return d === 'BOTH' || d === item.division
     })
