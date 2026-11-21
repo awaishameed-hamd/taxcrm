@@ -18,6 +18,7 @@ const USER_SELECT = {
   email:      true,
   fullName:   true,
   role:       true,
+  division:   true,
   phone:      true,
   avatar:     true,
   isActive:   true,
