@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Role } from '@ca-firm/shared'
 import { useAuth, usePermission } from '@/contexts/AuthContext'
 import api from '@/lib/api'
@@ -263,6 +263,7 @@ const BLANK_FORM = { title: '', clientId: '', priority: 'MEDIUM', dueDate: '', a
 export default function Sidebar({ collapsed, onToggle, compact = false }: SidebarProps) {
   const { user, logout, permissions } = useAuth()
   const pathname                      = usePathname()
+  const router                        = useRouter()
   const fileRef          = useRef<HTMLInputElement>(null)
 
   const avatarKey = `${AVATAR_KEY_PREFIX}${user?.id ?? ''}`
@@ -543,6 +544,15 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
       return d === 'BOTH' || d === item.division
     })
 
+  // Audit-only people never see the tax task form. Partner and Admin carry both
+  // halves, so they keep the tax button and reach audit from the nav.
+  const isAuditOnly = user?.division === 'AUDIT'
+    && user?.role !== Role.ADMIN && user?.role !== Role.PARTNER
+  const canRaiseEngagement = user?.role === Role.MANAGER
+  // The first path segment is the role folder, so Audit is a sibling of
+  // whatever page they are on.
+  const goNewEngagement = () => router.push(`/${(pathname || '').split('/')[1]}/audit`)
+
   // Sub-items for each collapsible group. The group's own key list sets the
   // order, not the nav array, so a flyout can lead with its approval queue while
   // the nav keeps whatever order the top level needs.
@@ -718,10 +728,15 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
         </button>
       </div>
 
-      {/* ── New Task quick button (all internal roles) ── */}
-      {user?.role !== Role.CLIENT && (
+      {/* ── New Task quick button (all internal roles) ──
+           Audit staff get New Engagement instead: an audit job is not a tax task
+           with a different label, and raising one needs the client, period, team
+           and lead, so it goes to the Audit page rather than a quick modal.
+           Audit trainees and team leads do not raise engagements at all, so they
+           get no button. ── */}
+      {user?.role !== Role.CLIENT && !(isAuditOnly && !canRaiseEngagement) && (
         <div style={{ padding: '8px 12px 4px', minWidth: 256, flexShrink: 0 }}>
-          <button onClick={openNewTask} style={{
+          <button onClick={isAuditOnly ? goNewEngagement : openNewTask} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
             width: '100%', padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
             background: '#7EC8D0',
@@ -735,7 +750,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
             <svg width={15} height={15} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            New Task
+            {isAuditOnly ? 'New Engagement' : 'New Task'}
           </button>
         </div>
       )}

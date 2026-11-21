@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { InvoicesService } from '../invoices/invoices.service'
 import {
   AuditPhase, AuditEngagementStatus, AuditTaskType, AuditTeamRole,
   ReviewPointStatus, WorkingPaperStatus, Division, Role, Prisma,
@@ -115,7 +116,7 @@ type Actor = { id: string; role: Role; division?: Division }
 
 @Injectable()
 export class AuditService implements OnModuleInit {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private invoices: InvoicesService) {}
 
   async onModuleInit() {
     for (const area of DEFAULT_AREAS) {
@@ -579,7 +580,7 @@ export class AuditService implements OnModuleInit {
       throw new BadRequestException(`Cannot complete yet. ${eng.blockers.join('. ')}.`)
     }
 
-    return this.prisma.auditEngagement.update({
+    const signed = await this.prisma.auditEngagement.update({
       where: { id },
       data: {
         status: AuditEngagementStatus.COMPLETED,
@@ -589,6 +590,11 @@ export class AuditService implements OnModuleInit {
       },
       include: ENGAGEMENT_INCLUDE,
     })
+
+    // The fee goes to Invoice Approval for pricing, exactly as a completed tax
+    // task does. Best effort: a billing hiccup must not undo the sign off.
+    await this.invoices.createDraftForEngagement(id)
+    return signed
   }
 
   async sendBack(id: string, reason: string, actor: Actor) {

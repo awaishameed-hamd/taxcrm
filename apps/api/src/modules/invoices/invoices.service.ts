@@ -997,6 +997,49 @@ export class InvoicesService {
   //   - covered by the client's yearly billing → the same, rolled into that fiscal
   //     year's single annual draft instead.
   //   - not covered → its own draft at zero for the manager to price.
+  // Raised when a partner or manager signs an audit engagement off, the same way
+  // a completed tax task raises one. It lands as a zero draft in Invoice Approval
+  // for the manager to price, since an audit fee is agreed per engagement rather
+  // than read off a rate card. Stamped AUDIT so it stays on the audit side of
+  // the invoicing wall.
+  async createDraftForEngagement(engagementId: string) {
+    const eng = await this.prisma.auditEngagement.findUnique({
+      where:  { id: engagementId },
+      select: { id: true, clientId: true, title: true, taskType: true, periodLabel: true, periodEndDate: true },
+    })
+    if (!eng) return null
+
+    // One invoice per engagement, so signing off twice cannot bill twice
+    const existing = await this.prisma.invoice.findFirst({
+      where:  { clientId: eng.clientId, description: { startsWith: `${eng.title} ` }, division: Division.AUDIT },
+      select: { id: true },
+    })
+    if (existing) return existing
+
+    const period = eng.periodLabel
+      ?? `year ended ${eng.periodEndDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+
+    try {
+      return await this.prisma.invoice.create({
+        data: {
+          invoiceNumber: await this.nextInvoiceNumber(),
+          clientId:      eng.clientId,
+          kind:          InvoiceKind.MANUAL,
+          status:        InvoiceStatus.DRAFT,
+          service:       InvoiceService.AUDIT,
+          division:      Division.AUDIT,
+          subtotal:      0,
+          amount:        0,
+          description:   `${eng.title} (${period})`,
+        },
+      })
+    } catch (e) {
+      // Never let an invoicing hiccup undo the sign off itself
+      this.logger.error(`Failed to draft invoice for engagement ${engagementId}: ${e}`)
+      return null
+    }
+  }
+
   async createDraftForTask(taskId: string) {
     const task = await this.prisma.salesTaxTask.findUnique({
       where:  { id: taskId },

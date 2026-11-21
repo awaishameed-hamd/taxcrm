@@ -381,6 +381,7 @@ enum InvoiceService {
   WHT
   NOTICES_APPEALS
   RETAINERSHIP // a monthly or annual fee, covering whatever the contract names
+  AUDIT        // an audit engagement, billed when it is signed off
   OTHER
 }
 
