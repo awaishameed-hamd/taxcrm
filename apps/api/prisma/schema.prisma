@@ -431,6 +431,11 @@ model Invoice {
   // picked, and there is no sensible value to invent for them.
   service InvoiceService?
 
+  // Which half of the firm raised it. Audit and tax bill separately and meet
+  // only at partner level, so an invoice has to know which side it came from.
+  // Everything raised before audit existed was tax work.
+  division Division @default(TAX)
+
   // Source task, set for TASK invoices only, at most one invoice per task
   taskId String?       @unique
   task   SalesTaxTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -479,6 +484,7 @@ model Invoice {
   @@index([status])
   @@index([issueDate])
   @@index([service])
+  @@index([division])
   @@map("invoices")
 }
 

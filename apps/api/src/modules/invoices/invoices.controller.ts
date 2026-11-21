@@ -17,32 +17,34 @@ export class InvoicesController {
 
   @Get()
   list(
+    @Req() req: any,
     @Query('status') status?: string,
     @Query('clientId') clientId?: string,
     @Query('search') search?: string,
   ) {
-    return this.svc.list(status, clientId, search)
+    return this.svc.list(status, clientId, search, req.user)
   }
 
   @Get('summary')
-  summary() {
-    return this.svc.summary()
+  summary(@Req() req: any) {
+    return this.svc.summary(req.user)
   }
 
   // Every issued invoice across all clients, for the Invoicing Details page
   @Get('register')
   register(
+    @Req() req: any,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('clientId') clientId?: string,
     @Query('search') search?: string,
   ) {
-    return this.svc.register(from, to, clientId, search)
+    return this.svc.register(from, to, clientId, search, req.user)
   }
 
   @Get('clients')
-  clients(@Query('search') search?: string) {
-    return this.svc.clientsWithBalances(search)
+  clients(@Req() req: any, @Query('search') search?: string) {
+    return this.svc.clientsWithBalances(search, req.user)
   }
 
   @Get('ledger/:clientId')
@@ -111,7 +113,7 @@ export class InvoicesController {
 
   @Post()
   create(@Req() req: any, @Body() dto: CreateInvoiceDto) {
-    return this.svc.create(dto, req.user.id)
+    return this.svc.create(dto, req.user.id, req.user)
   }
 
   @Patch(':id')

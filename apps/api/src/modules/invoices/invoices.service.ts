@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { InvoiceKind, InvoiceService, InvoiceStatus, OverpaymentType, Prisma } from '@prisma/client'
+import { Division, InvoiceKind, InvoiceService, InvoiceStatus, OverpaymentType, Prisma } from '@prisma/client'
 import { CreateInvoiceDto, UpdateInvoiceDto, ReceivePaymentDto, ApplyPaymentDto, UpdatePaymentDto } from './dto/invoice.dto'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -69,6 +69,21 @@ export class InvoicesService {
 
   constructor(private prisma: PrismaService) {}
 
+  // Audit and tax bill separately and meet only at partner level, so every read
+  // is narrowed to the viewer's half of the firm. Partner and Admin oversee both
+  // and are never narrowed, and so is anyone whose division is BOTH.
+  private divisionWhere(actor?: { role?: string; division?: string }) {
+    if (!actor) return {}
+    if (actor.role === 'ADMIN' || actor.role === 'PARTNER') return {}
+    if (!actor.division || actor.division === 'BOTH') return {}
+    return { division: actor.division as Division }
+  }
+
+  // Which half of the firm an invoice raised by this person belongs to
+  private divisionOf(actor?: { division?: string }): Division {
+    return actor?.division === 'AUDIT' ? Division.AUDIT : Division.TAX
+  }
+
   private async nextInvoiceNumber(): Promise<string> {
     const year = new Date().getFullYear()
     const counter = await this.prisma.sequenceCounter.upsert({
@@ -115,9 +130,9 @@ export class InvoicesService {
   }
 
   // ── Listing ────────────────────────────────────────────────────────────────
-  async list(status?: string, clientId?: string, search?: string) {
+  async list(status?: string, clientId?: string, search?: string, actor?: any) {
     await this.sweepOverdue()
-    const where: Prisma.InvoiceWhereInput = {}
+    const where: Prisma.InvoiceWhereInput = { ...this.divisionWhere(actor) }
     if (status && status !== 'ALL') where.status = status as InvoiceStatus
     if (clientId) where.clientId = clientId
     if (search) {
@@ -155,10 +170,10 @@ export class InvoicesService {
   //   partial something has been settled but not all of it
   //   paid    settled in full, by cash, discount or tax withheld at source
   // The caller groups and totals by that, so the pills can switch without a refetch.
-  async register(from?: string, to?: string, clientId?: string, search?: string) {
+  async register(from?: string, to?: string, clientId?: string, search?: string, actor?: any) {
     await this.sweepOverdue()
 
-    const where: Prisma.InvoiceWhereInput = { status: { in: BILLABLE } }
+    const where: Prisma.InvoiceWhereInput = { status: { in: BILLABLE }, ...this.divisionWhere(actor) }
     if (clientId) where.clientId = clientId
     if (from || to) {
       where.issueDate = {
@@ -210,20 +225,21 @@ export class InvoicesService {
   }
 
   // Totals for the page header, outstanding excludes drafts and retainer-covered work.
-  async summary() {
+  async summary(actor?: any) {
     await this.sweepOverdue()
+    const scope = this.divisionWhere(actor)
     const [agg, drafts, overdue, clients, settledAgg] = await Promise.all([
       this.prisma.invoice.aggregate({
-        where: { status: { in: BILLABLE } },
+        where: { status: { in: BILLABLE }, ...scope },
         _sum: { amount: true },
       }),
-      this.prisma.invoice.count({ where: { status: InvoiceStatus.DRAFT } }),
-      this.prisma.invoice.count({ where: { status: InvoiceStatus.OVERDUE } }),
+      this.prisma.invoice.count({ where: { status: InvoiceStatus.DRAFT, ...scope } }),
+      this.prisma.invoice.count({ where: { status: InvoiceStatus.OVERDUE, ...scope } }),
       this.prisma.clientProfile.aggregate({ _sum: { openingBalance: true } }),
       // Settled straight off the invoices, which already roll up cash, discount and
       // withholding, so this can't drift from what the client ledgers show.
       this.prisma.invoice.aggregate({
-        where: { status: { in: BILLABLE } },
+        where: { status: { in: BILLABLE }, ...scope },
         _sum: { amountPaid: true, discountTotal: true, incomeTaxWithheld: true, salesTaxWithheld: true },
       }),
     ])
@@ -251,8 +267,9 @@ export class InvoicesService {
   }
 
   // Every client with their running account totals, powers the client sidebar.
-  async clientsWithBalances(search?: string) {
+  async clientsWithBalances(search?: string, actor?: any) {
     await this.sweepOverdue()
+    const scope = this.divisionWhere(actor)
     const clients = await this.prisma.clientProfile.findMany({
       where: search
         ? {
@@ -265,7 +282,7 @@ export class InvoicesService {
       select: {
         id: true, businessName: true, openingBalance: true,
         user: { select: { fullName: true, isActive: true } },
-        invoices: { select: { status: true, amount: true } },
+        invoices: { where: scope, select: { status: true, amount: true } },
         payments: {
           select: {
             amount: true, overpaymentType: true,
@@ -316,7 +333,7 @@ export class InvoicesService {
   // With no `from` it is just the one-time opening balance. Closing balance is always
   // openingBalance + invoiced − received for the window on screen, so the numbers tie out
   // whatever range is picked.
-  async clientLedger(clientId: string, from?: string, to?: string) {
+  async clientLedger(clientId: string, from?: string, to?: string, actor?: any) {
     await this.sweepOverdue()
     const client = await this.prisma.clientProfile.findUnique({
       where:  { id: clientId },
@@ -525,7 +542,7 @@ export class InvoicesService {
   }
 
   // ── Create / edit ──────────────────────────────────────────────────────────
-  async create(dto: CreateInvoiceDto, userId: string) {
+  async create(dto: CreateInvoiceDto, userId: string, actor?: any) {
     const subtotal    = dto.subtotal ?? 0
     const salesTax    = dto.salesTax ?? 0
     const outOfPocket = dto.outOfPocket ?? 0
@@ -539,6 +556,7 @@ export class InvoicesService {
         amount:        subtotal + salesTax + outOfPocket,
         description:   dto.description,
         service:       dto.service ?? InvoiceService.OTHER,
+        division:      this.divisionOf(actor),
         dueDate:       dto.dueDate ? new Date(dto.dueDate) : undefined,
         notes:         dto.notes,
         createdById:   userId,
