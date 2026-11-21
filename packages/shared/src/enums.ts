@@ -8,6 +8,13 @@ export enum Role {
   REPRESENTATIVE = 'REPRESENTATIVE',
 }
 
+// Which half of the firm a person works in. Shown as Department in the UI.
+export enum Division {
+  TAX   = 'TAX',
+  AUDIT = 'AUDIT',
+  BOTH  = 'BOTH',
+}
+
 export enum MessageType {
   TEXT  = 'TEXT',
   FILE  = 'FILE',

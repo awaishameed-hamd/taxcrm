@@ -25,6 +25,7 @@ import { FilesModule }            from './modules/files/files.module'
 import { FbrModule }             from './modules/fbr/fbr.module'
 import { LeavesModule }          from './modules/leaves/leaves.module'
 import { InvoicesModule }        from './modules/invoices/invoices.module'
+import { AuditModule } from './modules/audit/audit.module'
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { InvoicesModule }        from './modules/invoices/invoices.module'
     FbrModule,
     LeavesModule,
     InvoicesModule,
+    AuditModule,
   ],
 })
 export class AppModule {}

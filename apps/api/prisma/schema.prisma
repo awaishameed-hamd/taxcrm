@@ -24,6 +24,16 @@ enum Role {
   REPRESENTATIVE
 }
 
+// The wall between the two halves of the firm, shown in the UI as Department.
+// Tax staff never see audit work and audit staff never see tax work, including
+// each other's managers and team leads. BOTH belongs to Partner and Admin, who
+// oversee everything.
+enum Division {
+  TAX
+  AUDIT
+  BOTH
+}
+
 enum MessageType {
   TEXT
   FILE
@@ -97,6 +107,14 @@ model User {
   password     String
   fullName     String
   role         Role
+
+  // Which side of the firm this person works on, shown in the UI as Department.
+  // Named division because `department` below is already a free-text HR field on
+  // the profile form. Role carries seniority, this carries the wall: an audit
+  // manager and a tax manager are both MANAGER, they just never see each other's
+  // work. BOTH is for Partner and Admin. Existing staff default to TAX, which is
+  // all the firm did before audit existed.
+  division     Division @default(TAX)
   isActive        Boolean   @default(true)
   hasPortalAccess Boolean   @default(false)
   inviteToken     String?   @unique
@@ -191,6 +209,20 @@ model User {
   fbrAttachments   FbrAttachment[] @relation("FbrAttachmentUploader")
   invoicesCreated  Invoice[]       @relation("InvoiceCreator")
   paymentsRecorded Payment[]       @relation("PaymentRecorder")
+
+  // ── Audit ────────────────────────────────────────────────────────────────
+  auditEngagementsCreated   AuditEngagement[]       @relation("AuditEngagementCreator")
+  auditEngagementsLed       AuditEngagement[]       @relation("AuditEngagementTeamLead")
+  auditEngagementsSignedOff AuditEngagement[]       @relation("AuditEngagementSignatory")
+  auditTeamMemberships      AuditTeamMember[]       @relation("AuditTeamMemberships")
+  auditWorkingPapers        AuditWorkingPaper[]     @relation("WorkingPaperAssignee")
+  auditWpTeamLeadReviews    AuditWorkingPaper[]     @relation("WorkingPaperTeamLeadReviewer")
+  auditWpManagerReviews     AuditWorkingPaper[]     @relation("WorkingPaperManagerReviewer")
+  auditWpStepsCompleted     AuditWorkingPaperStep[] @relation("WorkingPaperStepCompleter")
+  auditReviewPointsRaised   AuditReviewPoint[]      @relation("ReviewPointRaiser")
+  auditReviewPointsAnswered AuditReviewPoint[]      @relation("ReviewPointResponder")
+  auditReviewPointsCleared  AuditReviewPoint[]      @relation("ReviewPointClearer")
+  auditAttachments          AuditAttachment[]       @relation("AuditAttachmentUploader")
 
   // Leave Applications
   leaveApplications LeaveApplication[] @relation("LeaveApplicant")
@@ -326,6 +358,7 @@ model ClientProfile {
   loginDetails     ClientLoginDetail[]
   invoices         Invoice[]
   payments         Payment[]
+  auditEngagements AuditEngagement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1372,4 +1405,299 @@ model FbrNoticeSection {
   @@unique([taxType, section])
   @@index([taxType])
   @@map("fbr_notice_sections")
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// AUDIT
+//
+// A tax task is linear and has one owner. An audit is a team working in parallel
+// on one file, so the shape is different:
+//
+//   AuditEngagement            the job, with a team and a lifecycle
+//     â””â”€â”€ AuditWorkingPaper    one per area (PPE, Revenue...), one owner each
+//           â”œâ”€â”€ AuditWorkingPaperStep   the procedure checklist inside it
+//           â””â”€â”€ AuditReviewPoint        reviewer queries the preparer clears
+//
+// The engagement cannot be signed off while any review point is open, and
+// cannot complete until the signed financial statements and the audit report
+// are attached. Those two gates are the point of the module.
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+enum AuditTaskType {
+  EXTERNAL_AUDIT
+  INTERNAL_AUDIT
+  FS_PREPARATION
+  GENERAL
+}
+
+// ISA-shaped phases. Fieldwork is where the working papers live; everything
+// before it is planning and everything after is review and reporting.
+enum AuditPhase {
+  ACCEPTANCE
+  PLANNING
+  FIELDWORK
+  REVIEW
+  COMPLETION
+  REPORTING
+  COMPLETED
+}
+
+enum AuditEngagementStatus {
+  IN_PROGRESS
+  SENT_BACK
+  COMPLETED
+  CANCELLED
+}
+
+// Where a working paper sits in Member to Team Lead to Manager.
+enum WorkingPaperStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  AWAITING_DATA
+  SUBMITTED_FOR_REVIEW
+  TEAM_LEAD_REVIEW
+  MANAGER_REVIEW
+  SENT_BACK
+  COMPLETED
+}
+
+enum AuditTeamRole {
+  TEAM_LEAD
+  MEMBER
+}
+
+enum ReviewPointStatus {
+  OPEN
+  ANSWERED
+  CLEARED
+}
+
+enum AuditAreaGroup {
+  BALANCE_SHEET
+  PROFIT_AND_LOSS
+  OTHER
+}
+
+// The standard heads a working paper can cover. Seeded on boot and editable by
+// an admin, the same way PipelineStepConfig works for tax.
+model AuditAreaConfig {
+  id        String         @id @default(cuid())
+  name      String
+  group     AuditAreaGroup
+  sortOrder Int            @default(0)
+  isActive  Boolean        @default(true)
+
+  workingPapers AuditWorkingPaper[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, group])
+  @@index([group, sortOrder])
+  @@map("audit_area_configs")
+}
+
+model AuditEngagement {
+  id       String        @id @default(cuid())
+  taskType AuditTaskType @default(EXTERNAL_AUDIT)
+
+  clientId String
+  client   ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String? @db.Text
+
+  // The year under audit, named by the date the financial year ends
+  periodEndDate DateTime
+  periodLabel   String?
+
+  phase  AuditPhase            @default(ACCEPTANCE)
+  status AuditEngagementStatus @default(IN_PROGRESS)
+
+  // Planning figures. Kept on the engagement because every working paper is
+  // judged against them.
+  materiality            Decimal? @db.Decimal(14, 2)
+  performanceMateriality Decimal? @db.Decimal(14, 2)
+  riskAssessment         String?  @db.Text
+
+  // Raised by a manager, who also picks the team and names its lead
+  createdById String?
+  createdBy   User?   @relation("AuditEngagementCreator", fields: [createdById], references: [id])
+
+  teamLeadId String?
+  teamLead   User?   @relation("AuditEngagementTeamLead", fields: [teamLeadId], references: [id])
+
+  // Completion gates. An engagement cannot reach COMPLETED until both are
+  // attached, which is why they are first-class fields and not just files.
+  financialStatementsFileId String?
+  auditReportFileId         String?
+
+  startedAt      DateTime?
+  dueDate        DateTime?
+  completedAt    DateTime?
+  sentBackReason String?   @db.Text
+
+  // Partner signs off at the end
+  signedOffById String?
+  signedOffBy   User?     @relation("AuditEngagementSignatory", fields: [signedOffById], references: [id])
+  signedOffAt   DateTime?
+
+  team          AuditTeamMember[]
+  workingPapers AuditWorkingPaper[]
+  attachments   AuditAttachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([teamLeadId])
+  @@index([periodEndDate])
+  @@map("audit_engagements")
+}
+
+model AuditTeamMember {
+  id           String          @id @default(cuid())
+  engagementId String
+  engagement   AuditEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("AuditTeamMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  teamRole AuditTeamRole @default(MEMBER)
+
+  createdAt DateTime @default(now())
+
+  // One row per person per engagement, so a member cannot be added twice
+  @@unique([engagementId, userId])
+  @@index([userId])
+  @@map("audit_team_members")
+}
+
+model AuditWorkingPaper {
+  id           String          @id @default(cuid())
+  engagementId String
+  engagement   AuditEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  areaId String?
+  area   AuditAreaConfig? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  // Kept alongside areaId so a renamed or deleted area never rewrites history
+  areaName String
+
+  assignedToId String?
+  assignedTo   User?   @relation("WorkingPaperAssignee", fields: [assignedToId], references: [id])
+
+  status WorkingPaperStatus @default(NOT_STARTED)
+
+  // Lead schedule figures, what makes this an audit file rather than a checklist
+  currentYearAmount Decimal? @db.Decimal(14, 2)
+  priorYearAmount   Decimal? @db.Decimal(14, 2)
+
+  conclusion String?   @db.Text
+  dueDate    DateTime?
+
+  submittedAt DateTime?
+
+  teamLeadReviewedById String?
+  teamLeadReviewedBy   User?     @relation("WorkingPaperTeamLeadReviewer", fields: [teamLeadReviewedById], references: [id])
+  teamLeadReviewedAt   DateTime?
+
+  managerReviewedById String?
+  managerReviewedBy   User?     @relation("WorkingPaperManagerReviewer", fields: [managerReviewedById], references: [id])
+  managerReviewedAt   DateTime?
+
+  completedAt DateTime?
+
+  steps        AuditWorkingPaperStep[]
+  reviewPoints AuditReviewPoint[]
+  attachments  AuditAttachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([engagementId])
+  @@index([assignedToId])
+  @@index([status])
+  @@map("audit_working_papers")
+}
+
+model AuditWorkingPaperStep {
+  id             String            @id @default(cuid())
+  workingPaperId String
+  workingPaper   AuditWorkingPaper @relation(fields: [workingPaperId], references: [id], onDelete: Cascade)
+
+  name      String
+  sortOrder Int    @default(0)
+
+  isDone        Boolean   @default(false)
+  completedById String?
+  completedBy   User?     @relation("WorkingPaperStepCompleter", fields: [completedById], references: [id])
+  completedAt   DateTime?
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workingPaperId, sortOrder])
+  @@map("audit_working_paper_steps")
+}
+
+// A reviewer's query against a working paper. The engagement cannot be signed
+// off while any of these is still open, which is what keeps review inside the
+// CRM instead of in a WhatsApp thread.
+model AuditReviewPoint {
+  id             String            @id @default(cuid())
+  workingPaperId String
+  workingPaper   AuditWorkingPaper @relation(fields: [workingPaperId], references: [id], onDelete: Cascade)
+
+  raisedById String
+  raisedBy   User   @relation("ReviewPointRaiser", fields: [raisedById], references: [id])
+
+  note   String            @db.Text
+  status ReviewPointStatus @default(OPEN)
+
+  response      String?   @db.Text
+  respondedById String?
+  respondedBy   User?     @relation("ReviewPointResponder", fields: [respondedById], references: [id])
+  respondedAt   DateTime?
+
+  clearedById String?
+  clearedBy   User?     @relation("ReviewPointClearer", fields: [clearedById], references: [id])
+  clearedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workingPaperId, status])
+  @@map("audit_review_points")
+}
+
+// Files live on Backblaze B2 like everything else; this row is the reference.
+model AuditAttachment {
+  id String @id @default(cuid())
+
+  engagementId String?
+  engagement   AuditEngagement? @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  workingPaperId String?
+  workingPaper   AuditWorkingPaper? @relation(fields: [workingPaperId], references: [id], onDelete: Cascade)
+
+  fileName String
+  fileKey  String
+  fileSize Int?
+  mimeType String?
+
+  // Marks the two files that release the completion gate
+  kind String?
+
+  uploadedById String?
+  uploadedBy   User?   @relation("AuditAttachmentUploader", fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([engagementId])
+  @@index([workingPaperId])
+  @@map("audit_attachments")
 }
