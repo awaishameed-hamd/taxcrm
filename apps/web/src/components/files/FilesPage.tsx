@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
 import { fileHref } from '@/lib/storage'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
@@ -9,6 +10,12 @@ const NAVY = '#132E57'
 const TEAL = '#1E8496'
 const P = { border: '#E2E8F0', textMuted: '#94A3B8', iconMuted: '#94A3B8', bg: '#F8FAFC' }
 const F = "'Aptos', sans-serif"
+
+// Audit staff get one tab of their own: their files come from engagements, not
+// from tax returns, so none of the tax tabs would hold anything for them.
+const AUDIT_TABS = [
+  { key: 'AUDIT', label: 'Audit', color: '#7B2D8E' },
+]
 
 const TAX_TABS = [
   { key: 'SALES_TAX',  label: 'Sales Tax',        color: TEAL      },
@@ -157,7 +164,10 @@ export default function FilesPage() {
   const [cLoading,      setCLoading]      = useState(true)
   const [search,        setSearch]        = useState('')
   const [selected,      setSelected]      = useState<Client | null>(null)
-  const [activeTax,     setActiveTax]     = useState('SALES_TAX')
+  const { user } = useAuth()
+  const isAuditOnly = user?.division === 'AUDIT' && user?.role !== 'ADMIN' && user?.role !== 'PARTNER'
+  const TABS = isAuditOnly ? AUDIT_TABS : TAX_TABS
+  const [activeTax,     setActiveTax]     = useState(isAuditOnly ? 'AUDIT' : 'SALES_TAX')
   const [folders,       setFolders]       = useState<Folder[]>([])
   const [fLoading,      setFLoading]      = useState(false)
   const [listCollapsed, setListCollapsed] = useState(false)
@@ -200,7 +210,7 @@ export default function FilesPage() {
     return c.businessName?.toLowerCase().includes(q) || c.user?.fullName?.toLowerCase().includes(q) || c.user?.userCode?.toLowerCase().includes(q)
   })
 
-  const activeTabCfg = TAX_TABS.find(t => t.key === activeTax)!
+  const activeTabCfg = TABS.find(t => t.key === activeTax)!
   const monthGroups  = groupByMonth(folders)
   const sz           = ICON_SIZES[iconSize]
 
@@ -208,7 +218,7 @@ export default function FilesPage() {
     <div style={{ flexShrink: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 24px 8px', background: '#f7f8fa' }}>
         <div style={{ display: 'flex', gap: 2, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: 3 }}>
-          {TAX_TABS.map(tab => {
+          {TABS.map(tab => {
             const active = activeTax === tab.key
             return (
               <button key={tab.key} onClick={() => { setActiveTax(tab.key); setOpenMonth(null); setOpenFolder(null) }}
@@ -220,7 +230,7 @@ export default function FilesPage() {
         </div>
       </div>
       <div style={{ display: 'flex', gap: 3, padding: '0 20px', height: 3 }}>
-        {TAX_TABS.map(tab => (
+        {TABS.map(tab => (
           <div key={tab.key} style={{ flex: 1, background: tab.color, borderRadius: 2, opacity: activeTax === tab.key ? 1 : 0.35, transition: 'opacity .2s' }} />
         ))}
       </div>
