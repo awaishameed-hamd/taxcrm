@@ -126,11 +126,10 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Invoicing Details',   href: '/admin/invoicing-details',icon: 'invoiceDetails', key: 'invoiceDetails' },
     { label: 'Tax Summary',         href: '/admin/tax-summary',      icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const     },
     { label: 'Files',               href: '/admin/documents',        icon: 'documents',      key: 'documents'      },
-    { label: 'Tasks',               href: '/admin/tasks',            icon: 'tasks',          key: 'tasks', division: 'TAX' as const          },
-    { label: 'Audit',               href: '/admin/audit',            icon: 'audit',          key: 'audit', division: 'AUDIT' },
-    { label: 'Completed Tasks',     href: '/admin/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const },
-    { label: 'Incomplete Tasks',    href: '/admin/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks', division: 'TAX' as const},
-    { label: 'Task Approval',       href: '/admin/task-approval',    icon: 'taskApproval',   key: 'taskApproval', division: 'TAX' as const   },
+    { label: 'Tasks',               href: '/admin/tasks',            icon: 'tasks',          key: 'tasks'          },
+    { label: 'Completed Tasks',     href: '/admin/completed-tasks',  icon: 'completedTasks', key: 'completedTasks' },
+    { label: 'Incomplete Tasks',    href: '/admin/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks'},
+    { label: 'Task Approval',       href: '/admin/task-approval',    icon: 'taskApproval',   key: 'taskApproval'   },
     { label: 'My Team',             href: '/admin/team',             icon: 'team',           key: 'team'           },
     { label: 'Chats',               href: '/admin/messages',         icon: 'messages',       key: 'messages'       },
     { label: 'My Attendance',       href: '/admin/attendance',       icon: 'myAtt',          key: 'myAtt'          },
@@ -150,11 +149,10 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Invoicing Details',   href: '/partner/invoicing-details',icon: 'invoiceDetails', key: 'invoiceDetails'                                     },
     { label: 'Tax Summary',         href: '/partner/tax-summary',      icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const,     permission: 'tax_summary'         },
     { label: 'Files',               href: '/partner/documents',        icon: 'documents',      key: 'documents'                                          },
-    { label: 'Tasks',               href: '/partner/tasks',            icon: 'tasks',          key: 'tasks', division: 'TAX' as const,          permission: 'tasks'               },
-    { label: 'Audit',               href: '/partner/audit',            icon: 'audit',          key: 'audit', division: 'AUDIT' },
-    { label: 'Completed Tasks',     href: '/partner/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const, permission: 'completed_tasks'     },
-    { label: 'Incomplete Tasks',    href: '/partner/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks', division: 'TAX' as const,permission: 'incomplete_tasks'    },
-    { label: 'Task Approval',       href: '/partner/task-approval',    icon: 'taskApproval',   key: 'taskApproval', division: 'TAX' as const,   permission: 'task_approval'       },
+    { label: 'Tasks',               href: '/partner/tasks',            icon: 'tasks',          key: 'tasks',          permission: 'tasks'               },
+    { label: 'Completed Tasks',     href: '/partner/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', permission: 'completed_tasks'     },
+    { label: 'Incomplete Tasks',    href: '/partner/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks',permission: 'incomplete_tasks'    },
+    { label: 'Task Approval',       href: '/partner/task-approval',    icon: 'taskApproval',   key: 'taskApproval',   permission: 'task_approval'       },
     { label: 'My Team',             href: '/partner/team',             icon: 'team',           key: 'team',           permission: 'team'                },
     { label: 'Chats',               href: '/partner/messages',         icon: 'messages',       key: 'messages',       permission: 'messages'            },
     { label: 'My Attendance',       href: '/partner/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
@@ -174,11 +172,10 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Invoicing Details',   href: '/manager/invoicing-details',icon: 'invoiceDetails', key: 'invoiceDetails'                                     },
     { label: 'Tax Summary',         href: '/manager/tax-summary',      icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const,     permission: 'tax_summary'         },
     { label: 'Files',               href: '/manager/documents',        icon: 'documents',      key: 'documents'                                          },
-    { label: 'Tasks',               href: '/manager/tasks',            icon: 'tasks',          key: 'tasks', division: 'TAX' as const,          permission: 'tasks'               },
-    { label: 'Audit',               href: '/manager/audit',            icon: 'audit',          key: 'audit', division: 'AUDIT' },
-    { label: 'Completed Tasks',     href: '/manager/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const, permission: 'completed_tasks'     },
-    { label: 'Incomplete Tasks',    href: '/manager/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks', division: 'TAX' as const,permission: 'incomplete_tasks'    },
-    { label: 'Task Approval',       href: '/manager/task-approval',    icon: 'taskApproval',   key: 'taskApproval', division: 'TAX' as const,   permission: 'task_approval'       },
+    { label: 'Tasks',               href: '/manager/tasks',            icon: 'tasks',          key: 'tasks',          permission: 'tasks'               },
+    { label: 'Completed Tasks',     href: '/manager/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', permission: 'completed_tasks'     },
+    { label: 'Incomplete Tasks',    href: '/manager/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks',permission: 'incomplete_tasks'    },
+    { label: 'Task Approval',       href: '/manager/task-approval',    icon: 'taskApproval',   key: 'taskApproval',   permission: 'task_approval'       },
     { label: 'My Team',             href: '/manager/team',             icon: 'team',           key: 'team',           permission: 'team'                },
     { label: 'Chats',               href: '/manager/messages',         icon: 'messages',       key: 'messages',       permission: 'messages'            },
     { label: 'My Attendance',       href: '/manager/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
@@ -195,11 +192,10 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Login Details',       href: '/team-lead/login-details',    icon: 'loginDetails',   key: 'loginDetails'                                       },
     { label: 'Tax Summary',         href: '/team-lead/tax-summary',      icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const,     permission: 'tax_summary'         },
     { label: 'Files',               href: '/team-lead/documents',        icon: 'documents',      key: 'documents'                                          },
-    { label: 'Tasks',               href: '/team-lead/tasks',            icon: 'tasks',          key: 'tasks', division: 'TAX' as const,          permission: 'tasks'               },
-    { label: 'Audit',               href: '/team-lead/audit',            icon: 'audit',          key: 'audit', division: 'AUDIT' },
-    { label: 'Completed Tasks',     href: '/team-lead/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const, permission: 'completed_tasks'     },
-    { label: 'Incomplete Tasks',    href: '/team-lead/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks', division: 'TAX' as const,permission: 'incomplete_tasks'    },
-    { label: 'Task Approval',       href: '/team-lead/task-approval',    icon: 'taskApproval',   key: 'taskApproval', division: 'TAX' as const,   permission: 'task_approval'       },
+    { label: 'Tasks',               href: '/team-lead/tasks',            icon: 'tasks',          key: 'tasks',          permission: 'tasks'               },
+    { label: 'Completed Tasks',     href: '/team-lead/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', permission: 'completed_tasks'     },
+    { label: 'Incomplete Tasks',    href: '/team-lead/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks',permission: 'incomplete_tasks'    },
+    { label: 'Task Approval',       href: '/team-lead/task-approval',    icon: 'taskApproval',   key: 'taskApproval',   permission: 'task_approval'       },
     { label: 'My Team',             href: '/team-lead/team',             icon: 'team',           key: 'team',           permission: 'team'                },
     { label: 'Chats',               href: '/team-lead/messages',         icon: 'messages',       key: 'messages',       permission: 'messages'            },
     { label: 'My Attendance',       href: '/team-lead/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
@@ -215,9 +211,8 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Login Details',    href: '/trainee/login-details',     icon: 'loginDetails',   key: 'loginDetails'                                  },
     { label: 'Tax Summary',      href: '/trainee/tax-summary',       icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const,     permission: 'tax_summary'    },
     { label: 'Files',            href: '/trainee/documents',         icon: 'documents',      key: 'documents'                                      },
-    { label: 'Tasks',            href: '/trainee/tasks',             icon: 'tasks',          key: 'tasks', division: 'TAX' as const,          permission: 'tasks'          },
-    { label: 'Audit',            href: '/trainee/audit',             icon: 'audit',          key: 'audit', division: 'AUDIT' },
-    { label: 'Completed Tasks',  href: '/trainee/completed-tasks',   icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const, permission: 'completed_tasks'},
+    { label: 'Tasks',            href: '/trainee/tasks',             icon: 'tasks',          key: 'tasks',          permission: 'tasks'          },
+    { label: 'Completed Tasks',  href: '/trainee/completed-tasks',   icon: 'completedTasks', key: 'completedTasks', permission: 'completed_tasks'},
     { label: 'Chats',            href: '/trainee/messages',          icon: 'messages',       key: 'messages',       permission: 'messages'       },
     { label: 'My Attendance',    href: '/trainee/attendance',        icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'  },
     { label: 'Leave',        href: '/trainee/my-leaves',         icon: 'myLeaves',       key: 'myLeaves'                                       },
@@ -551,7 +546,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
   const canRaiseEngagement = user?.role === Role.MANAGER
   // The first path segment is the role folder, so Audit is a sibling of
   // whatever page they are on.
-  const goNewEngagement = () => router.push(`/${(pathname || '').split('/')[1]}/audit`)
+  const goNewTask = () => router.push(`/${(pathname || '').split('/')[1]}/tasks`)
 
   // Sub-items for each collapsible group. The group's own key list sets the
   // order, not the nav array, so a flyout can lead with its approval queue while
@@ -736,7 +731,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
            get no button. ── */}
       {user?.role !== Role.CLIENT && !(isAuditOnly && !canRaiseEngagement) && (
         <div style={{ padding: '8px 12px 4px', minWidth: 256, flexShrink: 0 }}>
-          <button onClick={isAuditOnly ? goNewEngagement : openNewTask} style={{
+          <button onClick={isAuditOnly ? goNewTask : openNewTask} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
             width: '100%', padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
             background: '#7EC8D0',
@@ -750,7 +745,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
             <svg width={15} height={15} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            {isAuditOnly ? 'New Engagement' : 'New Task'}
+            New Task
           </button>
         </div>
       )}

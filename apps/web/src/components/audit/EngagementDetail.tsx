@@ -13,8 +13,10 @@ import {
   TASK_TYPES, PanelHeader, inputStyle, labelStyle, btn, fmtDate, money,
 } from './auditShared'
 
-export default function EngagementDetail({ id, onBack, onChanged }: {
-  id: string; onBack: () => void; onChanged?: () => void
+// embedded means it is already inside the Tasks right pane, so it drops its
+// own page chrome and renders just the engagement.
+export default function EngagementDetail({ id, onBack, onChanged, embedded }: {
+  id: string; onBack: () => void; onChanged?: () => void; embedded?: boolean
 }) {
   const { user } = useAuth()
   const isManager = ['ADMIN', 'PARTNER', 'MANAGER'].includes(String(user?.role))
@@ -94,10 +96,12 @@ export default function EngagementDetail({ id, onBack, onChanged }: {
   )
 
   return (
-    <div style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, color: TEAL }}>Audit</h1>
-      </div>
+    <div style={embedded ? {} : { background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
+      {!embedded && (
+        <div style={{ height: 52, display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 8 }}>
+          <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, color: TEAL }}>Tasks</h1>
+        </div>
+      )}
 
       <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F, marginBottom: 16 }}>
         <PanelHeader

@@ -1,4 +1,4 @@
-import TasksPage from '@/components/tasks/TasksPage'
+import TasksRouter from '@/components/tasks/TasksRouter'
 export default function Page() {
-  return <TasksPage role="team_lead" defaultManagerView="my" />
+  return <TasksRouter role="team_lead" defaultManagerView="my" />
 }

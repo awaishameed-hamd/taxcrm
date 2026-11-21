@@ -1,4 +1,4 @@
-import TasksPage from '@/components/tasks/TasksPage'
+import TasksRouter from '@/components/tasks/TasksRouter'
 export default function Page() {
-  return <TasksPage role="trainee" completedOnly={true} />
+  return <TasksRouter role="trainee" completedOnly={true} />
 }

@@ -5,170 +5,213 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
-import PillSelect from '@/components/ui/PillSelect'
-import DataTable from '@/components/ui/DataTable'
 import EngagementDetail from './EngagementDetail'
 import NewEngagementPanel from './NewEngagementPanel'
-import { F, NAVY, TEAL, TASK_TYPES, STATUS_META, PHASE_LABEL, fmtDate } from './auditShared'
+import { F, NAVY, TEAL, STATUS_META, PHASE_LABEL, fmtDate } from './auditShared'
 
-function StatCard({ label, value, border, fill }: { label: string; value: string | number; border: string; fill: string }) {
-  return (
-    <div style={{ flex: 1, minWidth: 100, background: fill, border: `1px solid ${border}30`, borderRadius: 10, padding: '11px 14px' }}>
-      <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#111827', fontFamily: F }}>{value}</p>
-      <p style={{ margin: '2px 0 0', fontSize: 10, fontWeight: 300, fontFamily: "'Ethnocentric Rg', sans-serif", color: '#64748B' }}>{label}</p>
-    </div>
-  )
-}
-
-const STATUS_FILTERS = [
-  { value: 'ALL',         label: 'All Status' },
-  { value: 'IN_PROGRESS', label: 'In Progress' },
-  { value: 'SENT_BACK',   label: 'Sent Back' },
-  { value: 'COMPLETED',   label: 'Completed' },
+// The same five-pill shape Tasks uses, so the two departments read as one app.
+// Colours come from the same family: each tab owns one, the rail under the pills
+// shows them all, and the active one fills.
+const AUDIT_TABS = [
+  { key: 'EXTERNAL_AUDIT', label: 'External Audit', color: '#1E8496', bg: '#E5F3F5' },
+  { key: 'INTERNAL_AUDIT', label: 'Internal Audit', color: '#7B2D8E', bg: '#F3E8F7' },
+  { key: 'FS_PREPARATION', label: 'FS Preparation', color: '#C25A1F', bg: '#F5E0D2' },
+  { key: 'GENERAL',        label: 'General Tasks',  color: '#374151', bg: '#F3F4F6' },
 ]
 
-export default function AuditPage() {
+const TAB_KEY = 'auditActiveTab'
+
+export default function AuditPage({ approvalOnly = false, completedOnly = false }: {
+  approvalOnly?: boolean; completedOnly?: boolean
+}) {
   const { user } = useAuth()
   const isManager = ['ADMIN', 'PARTNER', 'MANAGER'].includes(String(user?.role))
 
-  const [rows,     setRows]     = useState<any[]>([])
-  const [summary,  setSummary]  = useState<any>({})
-  const [loading,  setLoading]  = useState(true)
-  const [taskType, setTaskType] = useState('ALL')
-  const [status,   setStatus]   = useState('ALL')
-  const [search,   setSearch]   = useState('')
-  const [openId,   setOpenId]   = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
+  const [activeTab, setActiveTab] = useState('EXTERNAL_AUDIT')
+  const [rows,      setRows]      = useState<any[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [search,    setSearch]    = useState('')
+  const [selected,  setSelected]  = useState<string | null>(null)
+  const [creating,  setCreating]  = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+
+  // Remember the tab between visits, the way Tasks does
+  useEffect(() => {
+    try { const t = sessionStorage.getItem(TAB_KEY); if (t) setActiveTab(t) } catch { /* private mode */ }
+  }, [])
 
   const fetchRows = useCallback((silent = false) => {
     if (!silent) setLoading(true)
-    Promise.all([
-      api.get('/audit/engagements', { params: {
-        ...(taskType !== 'ALL' ? { taskType } : {}),
-        ...(status   !== 'ALL' ? { status }   : {}),
-      } }),
-      api.get('/audit/summary'),
-    ])
-      .then(([list, sum]) => {
-        setRows((list.data.data ?? list.data) || [])
-        setSummary(sum.data.data ?? sum.data ?? {})
-      })
+    api.get('/audit/engagements')
+      .then(({ data }) => setRows((data.data ?? data) || []))
       .catch(() => { if (!silent) setRows([]) })
       .finally(() => { if (!silent) setLoading(false) })
-  }, [taskType, status])
+  }, [])
 
   useEffect(() => { fetchRows() }, [fetchRows])
   useAutoRefresh(() => fetchRows(true))
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter(r =>
-      r.title?.toLowerCase().includes(q)
-      || r.client?.businessName?.toLowerCase().includes(q)
-      || r.client?.user?.fullName?.toLowerCase().includes(q))
-  }, [rows, search])
+  // Approval holds what is waiting on a manager; Completed holds what is signed
+  // off. Neither is a different page, just a different slice, same as Tasks.
+  const forView = useMemo(() => rows.filter(r => {
+    if (approvalOnly)  return (r.workingPapers ?? []).some((w: any) => w.status === 'MANAGER_REVIEW') || r.openReviewPoints > 0
+    if (completedOnly) return r.status === 'COMPLETED'
+    return r.status !== 'COMPLETED'
+  }), [rows, approvalOnly, completedOnly])
 
-  if (openId) {
-    return <EngagementDetail id={openId} onBack={() => { setOpenId(null); fetchRows() }} onChanged={() => fetchRows(true)} />
-  }
+  const tabCounts = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const r of forView) c[r.taskType] = (c[r.taskType] ?? 0) + 1
+    return c
+  }, [forView])
+
+  const listed = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return forView
+      .filter(r => r.taskType === activeTab)
+      .filter(r => !q
+        || r.title?.toLowerCase().includes(q)
+        || r.client?.businessName?.toLowerCase().includes(q)
+        || r.client?.user?.fullName?.toLowerCase().includes(q))
+  }, [forView, activeTab, search])
+
+  const current = listed.find(r => r.id === selected) ?? null
+  const tabCfg  = AUDIT_TABS.find(t => t.key === activeTab)!
 
   if (creating) {
-    return <NewEngagementPanel onClose={() => setCreating(false)} onSaved={id => { setCreating(false); fetchRows(); setOpenId(id) }} />
+    return <NewEngagementPanel onClose={() => setCreating(false)} onSaved={id => { setCreating(false); fetchRows(); setSelected(id) }} />
   }
 
+  // ── Pills row, lifted from Tasks so the two look identical ────────────────
+  const PillsRow = (
+    <div style={{ flexShrink: 0, overflow: 'visible' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 24px 8px', background: '#f7f8fa', overflow: 'visible' }}>
+        <div style={{ display: 'flex', gap: 2, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: 3, overflow: 'visible' }}>
+          {AUDIT_TABS.map(tab => {
+            const active = activeTab === tab.key
+            const cnt    = tabCounts[tab.key] ?? 0
+            return (
+              <button key={tab.key}
+                onClick={() => { setActiveTab(tab.key); setSelected(null); try { sessionStorage.setItem(TAB_KEY, tab.key) } catch {} }}
+                style={{ flexShrink: 0, paddingTop: 5, paddingBottom: 5, paddingLeft: 14, paddingRight: cnt > 0 ? 4 : 14, borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12, fontWeight: active ? 700 : 500, transition: 'all .15s', border: 'none', background: active ? tab.color : 'transparent', color: active ? '#fff' : '#5C5C5C', whiteSpace: 'nowrap', display: 'flex', alignItems: 'stretch', gap: 5 }}>
+                <span style={{ display: 'flex', alignItems: 'center' }}>{tab.label}</span>
+                {cnt > 0 && (
+                  <span style={{
+                    background: active ? 'rgba(255,255,255,0.25)' : tab.color,
+                    color: '#fff', fontSize: 10, fontWeight: 700,
+                    padding: '0 6px', borderRadius: 3, lineHeight: 1,
+                    display: 'flex', alignItems: 'center',
+                  }}>{cnt > 99 ? '99+' : cnt}</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 3, padding: '0 20px', height: 3, flexShrink: 0 }}>
+        {AUDIT_TABS.map(tab => (
+          <div key={tab.key} style={{ flex: 1, background: tab.color, borderRadius: 2, opacity: activeTab === tab.key ? 1 : 0.35, transition: 'opacity .2s' }} />
+        ))}
+      </div>
+    </div>
+  )
+
   return (
-    <div className="flex flex-col" style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
+    <div style={{ display: 'flex', height: '100vh', background: '#f7f8fa', overflow: 'hidden' }}>
 
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: TEAL }}>
-          Audit
-        </h1>
-        <div style={{ flex: 1 }} />
-        {isManager && (
-          <button onClick={() => setCreating(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', background: TEAL, color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: F }}>
-            <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            New Engagement
-          </button>
-        )}
-      </div>
-
-      {/* Stat cards */}
-      <div style={{ display: 'flex', gap: 12, flexShrink: 0, marginBottom: 16, flexWrap: 'wrap' }}>
-        <StatCard label="Engagements"      value={summary.total ?? 0}               border="#1565C0" fill="#BDDAF8" />
-        <StatCard label="In Progress"      value={summary.inProgress ?? 0}          border="#F2AC18" fill="#FBE3B8" />
-        <StatCard label="Sent Back"        value={summary.sentBack ?? 0}            border="#DC2626" fill="#FECACA" />
-        <StatCard label="Completed"        value={summary.completed ?? 0}           border="#16A34A" fill="#BBF0D6" />
-        <StatCard label="My Working Papers" value={summary.myOpenWorkingPapers ?? 0} border="#7B2D8E" fill="#E4D4EC" />
-      </div>
-
-      {/* Filters */}
-      <div style={{ flexShrink: 0, marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: P.teal, borderRadius: 40, padding: '5px 8px', flexWrap: 'wrap' }}>
-          <PillSelect value={taskType} onChange={setTaskType} dimValue="ALL" minWidth={190}
-            options={[{ value: 'ALL', label: 'All Types' }, ...TASK_TYPES]} />
-          <PillSelect value={status} onChange={setStatus} dimValue="ALL" minWidth={150}
-            options={STATUS_FILTERS} />
-
-          <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }} />
-
-          <div style={{ position: 'relative', flex: 1, minWidth: 150, maxWidth: 240 }}>
-            <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-            <input type="text" placeholder="Search client / title…" value={search} onChange={e => setSearch(e.target.value)}
-              style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 28, paddingRight: 8, paddingTop: 4, paddingBottom: 4, borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 12, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: F }} />
+      {/* ── Second sidebar, same 340px rail as Tasks ── */}
+      <div style={{ width: collapsed ? 0 : 340, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#EDF0F3', borderRight: `1px solid ${P.border}`, overflow: 'hidden', transition: 'width .25s' }}>
+        <div style={{ flexShrink: 0, borderBottom: `1px solid ${P.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52, padding: '0 14px' }}>
+            <h2 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 18, color: TEAL, display: 'inline-block', whiteSpace: 'nowrap' }}>
+              {tabCfg.label}
+            </h2>
+            <button onClick={() => setCollapsed(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: P.iconMuted, padding: 4, borderRadius: 6 }}>
+              <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            </button>
           </div>
+          <div style={{ padding: '0 14px 10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: '7px 10px' }}>
+              <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke={P.iconMuted} strokeWidth={2} style={{ flexShrink: 0 }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+                style={{ border: 'none', outline: 'none', flex: 1, fontSize: 12, fontFamily: F, background: 'transparent', color: NAVY }} />
+            </div>
+          </div>
+        </div>
 
-          <span style={{ flex: 1 }} />
-          <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#fff', padding: '0 4px' }}>{visible.length} engagements</span>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>
+          {loading && <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>Loading…</div>}
+          {!loading && listed.length === 0 && (
+            <div style={{ padding: 24, textAlign: 'center', color: P.textMuted, fontSize: 12 }}>
+              {search ? 'Nothing matches that search.' : 'No engagements here yet.'}
+            </div>
+          )}
+          {listed.map(r => {
+            const active = selected === r.id
+            const sm     = STATUS_META[r.status] ?? STATUS_META.IN_PROGRESS
+            const name   = r.client?.businessName ?? r.client?.user?.fullName ?? ''
+            return (
+              <button key={r.id} onClick={() => setSelected(r.id)}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '4px 6px', border: `1px solid ${active ? TEAL : P.border}`, borderRadius: 8, cursor: 'pointer', marginBottom: 4, background: active ? '#E8EEF7' : '#F8FAFC', fontFamily: F }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#EEF2F7' }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ flexShrink: 0, width: 16, height: 16, borderRadius: 5, background: '#F97316', color: '#fff', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', textTransform: 'uppercase' }}>
+                    {(name || '?').trim().charAt(0) || '?'}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#000', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                  {/* Progress is the number that matters on an audit */}
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B', flexShrink: 0 }}>
+                    {r.progress?.completed ?? 0}/{r.progress?.total ?? 0}
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: sm.color, background: sm.bg, flexShrink: 0 }}>{sm.label}</span>
+                </div>
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      <DataTable
-        id="auditEngagements" minWidth={1040} rows={visible} loading={loading}
-        rowKey={(r: any) => r.id} onRowClick={(r: any) => setOpenId(r.id)}
-        emptyText={search ? `No engagements matching "${search}".` : 'No audit engagements yet. A manager raises one with New Engagement.'}
-        columns={[
-          { key: 'client', label: 'Client', width: 190, cellStyle: { fontWeight: 700, color: NAVY },
-            render: (r: any) => r.client?.businessName ?? r.client?.user?.fullName ?? '' },
-          { key: 'title', label: 'Engagement', width: 210 },
-          { key: 'taskType', label: 'Type', width: 140,
-            render: (r: any) => TASK_TYPES.find(t => t.value === r.taskType)?.label ?? r.taskType },
-          { key: 'periodEndDate', label: 'Period End', width: 110, cellStyle: { color: '#64748B' },
-            render: (r: any) => r.periodLabel || fmtDate(r.periodEndDate) },
-          { key: 'teamLead', label: 'Team Lead', width: 140, cellStyle: { color: '#475569' },
-            render: (r: any) => r.teamLead?.fullName ?? 'Not assigned' },
-          { key: 'team', label: 'Team', width: 66, align: 'right', cellStyle: { color: '#64748B' },
-            render: (r: any) => r.team?.length ?? 0 },
-          { key: 'phase', label: 'Phase', width: 118, cellStyle: { color: '#475569' },
-            render: (r: any) => PHASE_LABEL[r.phase] ?? r.phase },
-          // Progress is the headline number on an audit: how many areas are signed off
-          { key: 'progress', label: 'Progress', width: 132, render: (r: any) => {
-            const pct = r.progress?.percent ?? 0
-            return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#E2E8F0', overflow: 'hidden' }}>
-                  <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#16A34A' : TEAL }} />
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>{r.progress?.completed ?? 0}/{r.progress?.total ?? 0}</span>
-              </div>
-            )
-          } },
-          // Open review points are what actually blocks a sign off
-          { key: 'openReviewPoints', label: 'Open Points', width: 96, align: 'right', render: (r: any) =>
-            r.openReviewPoints > 0
-              ? <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 800, color: '#991B1B', background: '#FEE2E2' }}>{r.openReviewPoints}</span>
-              : <span style={{ color: '#94A3B8' }}>0</span> },
-          { key: 'status', label: 'Status', width: 112, render: (r: any) => {
-            const m = STATUS_META[r.status] ?? STATUS_META.IN_PROGRESS
-            return <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: m.color, background: m.bg }}>{m.label}</span>
-          } },
-        ]}
-      />
+      {/* ── Right pane ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 20px', height: 52, flexShrink: 0 }}>
+          {collapsed && (
+            <button onClick={() => setCollapsed(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: P.iconMuted, padding: 4 }}>
+              <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </button>
+          )}
+          <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, color: TEAL }}>
+            {approvalOnly ? 'Task Approval' : completedOnly ? 'Completed Tasks' : 'Tasks'}
+          </h1>
+          <div style={{ flex: 1 }} />
+          {isManager && !approvalOnly && !completedOnly && (
+            <button onClick={() => setCreating(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', background: TEAL, color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: F }}>
+              <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              New Task
+            </button>
+          )}
+        </div>
+
+        {PillsRow}
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 20px', minWidth: 0 }}>
+          {current ? (
+            <EngagementDetail id={current.id} embedded onBack={() => setSelected(null)} onChanged={() => fetchRows(true)} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '70%', color: P.textMuted, fontFamily: F, gap: 10 }}>
+              <svg width={34} height={34} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              <span style={{ fontSize: 13 }}>Select an engagement to view details</span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
