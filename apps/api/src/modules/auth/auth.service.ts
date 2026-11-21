@@ -72,6 +72,10 @@ export class AuthService {
         fullName: user.fullName,
         role:     user.role,
         avatar:   user.avatar,
+        // The sidebar decides which half of the firm to show from this. Leaving
+        // it out meant the app defaulted everyone to Tax until /auth/me caught
+        // up, so an audit manager briefly saw the tax side and none of their own.
+        division: user.division,
       },
       attendance:    isWeekendSkip ? null : attendanceInfo,
       weekendPrompt: isWeekendSkip,
