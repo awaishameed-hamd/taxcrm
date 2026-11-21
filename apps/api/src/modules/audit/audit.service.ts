@@ -401,14 +401,25 @@ export class AuditService implements OnModuleInit {
   // otherwise "submitted" means nothing.
   async submitWorkingPaper(id: string, actor: Actor) {
     this.assertAudit(actor)
-    const wp = await this.prisma.auditWorkingPaper.findUnique({ where: { id }, include: { steps: true } })
+    const wp = await this.prisma.auditWorkingPaper.findUnique({
+      where: { id },
+      include: { steps: true, engagement: { select: { taskType: true, teamLeadId: true } } },
+    })
     if (!wp) throw new NotFoundException('Working paper not found')
     const pending = wp.steps.filter(s => !s.isDone).length
     if (pending > 0) throw new BadRequestException(`${pending} step(s) still to do on this working paper`)
 
+    // On a one-person job the preparer is also the named lead, so a team lead
+    // stage would be them reviewing their own work. Those go straight to the
+    // manager, which is the first genuinely independent pair of eyes.
+    const solo = !!SOLO_STEPS[wp.engagement.taskType] || wp.engagement.teamLeadId === wp.assignedToId
+
     return this.prisma.auditWorkingPaper.update({
       where: { id },
-      data:  { status: WorkingPaperStatus.TEAM_LEAD_REVIEW, submittedAt: new Date() },
+      data:  {
+        status: solo ? WorkingPaperStatus.MANAGER_REVIEW : WorkingPaperStatus.TEAM_LEAD_REVIEW,
+        submittedAt: new Date(),
+      },
       include: WP_INCLUDE,
     })
   }
