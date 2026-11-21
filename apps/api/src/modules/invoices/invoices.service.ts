@@ -286,7 +286,12 @@ export class InvoicesService {
         payments: {
           select: {
             amount: true, overpaymentType: true,
-            allocations: { select: { amount: true, discount: true, incomeTaxWithheld: true, salesTaxWithheld: true } },
+            allocations: {
+              select: {
+                amount: true, discount: true, incomeTaxWithheld: true, salesTaxWithheld: true,
+                invoice: { select: { division: true } },
+              },
+            },
           },
         },
       },
@@ -296,18 +301,30 @@ export class InvoicesService {
     return clients.map(c => {
       const billable = c.invoices.filter(i => BILLABLE.includes(i.status))
       const invoiced = billable.reduce((s, i) => s + Number(i.amount), 0)
-      const opening  = Number(c.openingBalance)
+      // The opening balance is what the client owed before the CRM, which is
+      // tax work; it has no place on the audit rail.
+      const opening  = Object.keys(scope).length > 0 ? 0 : Number(c.openingBalance)
 
       // Mirrors the ledger: cash counts (advances in full, bonuses only up to what they
       // were applied to), and so do discounts and tax withheld at source.
+      //
+      // A payment belongs to the client, not to a department, so when the viewer
+      // is scoped to one half of the firm only the part of it that settled that
+      // half's invoices counts. Unapplied credit is left out entirely: it is not
+      // yet attached to any department's work, and counting it would show an
+      // audit manager money the client advanced against their tax bill.
+      const scoped = Object.keys(scope).length > 0
+      const mine = (a: any) => !scoped || a.invoice?.division === (scope as any).division
+
       let cash = 0, nonCash = 0, credit = 0
       for (const p of c.payments) {
-        const applied = p.allocations.reduce((s, a) => s + Number(a.amount), 0)
-        const spare   = Number(p.amount) - applied
+        const allocs  = p.allocations.filter(mine)
+        const applied = allocs.reduce((s, a) => s + Number(a.amount), 0)
+        const spare   = Number(p.amount) - p.allocations.reduce((s, a) => s + Number(a.amount), 0)
         const isBonus = p.overpaymentType === OverpaymentType.BONUS && spare > 0
-        cash    += isBonus ? applied : Number(p.amount)
-        credit  += isBonus ? 0 : spare
-        nonCash += p.allocations.reduce((s, a) => s + Number(a.discount) + Number(a.incomeTaxWithheld) + Number(a.salesTaxWithheld), 0)
+        cash    += scoped ? applied : (isBonus ? applied : Number(p.amount))
+        credit  += scoped ? 0 : (isBonus ? 0 : spare)
+        nonCash += allocs.reduce((s, a) => s + Number(a.discount) + Number(a.incomeTaxWithheld) + Number(a.salesTaxWithheld), 0)
       }
 
       return {
