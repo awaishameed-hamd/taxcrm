@@ -15,6 +15,7 @@ export const STORAGE_FOLDERS = [
   'general-tasks',
   'chat',
   'payment-proofs',
+  'audit',
   'misc',
 ] as const
 

@@ -14,6 +14,7 @@ export type StorageFolder =
   | 'general-tasks'
   | 'chat'
   | 'payment-proofs'
+  | 'audit'
   | 'misc'
 
 // The tax-return tabs map onto their own folders

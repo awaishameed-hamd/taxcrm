@@ -10,6 +10,8 @@ export interface User {
   avatar?:      string
   isActive:     boolean
   createdAt:    string
+  // Which half of the firm this person works in. Shown as Department.
+  division?:    'TAX' | 'AUDIT' | 'BOTH'
   attendanceApplicable?: boolean
   clientProfile?: ClientProfile | null
 }

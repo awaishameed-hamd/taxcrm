@@ -55,6 +55,8 @@ export class ProfileService {
       id:                   user.id,
       userCode:             user.userCode,
       role:                 user.role,
+      // Drives which half of the CRM the sidebar shows
+      division:             user.division,
       fullName:             user.fullName,
       firstName:            user.firstName,
       midName:              user.midName,

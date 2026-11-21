@@ -51,6 +51,7 @@ const LABEL_GRAD: Record<string, { border: string; icon: string }> = {
   invoicing:       { border: '#3A6B3A', icon: '#D7A520' },
   invoiceDetails:  { border: '#D7A520', icon: '#0D9488' },
   invoiceApproval: { border: '#D7A520', icon: '#3A6B3A' },
+  audit:           { border: '#7B2D8E', icon: '#7B2D8E' },
 }
 
 const ICONS: Record<string, string> = {
@@ -102,11 +103,18 @@ const ICONS: Record<string, string> = {
     'M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z',
   invoiceApproval:
     'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z',
+  audit:
+    'M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z',
   invoiceDetails:
     'M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6',
 }
 
-interface NavItem { label: string; href: string; icon: string; key: string; permission?: string }
+interface NavItem {
+  label: string; href: string; icon: string; key: string; permission?: string
+  // Which half of the firm this item belongs to. Left out means it belongs to
+  // both, like Dashboard or Chats.
+  division?: 'TAX' | 'AUDIT'
+}
 
 const NAV: Record<string, NavItem[]> = {
   [Role.ADMIN]: [
@@ -116,12 +124,13 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Invoice Approval',    href: '/admin/invoice-approval', icon: 'invoiceApproval',key: 'invoiceApproval'},
     { label: 'Clients Ledgers',     href: '/admin/invoicing',        icon: 'invoicing',      key: 'invoicing'      },
     { label: 'Invoicing Details',   href: '/admin/invoicing-details',icon: 'invoiceDetails', key: 'invoiceDetails' },
-    { label: 'Tax Summary',         href: '/admin/tax-summary',      icon: 'taxSummary',     key: 'taxSummary'     },
+    { label: 'Tax Summary',         href: '/admin/tax-summary',      icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const     },
     { label: 'Files',               href: '/admin/documents',        icon: 'documents',      key: 'documents'      },
-    { label: 'Tasks',               href: '/admin/tasks',            icon: 'tasks',          key: 'tasks'          },
-    { label: 'Completed Tasks',     href: '/admin/completed-tasks',  icon: 'completedTasks', key: 'completedTasks' },
-    { label: 'Incomplete Tasks',    href: '/admin/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks'},
-    { label: 'Task Approval',       href: '/admin/task-approval',    icon: 'taskApproval',   key: 'taskApproval'   },
+    { label: 'Tasks',               href: '/admin/tasks',            icon: 'tasks',          key: 'tasks', division: 'TAX' as const          },
+    { label: 'Audit',               href: '/admin/audit',            icon: 'audit',          key: 'audit', division: 'AUDIT' },
+    { label: 'Completed Tasks',     href: '/admin/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const },
+    { label: 'Incomplete Tasks',    href: '/admin/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks', division: 'TAX' as const},
+    { label: 'Task Approval',       href: '/admin/task-approval',    icon: 'taskApproval',   key: 'taskApproval', division: 'TAX' as const   },
     { label: 'My Team',             href: '/admin/team',             icon: 'team',           key: 'team'           },
     { label: 'Chats',               href: '/admin/messages',         icon: 'messages',       key: 'messages'       },
     { label: 'My Attendance',       href: '/admin/attendance',       icon: 'myAtt',          key: 'myAtt'          },
@@ -139,12 +148,13 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Invoice Approval',    href: '/partner/invoice-approval', icon: 'invoiceApproval',key: 'invoiceApproval'                                   },
     { label: 'Clients Ledgers',     href: '/partner/invoicing',        icon: 'invoicing',      key: 'invoicing'                                          },
     { label: 'Invoicing Details',   href: '/partner/invoicing-details',icon: 'invoiceDetails', key: 'invoiceDetails'                                     },
-    { label: 'Tax Summary',         href: '/partner/tax-summary',      icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'         },
+    { label: 'Tax Summary',         href: '/partner/tax-summary',      icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const,     permission: 'tax_summary'         },
     { label: 'Files',               href: '/partner/documents',        icon: 'documents',      key: 'documents'                                          },
-    { label: 'Tasks',               href: '/partner/tasks',            icon: 'tasks',          key: 'tasks',          permission: 'tasks'               },
-    { label: 'Completed Tasks',     href: '/partner/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', permission: 'completed_tasks'     },
-    { label: 'Incomplete Tasks',    href: '/partner/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks',permission: 'incomplete_tasks'    },
-    { label: 'Task Approval',       href: '/partner/task-approval',    icon: 'taskApproval',   key: 'taskApproval',   permission: 'task_approval'       },
+    { label: 'Tasks',               href: '/partner/tasks',            icon: 'tasks',          key: 'tasks', division: 'TAX' as const,          permission: 'tasks'               },
+    { label: 'Audit',               href: '/partner/audit',            icon: 'audit',          key: 'audit', division: 'AUDIT' },
+    { label: 'Completed Tasks',     href: '/partner/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const, permission: 'completed_tasks'     },
+    { label: 'Incomplete Tasks',    href: '/partner/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks', division: 'TAX' as const,permission: 'incomplete_tasks'    },
+    { label: 'Task Approval',       href: '/partner/task-approval',    icon: 'taskApproval',   key: 'taskApproval', division: 'TAX' as const,   permission: 'task_approval'       },
     { label: 'My Team',             href: '/partner/team',             icon: 'team',           key: 'team',           permission: 'team'                },
     { label: 'Chats',               href: '/partner/messages',         icon: 'messages',       key: 'messages',       permission: 'messages'            },
     { label: 'My Attendance',       href: '/partner/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
@@ -162,12 +172,13 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Invoice Approval',    href: '/manager/invoice-approval', icon: 'invoiceApproval',key: 'invoiceApproval'                                   },
     { label: 'Clients Ledgers',     href: '/manager/invoicing',        icon: 'invoicing',      key: 'invoicing'                                          },
     { label: 'Invoicing Details',   href: '/manager/invoicing-details',icon: 'invoiceDetails', key: 'invoiceDetails'                                     },
-    { label: 'Tax Summary',         href: '/manager/tax-summary',      icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'         },
+    { label: 'Tax Summary',         href: '/manager/tax-summary',      icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const,     permission: 'tax_summary'         },
     { label: 'Files',               href: '/manager/documents',        icon: 'documents',      key: 'documents'                                          },
-    { label: 'Tasks',               href: '/manager/tasks',            icon: 'tasks',          key: 'tasks',          permission: 'tasks'               },
-    { label: 'Completed Tasks',     href: '/manager/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', permission: 'completed_tasks'     },
-    { label: 'Incomplete Tasks',    href: '/manager/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks',permission: 'incomplete_tasks'    },
-    { label: 'Task Approval',       href: '/manager/task-approval',    icon: 'taskApproval',   key: 'taskApproval',   permission: 'task_approval'       },
+    { label: 'Tasks',               href: '/manager/tasks',            icon: 'tasks',          key: 'tasks', division: 'TAX' as const,          permission: 'tasks'               },
+    { label: 'Audit',               href: '/manager/audit',            icon: 'audit',          key: 'audit', division: 'AUDIT' },
+    { label: 'Completed Tasks',     href: '/manager/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const, permission: 'completed_tasks'     },
+    { label: 'Incomplete Tasks',    href: '/manager/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks', division: 'TAX' as const,permission: 'incomplete_tasks'    },
+    { label: 'Task Approval',       href: '/manager/task-approval',    icon: 'taskApproval',   key: 'taskApproval', division: 'TAX' as const,   permission: 'task_approval'       },
     { label: 'My Team',             href: '/manager/team',             icon: 'team',           key: 'team',           permission: 'team'                },
     { label: 'Chats',               href: '/manager/messages',         icon: 'messages',       key: 'messages',       permission: 'messages'            },
     { label: 'My Attendance',       href: '/manager/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
@@ -182,12 +193,13 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Dashboard',           href: '/team-lead/dashboard',        icon: 'dashboard',      key: 'dashboard',      permission: 'dashboard'           },
     { label: 'Clients',             href: '/team-lead/clients',          icon: 'clients',        key: 'clients',        permission: 'clients'             },
     { label: 'Login Details',       href: '/team-lead/login-details',    icon: 'loginDetails',   key: 'loginDetails'                                       },
-    { label: 'Tax Summary',         href: '/team-lead/tax-summary',      icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'         },
+    { label: 'Tax Summary',         href: '/team-lead/tax-summary',      icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const,     permission: 'tax_summary'         },
     { label: 'Files',               href: '/team-lead/documents',        icon: 'documents',      key: 'documents'                                          },
-    { label: 'Tasks',               href: '/team-lead/tasks',            icon: 'tasks',          key: 'tasks',          permission: 'tasks'               },
-    { label: 'Completed Tasks',     href: '/team-lead/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', permission: 'completed_tasks'     },
-    { label: 'Incomplete Tasks',    href: '/team-lead/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks',permission: 'incomplete_tasks'    },
-    { label: 'Task Approval',       href: '/team-lead/task-approval',    icon: 'taskApproval',   key: 'taskApproval',   permission: 'task_approval'       },
+    { label: 'Tasks',               href: '/team-lead/tasks',            icon: 'tasks',          key: 'tasks', division: 'TAX' as const,          permission: 'tasks'               },
+    { label: 'Audit',               href: '/team-lead/audit',            icon: 'audit',          key: 'audit', division: 'AUDIT' },
+    { label: 'Completed Tasks',     href: '/team-lead/completed-tasks',  icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const, permission: 'completed_tasks'     },
+    { label: 'Incomplete Tasks',    href: '/team-lead/incomplete-tasks', icon: 'tasks',          key: 'incompleteTasks', division: 'TAX' as const,permission: 'incomplete_tasks'    },
+    { label: 'Task Approval',       href: '/team-lead/task-approval',    icon: 'taskApproval',   key: 'taskApproval', division: 'TAX' as const,   permission: 'task_approval'       },
     { label: 'My Team',             href: '/team-lead/team',             icon: 'team',           key: 'team',           permission: 'team'                },
     { label: 'Chats',               href: '/team-lead/messages',         icon: 'messages',       key: 'messages',       permission: 'messages'            },
     { label: 'My Attendance',       href: '/team-lead/attendance',       icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'       },
@@ -201,10 +213,11 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Dashboard',        href: '/trainee/dashboard',         icon: 'dashboard',      key: 'dashboard',      permission: 'dashboard'      },
     { label: 'My Clients',       href: '/trainee/clients',           icon: 'clients',        key: 'clients',        permission: 'clients'        },
     { label: 'Login Details',    href: '/trainee/login-details',     icon: 'loginDetails',   key: 'loginDetails'                                  },
-    { label: 'Tax Summary',      href: '/trainee/tax-summary',       icon: 'taxSummary',     key: 'taxSummary',     permission: 'tax_summary'    },
+    { label: 'Tax Summary',      href: '/trainee/tax-summary',       icon: 'taxSummary',     key: 'taxSummary', division: 'TAX' as const,     permission: 'tax_summary'    },
     { label: 'Files',            href: '/trainee/documents',         icon: 'documents',      key: 'documents'                                      },
-    { label: 'Tasks',            href: '/trainee/tasks',             icon: 'tasks',          key: 'tasks',          permission: 'tasks'          },
-    { label: 'Completed Tasks',  href: '/trainee/completed-tasks',   icon: 'completedTasks', key: 'completedTasks', permission: 'completed_tasks'},
+    { label: 'Tasks',            href: '/trainee/tasks',             icon: 'tasks',          key: 'tasks', division: 'TAX' as const,          permission: 'tasks'          },
+    { label: 'Audit',            href: '/trainee/audit',             icon: 'audit',          key: 'audit', division: 'AUDIT' },
+    { label: 'Completed Tasks',  href: '/trainee/completed-tasks',   icon: 'completedTasks', key: 'completedTasks', division: 'TAX' as const, permission: 'completed_tasks'},
     { label: 'Chats',            href: '/trainee/messages',          icon: 'messages',       key: 'messages',       permission: 'messages'       },
     { label: 'My Attendance',    href: '/trainee/attendance',        icon: 'myAtt',          key: 'myAtt',          permission: 'my_attendance'  },
     { label: 'Leave',        href: '/trainee/my-leaves',         icon: 'myLeaves',       key: 'myLeaves'                                       },
@@ -517,6 +530,14 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     if (hasAllPerms) return true
     return (permissions as Record<string, boolean>)[item.permission] === true
   }).filter(item => item.key !== 'myAtt' || user?.attendanceApplicable !== false)
+    // The wall. A tax person never sees audit and an audit person never sees
+    // tax. Partner and Admin carry BOTH and see the lot, which is the point of
+    // keeping division separate from role.
+    .filter(item => {
+      if (!item.division) return true
+      const d = user?.division ?? 'TAX'
+      return d === 'BOTH' || d === item.division
+    })
 
   // Sub-items for each collapsible group. The group's own key list sets the
   // order, not the nav array, so a flyout can lead with its approval queue while
