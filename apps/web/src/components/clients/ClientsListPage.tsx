@@ -398,6 +398,10 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
   const [salesTaxAuthorities, setSalesTaxAuthorities] = useState<string[]>(initial?.salesTaxAuthorities ?? [])
   const [hasWhtService,       setHasWhtService]       = useState<boolean>(initial?.hasWhtService ?? false)
   const [hasAdvanceTaxService, setHasAdvanceTaxService] = useState<boolean>(initial?.hasAdvanceTaxService ?? false)
+  // Which halves of the firm act for this client. A new client defaults to tax,
+  // which is what the firm did before audit existed.
+  const [hasTaxService,   setHasTaxService]   = useState<boolean>(initial?.hasTaxService ?? true)
+  const [hasAuditService, setHasAuditService] = useState<boolean>(initial?.hasAuditService ?? false)
   const [yearEnd,             setYearEnd]             = useState<string>(initial?.yearEnd ?? 'JUNE')
 
   // Opening balance, carried into the ledger as an invoice. Manager and above.
@@ -538,6 +542,8 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
       payload.salesTaxAuthorities = salesTaxAuthorities
       payload.hasWhtService       = hasWhtService
       payload.hasAdvanceTaxService = hasAdvanceTaxService
+      payload.hasTaxService        = hasTaxService
+      payload.hasAuditService      = hasAuditService
       payload.yearEnd             = yearEnd
       payload.address             = form.address?.trim() || undefined
       payload.representativeId    = representativeId || null
@@ -745,6 +751,40 @@ function ClientFormModal({ mode, initial, fieldConfigs, trainees, representative
               <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5C5C5C', fontFamily: "'Aptos', sans-serif" }}>
                 Services
               </span>
+            </div>
+
+            {/* Which half of the firm acts for this client. These two decide
+                whose client list the company appears on, so they sit above the
+                individual services rather than among them. */}
+            <div style={{ padding: '12px 18px', borderBottom: `1px solid ${P.border}`, background: '#FFFDF5' }}>
+              {([
+                { label: 'Tax Services',   on: hasTaxService,   set: setHasTaxService,
+                  hint: 'Appears in the tax team’s client list' },
+                { label: 'Audit Services', on: hasAuditService, set: setHasAuditService,
+                  hint: 'Appears in the audit team’s client list' },
+              ]).map((t, i) => (
+                <div key={t.label} style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: i ? 10 : 0 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, fontFamily: "'Aptos', sans-serif" }}>{t.label}</div>
+                    <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: "'Aptos', sans-serif", marginTop: 2 }}>{t.hint}</div>
+                  </div>
+                  <button type="button" onClick={() => t.set(v => !v)}
+                    style={{
+                      width: 44, height: 24, borderRadius: 12, border: 'none', padding: 0,
+                      background: t.on ? TEAL : '#CBD5E1',
+                      cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                    }}>
+                    <span style={{
+                      position: 'absolute', top: 2, left: t.on ? 22 : 2,
+                      width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.25)', transition: 'left 0.2s', display: 'block',
+                    }} />
+                  </button>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: t.on ? TEAL : '#94A3B8', fontFamily: "'Aptos', sans-serif", minWidth: 28 }}>
+                    {t.on ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+              ))}
             </div>
 
             {/* Sales Tax */}

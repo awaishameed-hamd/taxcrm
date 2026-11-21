@@ -170,6 +170,8 @@ export class ClientsService {
             // Without this the column falls back to its DECEMBER default, so a
             // client created with a June year end came out as December.
             ...(dto.yearEnd ? { yearEnd: dto.yearEnd } : {}),
+            hasTaxService:        dto.hasTaxService ?? true,
+            hasAuditService:      dto.hasAuditService ?? false,
             salesTaxAuthorities:  dto.salesTaxAuthorities ?? [],
             hasWhtService:        dto.hasWhtService ?? false,
             hasAdvanceTaxService: dto.hasAdvanceTaxService ?? false,
@@ -203,8 +205,18 @@ export class ClientsService {
     return created
   }
 
-  async findAll(actorId: string, actorRole: Role, search?: string) {
+  // Which clients this person's half of the firm acts for. Partner and Admin
+  // see the whole book; everyone else sees only the clients their department
+  // was engaged for, so the two books never mix.
+  private serviceWhere(actorRole: Role, actorDivision?: string) {
+    if (actorRole === Role.ADMIN || actorRole === Role.PARTNER) return {}
+    if (!actorDivision || actorDivision === 'BOTH') return {}
+    return actorDivision === 'AUDIT' ? { hasAuditService: true } : { hasTaxService: true }
+  }
+
+  async findAll(actorId: string, actorRole: Role, search?: string, actorDivision?: string) {
     const whereTrainee = actorRole === Role.TRAINEE ? { traineeId: actorId } : {}
+    const whereService = this.serviceWhere(actorRole, actorDivision)
 
     const whereSearch = search
       ? {
@@ -219,7 +231,7 @@ export class ClientsService {
       : {}
 
     return this.prisma.clientProfile.findMany({
-      where: { ...whereTrainee, ...whereSearch },
+      where: { ...whereTrainee, ...whereSearch, ...whereService },
       include: {
         user:           { select: { id: true, userCode: true, fullName: true, email: true, phone: true, isActive: true, hasPortalAccess: true, inviteToken: true, avatar: true } },
         trainee:        { select: { id: true, fullName: true } },

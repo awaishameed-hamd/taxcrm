@@ -309,6 +309,13 @@ model ClientProfile {
   // Fiscal year end month: JUNE (Jul–Jun), SEPTEMBER (Oct–Sep), DECEMBER (Jan–Dec)
   yearEnd String @default("DECEMBER")
 
+  // Which halves of the firm act for this client. A company can be an audit
+  // client, a tax client or both, and each department should only see its own
+  // book rather than the whole client list. Everyone on file before audit
+  // existed is a tax client, which is what the defaults say.
+  hasTaxService   Boolean @default(true)
+  hasAuditService Boolean @default(false)
+
   // Services enabled for this client
   // Sales Tax: which authorities are active (FBR, PRA, SRB, KPRA, BRA, AJK)
   salesTaxAuthorities  String[] @default([])

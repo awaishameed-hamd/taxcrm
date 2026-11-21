@@ -265,12 +265,19 @@ export class TasksService {
   }
 
   // ── Client dropdown ───────────────────────────────────────────────────────────
-  async getClients(callerId: string, callerRole: Role) {
+  async getClients(callerId: string, callerRole: Role, callerDivision?: string) {
     const where: any = {}
     // Team Leads see every client here, since they can now raise work for any
     // trainee and Sales Tax / WHT derive the assignee from the client.
     if (callerRole === Role.TRAINEE) {
       where.traineeId = callerId
+    }
+    // Only clients this half of the firm acts for, so raising an engagement
+    // cannot pick a tax-only client and vice versa. Partner and Admin see all.
+    if (callerRole !== Role.ADMIN && callerRole !== Role.PARTNER
+        && callerDivision && callerDivision !== 'BOTH') {
+      if (callerDivision === 'AUDIT') where.hasAuditService = true
+      else                            where.hasTaxService   = true
     }
     return this.prisma.clientProfile.findMany({
       where,

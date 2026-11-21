@@ -16,6 +16,8 @@ export class UpdateClientProfileDto {
   @IsOptional() @IsString() @IsNotEmpty({ message: 'Every client must be assigned to a staff member' }) traineeId?: string
   @IsOptional() @IsString()     representativeId?: string
   @IsOptional() @IsArray() @IsString({ each: true }) salesTaxAuthorities?: string[]
+  @IsOptional() @IsBoolean()    hasTaxService?: boolean
+  @IsOptional() @IsBoolean()    hasAuditService?: boolean
   @IsOptional() @IsBoolean()    hasWhtService?: boolean
   @IsOptional() @IsBoolean()    hasAdvanceTaxService?: boolean
   @IsOptional() @IsString()     yearEnd?:      string

@@ -80,6 +80,6 @@ export class TasksController {
   @Get('clients')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
   clients(@Req() req: any) {
-    return this.service.getClients(req.user.id, req.user.role)
+    return this.service.getClients(req.user.id, req.user.role, req.user.division)
   }
 }

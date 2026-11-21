@@ -71,6 +71,10 @@ export class CreateClientDto {
   @IsString({ each: true })
   salesTaxAuthorities?: string[]
 
+  // Which halves of the firm act for this client
+  @IsOptional() @IsBoolean() hasTaxService?: boolean
+  @IsOptional() @IsBoolean() hasAuditService?: boolean
+
   @IsOptional()
   @IsBoolean()
   hasWhtService?: boolean

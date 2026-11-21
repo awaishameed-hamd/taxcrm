@@ -16,10 +16,10 @@ export class ClientsController {
   @Get()
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
   findAll(
-    @CurrentUser() user: { id: string; role: Role },
+    @CurrentUser() user: { id: string; role: Role; division?: string },
     @Query('search') search?: string,
   ) {
-    return this.clientsService.findAll(user.id, user.role, search)
+    return this.clientsService.findAll(user.id, user.role, search, user.division)
   }
 
   @Post()
@@ -46,7 +46,7 @@ export class ClientsController {
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE)
   findOne(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string; role: Role },
+    @CurrentUser() user: { id: string; role: Role; division?: string },
   ) {
     return this.clientsService.findOne(id, user.id, user.role)
   }
