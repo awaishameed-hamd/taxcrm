@@ -49,6 +49,43 @@ const DEFAULT_WP_STEPS = [
   'Self-review and conclude',
 ]
 
+// FS Preparation and General are normally one person start to finish, so rather
+// than an empty file waiting for someone to allocate areas, the engagement opens
+// with a single working paper already assigned and already carrying the right
+// checklist. The review chain is the same; only the checklist differs.
+const SOLO_STEPS: Record<string, string[]> = {
+  FS_PREPARATION: [
+    'Obtain final trial balance from client',
+    'Map trial balance to financial statement line items',
+    'Prepare statement of financial position',
+    'Prepare statement of profit or loss and other comprehensive income',
+    'Prepare statement of changes in equity',
+    'Prepare statement of cash flows',
+    'Prepare notes to the financial statements',
+    'Check internal consistency and cross-casting',
+    'Agree comparatives to last year signed accounts',
+    'Self-review and hand over for review',
+  ],
+  GENERAL: [
+    'Confirm the requirement and scope with the requester',
+    'Request the data needed from the client',
+    'Prepare the working',
+    'Self-review the working',
+    'Hand over for review',
+  ],
+}
+
+// What a task type has to produce before it can be signed off. An external or
+// internal audit needs both reports; FS Preparation produces the statements but
+// no audit opinion; a general task produces neither, its deliverable is whatever
+// was attached to the working paper.
+const REQUIRED_FILES: Record<string, Array<'FINANCIAL_STATEMENTS' | 'AUDIT_REPORT'>> = {
+  EXTERNAL_AUDIT: ['FINANCIAL_STATEMENTS', 'AUDIT_REPORT'],
+  INTERNAL_AUDIT: ['AUDIT_REPORT'],
+  FS_PREPARATION: ['FINANCIAL_STATEMENTS'],
+  GENERAL:        [],
+}
+
 const ENGAGEMENT_INCLUDE = {
   client: { select: { id: true, businessName: true, user: { select: { fullName: true } } } },
   teamLead: { select: { id: true, fullName: true, userCode: true } },
@@ -155,26 +192,33 @@ export class AuditService implements OnModuleInit {
     return this.withProgress(eng)
   }
 
-  // Progress and the two gates, worked out here so every caller agrees on them.
+  // Progress and the gates, worked out here so every caller agrees on them.
+  // Which files are required depends on the task type: a general task produces
+  // no audit report, so demanding one would make it impossible to close.
   private withProgress(eng: any) {
     const papers = eng.workingPapers ?? []
     const done   = papers.filter((w: any) => w.status === WorkingPaperStatus.COMPLETED).length
     const openPoints = papers.reduce(
       (n: number, w: any) => n + (w.reviewPoints ?? []).filter((p: any) => p.status !== ReviewPointStatus.CLEARED).length, 0)
 
+    const required = REQUIRED_FILES[eng.taskType] ?? []
+    const missingFiles = [
+      ...(required.includes('FINANCIAL_STATEMENTS') && !eng.financialStatementsFileId ? ['Signed financial statements not attached'] : []),
+      ...(required.includes('AUDIT_REPORT') && !eng.auditReportFileId ? ['Audit report not attached'] : []),
+    ]
+
     return {
       ...eng,
       progress: { total: papers.length, completed: done, percent: papers.length ? Math.round((done / papers.length) * 100) : 0 },
       openReviewPoints: openPoints,
-      // Both must be true before the engagement can be signed off
-      canComplete: papers.length > 0 && done === papers.length && openPoints === 0
-                   && !!eng.financialStatementsFileId && !!eng.auditReportFileId,
+      // Tells the UI which upload boxes to show at all
+      requiredFiles: required,
+      canComplete: papers.length > 0 && done === papers.length && openPoints === 0 && missingFiles.length === 0,
       blockers: [
         ...(papers.length === 0 ? ['No working papers have been created'] : []),
         ...(done < papers.length ? [`${papers.length - done} working paper(s) not completed`] : []),
         ...(openPoints > 0 ? [`${openPoints} review point(s) still open`] : []),
-        ...(!eng.financialStatementsFileId ? ['Signed financial statements not attached'] : []),
-        ...(!eng.auditReportFileId ? ['Audit report not attached'] : []),
+        ...missingFiles,
       ],
     }
   }
@@ -209,6 +253,20 @@ export class AuditService implements OnModuleInit {
       },
       include: ENGAGEMENT_INCLUDE,
     })
+
+    // A one-person job opens ready to work on rather than empty. The owner is
+    // whoever was named as lead, since that is the only person on it.
+    const soloSteps = SOLO_STEPS[eng.taskType]
+    if (soloSteps) {
+      await this.prisma.auditWorkingPaper.create({
+        data: {
+          engagementId: eng.id,
+          areaName:     eng.taskType === 'FS_PREPARATION' ? 'Financial Statements' : eng.title,
+          assignedToId: dto.teamLeadId,
+          steps: { create: soloSteps.map((name, i) => ({ name, sortOrder: i })) },
+        },
+      })
+    }
     return eng
   }
 

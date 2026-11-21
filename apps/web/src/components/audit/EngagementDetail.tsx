@@ -165,7 +165,11 @@ export default function EngagementDetail({ id, onBack, onChanged }: {
             {([
               { kind: 'FINANCIAL_STATEMENTS' as const, label: 'Signed Financial Statements', has: !!eng.financialStatementsFileId },
               { kind: 'AUDIT_REPORT' as const,         label: 'Audit Report',                 has: !!eng.auditReportFileId },
-            ]).map(r => (
+            ])
+              // Only the files this task type actually has to produce. A general
+              // task has no audit report, so asking for one would be noise.
+              .filter(r => (eng.requiredFiles ?? []).includes(r.kind))
+              .map(r => (
               <div key={r.kind}>
                 <label style={labelStyle}>{r.label} <span style={{ color: '#ef4444' }}>*</span></label>
                 {r.has ? (
