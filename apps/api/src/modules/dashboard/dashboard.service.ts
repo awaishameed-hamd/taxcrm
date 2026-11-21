@@ -12,7 +12,14 @@ export class DashboardService {
     period?: string,
     fromDate?: string,
     toDate?: string,
+    actorDivision?: string,
   ) {
+    // An audit person's dashboard is about engagements, not tax returns. The
+    // tax figures below would all read zero for them, which looks like a broken
+    // page rather than a different department.
+    const isAuditOnly = actorDivision === 'AUDIT'
+      && actorRole !== Role.ADMIN && actorRole !== Role.PARTNER
+    if (isAuditOnly) return this.auditStats(actorId, actorRole)
     const dateFilter = this.buildDateFilter(period, fromDate, toDate)
     const createdFilter = dateFilter ? { createdAt: dateFilter } : {}
 
@@ -80,7 +87,13 @@ export class DashboardService {
         ? this.prisma.user.count({ where: { teamLeadId: actorId } })
         : actorRole === Role.TRAINEE
           ? Promise.resolve(0)
-          : this.prisma.user.count({ where: { role: { in: [Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] as any } } }),
+          : this.prisma.user.count({
+              where: {
+                role: { in: [Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] as any },
+                // My Team is per department, so the headline count has to match
+                ...(actorDivision && actorDivision !== 'BOTH' ? { division: actorDivision as any } : {}),
+              },
+            }),
 
       this.prisma.salesTaxTask.groupBy({
         by: ['status'],
@@ -304,6 +317,49 @@ export class DashboardService {
       topTrainees,
       recentTasks,
       recentFbr,
+    }
+  }
+
+  // The audit side's own dashboard: engagements and the work inside them.
+  // Managers see the department, everyone else sees the files they are on.
+  private async auditStats(actorId: string, actorRole: Role) {
+    const isManager = actorRole === Role.MANAGER
+    const mine = isManager
+      ? {}
+      : { OR: [{ teamLeadId: actorId }, { team: { some: { userId: actorId } } }] }
+
+    const [total, inProgress, completed, sentBack, byPhase, byType, papers, openPoints, myPapers, teamCount, recent] =
+      await Promise.all([
+        this.prisma.auditEngagement.count({ where: mine }),
+        this.prisma.auditEngagement.count({ where: { ...mine, status: 'IN_PROGRESS' as any } }),
+        this.prisma.auditEngagement.count({ where: { ...mine, status: 'COMPLETED' as any } }),
+        this.prisma.auditEngagement.count({ where: { ...mine, status: 'SENT_BACK' as any } }),
+        this.prisma.auditEngagement.groupBy({ by: ['phase'], where: mine, _count: { id: true } }),
+        this.prisma.auditEngagement.groupBy({ by: ['taskType'], where: mine, _count: { id: true } }),
+        this.prisma.auditWorkingPaper.count({ where: { engagement: mine, status: { not: 'COMPLETED' as any } } }),
+        this.prisma.auditReviewPoint.count({ where: { status: { not: 'CLEARED' as any }, workingPaper: { engagement: mine } } }),
+        this.prisma.auditWorkingPaper.count({ where: { assignedToId: actorId, status: { not: 'COMPLETED' as any } } }),
+        this.prisma.user.count({ where: { role: { in: [Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] as any }, division: 'AUDIT' as any } }),
+        this.prisma.auditEngagement.findMany({
+          where: mine, orderBy: { updatedAt: 'desc' }, take: 8,
+          select: {
+            id: true, title: true, taskType: true, phase: true, status: true, periodLabel: true,
+            client: { select: { businessName: true, user: { select: { fullName: true } } } },
+            teamLead: { select: { fullName: true } },
+          },
+        }),
+      ])
+
+    return {
+      isAudit: true,
+      stats: {
+        totalEngagements: total, inProgress, completed, sentBack,
+        openWorkingPapers: papers, openReviewPoints: openPoints,
+        myOpenWorkingPapers: myPapers, teamCount,
+      },
+      byPhase: byPhase.map(p => ({ phase: p.phase, count: p._count.id })),
+      byType:  byType.map(t  => ({ type: t.taskType, count: t._count.id })),
+      recentEngagements: recent,
     }
   }
 

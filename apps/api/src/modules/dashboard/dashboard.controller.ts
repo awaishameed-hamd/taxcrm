@@ -11,11 +11,11 @@ export class DashboardController {
 
   @Get('stats')
   getStats(
-    @CurrentUser() user: { id: string; role: Role },
+    @CurrentUser() user: { id: string; role: Role; division?: string },
     @Query('period') period?: 'daily' | 'weekly' | 'monthly' | 'custom',
     @Query('from_date') fromDate?: string,
     @Query('to_date') toDate?: string,
   ) {
-    return this.dashboardService.getStats(user.id, user.role, period, fromDate, toDate)
+    return this.dashboardService.getStats(user.id, user.role, period, fromDate, toDate, user.division)
   }
 }

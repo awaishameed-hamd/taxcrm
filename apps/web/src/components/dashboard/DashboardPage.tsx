@@ -1,5 +1,7 @@
 'use client'
 
+import AuditDashboard from './AuditDashboard'
+
 import { useEffect, useState, useCallback } from 'react'
 import {
   ResponsiveContainer, Tooltip,
@@ -292,6 +294,26 @@ export default function DashboardPage({ title }: Props) {
   const FBR_CHIP: Record<string, { c: string; bg: string }> = {
     NOTICE:{ c:NAVY, bg:'#E8EEF7' }, APPEAL:{ c:PURPLE, bg:'#EDE9FE' },
     STAY:{ c:GOLD, bg:'#FEF3C7' }, HIGHER_FORUM:{ c:BRICK, bg:'#F5E0D2' }, CLOSED:{ c:FOREST, bg:'#E7F4E7' },
+  }
+
+  // Audit staff get their own page. Everything below this counts sales tax
+  // returns and FBR notices, which would read zero on every card for them and
+  // look like a broken dashboard rather than a different department.
+  if (data?.isAudit === true) {
+    return (
+      <div style={{
+        background:BG, minHeight:'100vh', boxSizing:'border-box', fontFamily:F,
+        padding: phone ? '14px 12px 14px 58px' : '0 18px 14px',
+      }}>
+        <div style={{ display:'flex', alignItems:'center', minHeight: phone ? undefined : 52, marginBottom: phone ? 12 : 8 }}>
+          <h1 style={{ margin:0, fontFamily:"'Faster One', cursive", textTransform:'uppercase', fontSize:26, color:TEAL }}>
+            Dashboard
+          </h1>
+        </div>
+        {error && <div style={{ background:'#FEE2E2', border:'1px solid #FCA5A5', borderRadius:6, padding:'8px 12px', fontSize:12, color:'#991B1B', marginBottom:10 }}>{error}</div>}
+        <AuditDashboard data={data} loading={loading} />
+      </div>
+    )
   }
 
   return (
