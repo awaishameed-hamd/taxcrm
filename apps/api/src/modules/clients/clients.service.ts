@@ -144,6 +144,22 @@ export class ClientsService {
     const existing = await this.prisma.user.findUnique({ where: { email } })
     if (existing) throw new ConflictException('A user with this email already exists')
 
+    // The same company must not be added twice, once by tax and once by audit.
+    // Matched case-insensitively on the business name, which is what people
+    // actually read, so "ABC Traders" and "abc traders" collide as they should.
+    const name = (dto.businessName ?? '').trim()
+    if (name) {
+      const sameName = await this.prisma.clientProfile.findFirst({
+        where:  { businessName: { equals: name, mode: 'insensitive' } },
+        select: { id: true, businessName: true, hasTaxService: true, hasAuditService: true },
+      })
+      if (sameName) {
+        throw new ConflictException(
+          `"${sameName.businessName}" is already a client. Open that record and switch on the service you need instead of adding them again.`,
+        )
+      }
+    }
+
     const created = await this.prisma.user.create({
       data: {
         userCode,
@@ -205,18 +221,20 @@ export class ClientsService {
     return created
   }
 
-  // Which clients this person's half of the firm acts for. Partner and Admin
-  // see the whole book; everyone else sees only the clients their department
-  // was engaged for, so the two books never mix.
-  private serviceWhere(actorRole: Role, actorDivision?: string) {
-    if (actorRole === Role.ADMIN || actorRole === Role.PARTNER) return {}
-    if (!actorDivision || actorDivision === 'BOTH') return {}
-    return actorDivision === 'AUDIT' ? { hasAuditService: true } : { hasTaxService: true }
+  // Which book of clients to show. Everyone can reach both, defaulting to
+  // their own department's, because hiding the other half is what makes people
+  // create the same company twice: an audit person who cannot see an existing
+  // tax client adds a second record instead of ticking Audit Services on the
+  // first. The toggle solves the duplication the filter would have caused.
+  private bookWhere(book?: string, actorDivision?: string) {
+    const want = (book ?? (actorDivision === 'AUDIT' ? 'AUDIT' : 'TAX')).toUpperCase()
+    if (want === 'ALL') return {}
+    return want === 'AUDIT' ? { hasAuditService: true } : { hasTaxService: true }
   }
 
-  async findAll(actorId: string, actorRole: Role, search?: string, actorDivision?: string) {
+  async findAll(actorId: string, actorRole: Role, search?: string, actorDivision?: string, book?: string) {
     const whereTrainee = actorRole === Role.TRAINEE ? { traineeId: actorId } : {}
-    const whereService = this.serviceWhere(actorRole, actorDivision)
+    const whereService = this.bookWhere(book, actorDivision)
 
     const whereSearch = search
       ? {

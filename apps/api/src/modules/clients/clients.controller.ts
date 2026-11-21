@@ -18,8 +18,10 @@ export class ClientsController {
   findAll(
     @CurrentUser() user: { id: string; role: Role; division?: string },
     @Query('search') search?: string,
+    // TAX or AUDIT. Defaults to the viewer's own department.
+    @Query('book') book?: string,
   ) {
-    return this.clientsService.findAll(user.id, user.role, search, user.division)
+    return this.clientsService.findAll(user.id, user.role, search, user.division, book)
   }
 
   @Post()

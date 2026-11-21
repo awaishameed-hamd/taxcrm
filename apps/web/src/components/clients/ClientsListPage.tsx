@@ -1721,6 +1721,10 @@ function StaffFilter({ value, onChange, options }: {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ClientsListPage() {
   const { user }           = useAuth()
+  // Which book of clients is on screen. Defaults to the viewer's own department
+  // but either can be opened, so an audit person finds an existing tax client
+  // and switches Audit Services on rather than adding them a second time.
+  const [book, setBook] = useState<'TAX' | 'AUDIT'>(user?.division === 'AUDIT' ? 'AUDIT' : 'TAX')
   const canCreateClient    = usePermission('clients_create')
   const canEditClient      = usePermission('clients_edit')
   const canViewReps        = usePermission('representatives')
@@ -1826,7 +1830,7 @@ export default function ClientsListPage() {
 
   const fetchClients = (srch?: string, silent = false) => {
     if (!silent) setLoading(true)
-    api.get('/clients', { params: srch ? { search: srch } : {} })
+    api.get('/clients', { params: { ...(srch ? { search: srch } : {}), book } })
       .then(({ data }) => setClients(data.data ?? data ?? []))
       .catch(() => { if (!silent) setToast({ message: 'Failed to load clients.', type: 'error' }) })
       .finally(() => { if (!silent) setLoading(false) })
@@ -1854,7 +1858,8 @@ export default function ClientsListPage() {
         .then(({ data }) => setRepresentatives(Array.isArray(data) ? data : data?.data ?? []))
         .catch(() => {})
     }
-  }, [canAdd]) // eslint-disable-line
+  // book is here too: switching between the tax and audit books refetches.
+  }, [canAdd, book]) // eslint-disable-line
 
   const visibleConfigs = useMemo(
     () => fieldConfigs.filter(f => f.isVisible ?? f.is_visible ?? true),
@@ -2011,6 +2016,23 @@ export default function ClientsListPage() {
           {activeTab === 'clients' ? 'Clients' : 'Client Representatives'}
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Tax or Audit book, same pill style as the Dashboard view switch */}
+          {activeTab === 'clients' && (
+            <div style={{ display: 'flex', gap: 2, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: 3 }}>
+              {([
+                { key: 'TAX',   label: 'Tax Clients'   },
+                { key: 'AUDIT', label: 'Audit Clients' },
+              ] as const).map(b => (
+                <button key={b.key} onClick={() => setBook(b.key)} style={{
+                  background: book === b.key ? P.teal : 'transparent',
+                  color: book === b.key ? '#fff' : P.textMuted,
+                  border: 'none', padding: '5px 13px', borderRadius: 6, fontSize: 11,
+                  fontWeight: book === b.key ? 600 : 400, cursor: 'pointer',
+                  whiteSpace: 'nowrap', transition: 'all 0.15s', fontFamily: "'Aptos', sans-serif",
+                }}>{b.label}</button>
+              ))}
+            </div>
+          )}
           {/* Tab Pills, same style as Dashboard period pills */}
           <div style={{ display: 'flex', gap: 2, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: 3 }}>
             {([
