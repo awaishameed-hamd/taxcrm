@@ -91,7 +91,10 @@ export default function NewEngagementPanel({ onClose, onSaved, selfOnly = false 
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+      {/* One height for both popups, tax and audit. Sized to content they would
+          differ, because each form holds a different number of fields, and the
+          tax one would also grow as picking a task type reveals more. */}
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden', height: 'min(90vh,580px)', display: 'flex', flexDirection: 'column' }}>
 
         <ModalHeader title="New Task" onClose={onClose} radius={16} />
 
