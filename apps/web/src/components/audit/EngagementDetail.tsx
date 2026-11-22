@@ -147,8 +147,7 @@ export default function EngagementDetail({ id, onBack, onChanged, embedded }: {
             {field('Period End', eng.periodLabel || fmtDate(eng.periodEndDate))}
             {field('Due', fmtDate(eng.dueDate))}
             {field('Team Lead', eng.teamLead?.fullName ?? 'Not assigned')}
-            {field('Materiality', money(eng.materiality))}
-            {field('Status', <span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: sm.color, background: sm.bg }}>{sm.label}</span>)}
+            {field('Status',<span style={{ display: 'inline-flex', padding: '2px 9px', borderRadius: 9999, fontSize: 11, fontWeight: 700, color: sm.color, background: sm.bg }}>{sm.label}</span>)}
           </div>
 
           {/* Phase. The team lead or a manager moves the file along. */}

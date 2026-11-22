@@ -29,10 +29,8 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
   const [periodEnd,  setPeriodEnd]  = useState('')
   const [periodLabel,setPeriodLabel]= useState('')
   const [dueDate,    setDueDate]    = useState('')
-  const [materiality,setMateriality]= useState('')
   const [teamLeadId, setTeamLeadId] = useState('')
   const [memberIds,  setMemberIds]  = useState<string[]>([])
-  const [description,setDescription]= useState('')
 
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
@@ -60,11 +58,9 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
     try {
       const { data } = await api.post('/audit/engagements', {
         clientId, taskType, title: title.trim(),
-        description: description.trim() || undefined,
         periodEndDate: periodEnd,
         periodLabel: periodLabel.trim() || undefined,
         dueDate: dueDate || undefined,
-        materiality: materiality ? Number(materiality) : undefined,
         // A self-raised job names nobody: the server puts it on the person who
         // raised it and routes the review to whoever they report to.
         teamLeadId: selfOnly ? undefined : (teamLeadId || undefined),
@@ -117,15 +113,6 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
               <label style={labelStyle}>Due Date</label>
               <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
             </div>
-            <div>
-              <label style={labelStyle}>Materiality</label>
-              <input type="number" min={0} value={materiality} onChange={e => setMateriality(e.target.value)} placeholder="0" style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Scope / Notes</label>
-            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Anything the team should know before starting" style={inputStyle} />
           </div>
 
           {/* Team. A self-raised job has none: it is the person's own work and
@@ -138,7 +125,7 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
               <div style={{ marginBottom: 14, maxWidth: 360 }}>
                 <label style={labelStyle}>Team Lead</label>
                 <StyledSelect value={teamLeadId} onChange={setTeamLeadId} placeholder="Select team lead…"
-                  options={staff.map((s: any) => ({ value: s.id, label: `${s.fullName} (${s.userCode})` }))} />
+                  options={staff.map((s: any) => ({ value: s.id, label: s.fullName }))} />
               </div>
             </>
           )}
@@ -158,7 +145,7 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
                 placeholder="Add team members…"
                 emptyText="Nobody is in the Audit department yet"
                 options={staff.filter((s: any) => s.id !== teamLeadId)
-                  .map((s: any) => ({ value: s.id, label: s.fullName, hint: s.userCode }))}
+                  .map((s: any) => ({ value: s.id, label: s.fullName }))}
               />
               <p style={{ margin: '5px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>
                 {staff.length === 0
