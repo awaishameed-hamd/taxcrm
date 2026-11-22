@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import PillSelect from '@/components/ui/PillSelect'
 import EngagementDetail from './EngagementDetail'
-import NewEngagementPanel from './NewEngagementPanel'
 import { F, NAVY, TEAL, STATUS_META, PHASE_LABEL, PHASES, fmtDate } from './auditShared'
 
 // The same five-pill shape Tasks uses, so the two departments read as one app.
@@ -33,7 +32,6 @@ export default function AuditPage({ approvalOnly = false, completedOnly = false,
   const [loading,   setLoading]   = useState(true)
   const [search,    setSearch]    = useState('')
   const [selected,  setSelected]  = useState<string | null>(null)
-  const [creating,  setCreating]  = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
   // Filters, only on the Completed and Incomplete lists, same set Tasks carries
@@ -122,10 +120,6 @@ export default function AuditPage({ approvalOnly = false, completedOnly = false,
 
   const current = listed.find(r => r.id === selected) ?? null
   const tabCfg  = AUDIT_TABS.find(t => t.key === activeTab)!
-
-  if (creating) {
-    return <NewEngagementPanel onClose={() => setCreating(false)} onSaved={id => { setCreating(false); fetchRows(); setSelected(id) }} />
-  }
 
   // ── Pills row, lifted from Tasks so the two look identical ────────────────
   const PillsRow = (

@@ -2,26 +2,42 @@
 
 import { useState, useEffect } from 'react'
 import api from '@/lib/api'
-import { P } from '@/lib/palette'
+import ModalHeader from '@/components/ui/ModalHeader'
 import StyledSelect from '@/components/ui/StyledSelect'
 import MultiSelect from '@/components/ui/MultiSelect'
-import { F, TEAL, TASK_TYPES, PanelHeader, inputStyle, labelStyle, btn } from './auditShared'
+import { TASK_TYPES } from './auditShared'
 
-// A manager raises the engagement and names the team on the same screen, because
-// an audit without a team allocated is not yet a job anybody can start.
+// The tax New Task popup's own measurements and colours, copied rather than
+// referenced because they live inside that component. One firm, one popup.
+const NAVY = '#132E57'
+const GOLD = '#F2AC18'
+const F    = "'Aptos', sans-serif"
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: 11, fontWeight: 700, color: '#808080',
+  textTransform: 'uppercase', letterSpacing: '0.07em',
+  fontFamily: F, marginBottom: 5,
+}
+const inputStyle: React.CSSProperties = {
+  width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 8,
+  border: '1.5px solid #E0DDD5', fontSize: 13, fontFamily: F,
+  outline: 'none', color: NAVY, background: '#fff',
+}
+
+// Raising an audit task. Opened from the New Task button in the sidebar, in the
+// same popup the tax form opens in.
 //
-// `embedded` drops the page chrome so the same form can open from the New Task
-// button in the sidebar, the way the tax form does. `selfOnly` is for a team
-// lead or trainee raising their own job: they name no team, the server puts
-// the work on them and sends the review to whoever they report to.
-export default function NewEngagementPanel({ onClose, onSaved, embedded = false, selfOnly = false }: {
+// `selfOnly` is for a team lead or trainee raising their own job: they name no
+// team, the server puts the work on them and sends the review to whoever they
+// report to.
+export default function NewEngagementPanel({ onClose, onSaved, selfOnly = false }: {
   onClose: () => void
   onSaved: (id: string) => void
-  embedded?: boolean
   selfOnly?: boolean
 }) {
-  const [clients,  setClients]  = useState<any[]>([])
-  const [staff,    setStaff]    = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
+  const [staff,   setStaff]   = useState<any[]>([])
+  const [clientsLoading, setClientsLoading] = useState(true)
 
   const [clientId,   setClientId]   = useState('')
   const [taskType,   setTaskType]   = useState('EXTERNAL_AUDIT')
@@ -36,7 +52,10 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
   const [error,  setError]  = useState('')
 
   useEffect(() => {
-    api.get('/tasks/clients').then(({ data }) => setClients(data.data ?? data ?? [])).catch(() => setClients([]))
+    api.get('/tasks/clients')
+      .then(({ data }) => setClients(data.data ?? data ?? []))
+      .catch(() => setClients([]))
+      .finally(() => setClientsLoading(false))
     api.get('/audit/staff').then(({ data }) => setStaff(data.data ?? data ?? [])).catch(() => setStaff([]))
   }, [])
 
@@ -44,15 +63,12 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
   // only offered where a team actually makes sense.
   const isTeamJob = !selfOnly && (taskType === 'EXTERNAL_AUDIT' || taskType === 'INTERNAL_AUDIT')
 
-  // The grids size themselves to the space they are given, so the same form
-  // works full width on the Audit page and inside the sidebar modal on a phone.
-  const grid2: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14, marginBottom: 16 }
-  const grid4: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 14, marginBottom: 16 }
+  const canSubmit = !saving && !!clientId && !!title.trim() && !!periodEnd
 
   async function save() {
-    if (!clientId)  { setError('Pick a client'); return }
-    if (!title.trim()) { setError('Give the engagement a title'); return }
-    if (!periodEnd) { setError('Set the period end date'); return }
+    if (!clientId)     { setError('Pick a client'); return }
+    if (!title.trim()) { setError('Give the task a title'); return }
+    if (!periodEnd)    { setError('Set the period end date'); return }
 
     setSaving(true); setError('')
     try {
@@ -69,40 +85,45 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
       const created = data?.data ?? data
       onSaved(created.id)
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? 'Could not create the engagement')
+      setError(e?.response?.data?.message ?? 'Could not create the task')
     } finally { setSaving(false) }
   }
 
-  const body = (
-    <>
-        <div style={{ padding: embedded ? '4px 0 0' : 20 }}>
-          <div style={grid2}>
-            <div>
-              <label style={labelStyle}>Client <span style={{ color: '#ef4444' }}>*</span></label>
-              <StyledSelect value={clientId} onChange={setClientId} placeholder="Select client…"
-                options={clients.map((c: any) => ({ value: c.id, label: c.businessName ?? c.fullName ?? c.user?.fullName ?? '' }))} />
-              {/* An empty list means no client is on the audit book yet, which is
-                  a switch on the client rather than anything wrong here */}
-              {clients.length === 0 && (
-                <p style={{ margin: '5px 0 0', fontSize: 11, color: '#ef4444', fontFamily: F }}>
-                  No client has Audit Services switched on yet. Open Clients, turn Audit Services on for a client, then come back.
-                </p>
-              )}
-            </div>
-            <div>
-              <label style={labelStyle}>Task Type <span style={{ color: '#ef4444' }}>*</span></label>
-              <StyledSelect value={taskType} onChange={setTaskType} options={TASK_TYPES} />
-            </div>
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+
+        <ModalHeader title="New Task" onClose={onClose} radius={16} />
+
+        <div style={{ padding: '20px 20px 0', overflowY: 'auto', flex: 1, fontFamily: F }}>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Task Type <span style={{ color: '#D62828' }}>*</span></label>
+            <StyledSelect value={taskType} onChange={setTaskType} options={TASK_TYPES} />
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Title <span style={{ color: '#ef4444' }}>*</span></label>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Statutory audit for the year ended 30 June 2026" style={inputStyle} autoFocus />
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Client <span style={{ color: '#D62828' }}>*</span></label>
+            <StyledSelect value={clientId} onChange={setClientId} placeholder="Select client…" loading={clientsLoading}
+              options={clients.map((c: any) => ({ value: c.id, label: c.businessName ?? c.fullName ?? c.user?.fullName ?? '' }))} />
+            {/* An empty list means no client is on the audit book yet, which is
+                a switch on the client rather than anything wrong here */}
+            {!clientsLoading && clients.length === 0 && (
+              <p style={{ margin: '5px 0 0', fontSize: 11, color: '#D62828' }}>
+                No client has Audit Services switched on yet. Open Clients, turn Audit Services on for a client, then come back.
+              </p>
+            )}
           </div>
 
-          <div style={grid4}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Title <span style={{ color: '#D62828' }}>*</span></label>
+            <input value={title} onChange={e => setTitle(e.target.value)}
+              placeholder="Statutory audit for the year ended 30 June 2026" style={inputStyle} autoFocus />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12, marginBottom: 14 }}>
             <div>
-              <label style={labelStyle}>Period End <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={labelStyle}>Period End <span style={{ color: '#D62828' }}>*</span></label>
               <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} style={inputStyle} />
             </div>
             <div>
@@ -118,24 +139,19 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
           {/* Team. A self-raised job has none: it is the person's own work and
               the review goes to whoever they report to. */}
           {!selfOnly && (
-            <>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', color: '#94A3B8', fontFamily: F, marginBottom: 8 }}>
-                TEAM
-              </div>
-              <div style={{ marginBottom: 14, maxWidth: 360 }}>
-                <label style={labelStyle}>Team Lead</label>
-                <StyledSelect value={teamLeadId} onChange={setTeamLeadId} placeholder="Select team lead…"
-                  options={staff.map((s: any) => ({ value: s.id, label: s.fullName }))} />
-              </div>
-            </>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Team Lead</label>
+              <StyledSelect value={teamLeadId} onChange={setTeamLeadId} placeholder="Select team lead…"
+                options={staff.map((s: any) => ({ value: s.id, label: s.fullName }))} />
+            </div>
           )}
 
           {selfOnly ? (
-            <p style={{ margin: 0, fontSize: 12, color: '#94A3B8', fontFamily: F }}>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: '#808080' }}>
               This is your own job. It lands on you to work on and goes to your reviewer when you submit it.
             </p>
           ) : isTeamJob ? (
-            <div style={{ maxWidth: 360 }}>
+            <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Team Members</label>
               {/* One dropdown rather than every name laid out on the form. Tick
                   people off in the list and they land in the box above it. */}
@@ -147,43 +163,34 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
                 options={staff.filter((s: any) => s.id !== teamLeadId)
                   .map((s: any) => ({ value: s.id, label: s.fullName }))}
               />
-              <p style={{ margin: '5px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>
+              <p style={{ margin: '5px 0 0', fontSize: 11, color: '#808080' }}>
                 {staff.length === 0
                   ? 'Set a user’s department to Audit in Settings first.'
                   : 'The team lead allocates heads to whoever is on the team.'}
               </p>
             </div>
           ) : (
-            <p style={{ margin: 0, fontSize: 12, color: '#94A3B8', fontFamily: F }}>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: '#808080' }}>
               {TASK_TYPES.find(t => t.value === taskType)?.label} is normally handled by one person, so no wider team is needed.
             </p>
           )}
 
-          {error && <p style={{ fontSize: 12, color: '#ef4444', margin: '14px 0 0' }}>{error}</p>}
-
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18, paddingBottom: embedded ? 16 : 0 }}>
-            <button onClick={onClose} disabled={saving} style={{ ...btn('#fff', '#475569'), border: `1px solid ${P.border}` }}>Cancel</button>
-            <button onClick={save} disabled={saving} style={{ ...btn(TEAL), opacity: saving ? 0.6 : 1 }}>
-              {saving ? 'Creating…' : 'Create Task'}
-            </button>
-          </div>
+          {error && <p style={{ fontSize: 12, color: '#D62828', margin: '0 0 14px' }}>{error}</p>}
         </div>
-    </>
-  )
 
-  // Inside the sidebar modal the overlay and header belong to the caller, the
-  // same way the tax form works there.
-  if (embedded) return <div style={{ fontFamily: F }}>{body}</div>
-
-  return (
-    <div style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, color: TEAL }}>Tasks</h1>
-      </div>
-
-      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', fontFamily: F }}>
-        <PanelHeader title="New Task" onBack={onClose} />
-        {body}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid #E0DDD5', display: 'flex', justifyContent: 'flex-end', gap: 10, background: '#FAFBFC', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: `1.5px solid ${GOLD}`, background: '#fff', color: NAVY, cursor: 'pointer', fontFamily: F }}>
+            Cancel
+          </button>
+          <button onClick={save} disabled={!canSubmit} style={{
+            padding: '9px 22px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none',
+            cursor: canSubmit ? 'pointer' : 'default',
+            background: GOLD, color: NAVY, fontFamily: F,
+            opacity: canSubmit ? 1 : 0.6,
+          }}>
+            {saving ? 'Saving…' : 'Create Task'}
+          </button>
+        </div>
       </div>
     </div>
   )

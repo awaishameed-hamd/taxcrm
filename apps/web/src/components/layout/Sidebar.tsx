@@ -7,7 +7,6 @@ import { Role } from '@ca-firm/shared'
 import { useAuth, usePermission } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import { TaskFormModal } from '@/components/tasks/GeneralTasksPage'
-import ModalHeader from '@/components/ui/ModalHeader'
 import NewEngagementPanel from '@/components/audit/NewEngagementPanel'
 import { useDeptView } from '@/components/ui/DeptToggle'
 import { getSocket } from '@/lib/socket'
@@ -1060,26 +1059,18 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
         />
       )}
 
-      {/* ── New Task modal, audit side. Same overlay and header as the tax one,
-             the audit form inside it. ── */}
+      {/* ── New Task modal, audit side. The audit form carries the same popup
+             the tax one does, so it opens on its own here. ── */}
       {showNewAudit && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <ModalHeader title="New Task" onClose={() => setShowNewAudit(false)} radius={16} />
-            <div style={{ padding: '16px 20px 0', overflowY: 'auto', flex: 1 }}>
-              <NewEngagementPanel
-                embedded
-                selfOnly={selfRaised}
-                onClose={() => setShowNewAudit(false)}
-                onSaved={() => {
-                  setShowNewAudit(false)
-                  fetchNavCounts()
-                  router.push(`/${(pathname || '').split('/')[1]}/tasks`)
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        <NewEngagementPanel
+          selfOnly={selfRaised}
+          onClose={() => setShowNewAudit(false)}
+          onSaved={() => {
+            setShowNewAudit(false)
+            fetchNavCounts()
+            router.push(`/${(pathname || '').split('/')[1]}/tasks`)
+          }}
+        />
       )}
     </aside>
   )
