@@ -292,6 +292,27 @@ export class AuditService implements OnModuleInit {
     return eng
   }
 
+  // A job raised by mistake has to be removable, the way a tax task is. The
+  // working papers, review points and attachments on it cascade away with it.
+  // A signed-off engagement stays: that is history, and its invoice is out.
+  async deleteEngagement(id: string, actor: Actor) {
+    this.assertAudit(actor)
+    const eng = await this.prisma.auditEngagement.findUnique({
+      where:  { id },
+      select: { id: true, status: true, signedOffAt: true, createdById: true },
+    })
+    if (!eng) throw new NotFoundException('Engagement not found')
+    if (eng.signedOffAt || eng.status === AuditEngagementStatus.COMPLETED) {
+      throw new BadRequestException('A signed off engagement cannot be deleted')
+    }
+    // A manager can remove any job, anyone else only the one they raised
+    if (!this.isManagerOrAbove(actor.role) && eng.createdById !== actor.id) {
+      throw new ForbiddenException('Only a manager, or whoever raised it, can delete this')
+    }
+    await this.prisma.auditEngagement.delete({ where: { id } })
+    return { deleted: true }
+  }
+
   async updateEngagement(id: string, dto: UpdateEngagementDto, actor: Actor) {
     this.assertAudit(actor)
     const eng = await this.prisma.auditEngagement.findUnique({ where: { id }, select: { teamLeadId: true } })

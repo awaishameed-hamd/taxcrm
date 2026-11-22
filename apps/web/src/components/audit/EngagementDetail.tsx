@@ -56,6 +56,18 @@ export default function EngagementDetail({ id, onBack, onChanged, embedded }: {
     finally { setBusy(false) }
   }
 
+  // A manager can remove any job, anyone else only the one they raised, and
+  // never one that has been signed off
+  const canDelete = !!eng && !eng.signedOffAt && eng.status !== 'COMPLETED'
+    && (isManager || eng.createdBy?.id === user?.id)
+
+  async function remove() {
+    if (!window.confirm('Delete this task? Its working papers, review points and attachments go with it. This cannot be undone.')) return
+    setBusy(true); setError('')
+    try { await api.delete(`/audit/engagements/${id}`); onChanged?.(); onBack() }
+    catch (e: any) { setError(e?.response?.data?.message ?? 'Could not delete this task'); setBusy(false) }
+  }
+
   async function addWorkingPaper() {
     if (!addArea) { setError('Pick an area'); return }
     await act(async () => {
@@ -109,9 +121,22 @@ export default function EngagementDetail({ id, onBack, onChanged, embedded }: {
           pill={clientName}
           onBack={onBack}
           right={
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ fontWeight: 900, color: '#F1F5F9', fontSize: 14 }}>{eng.progress?.completed ?? 0}/{eng.progress?.total ?? 0}</span>
-              <span style={{ color: '#CBD5E1', fontWeight: 600, fontSize: 12 }}>Areas Done</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontWeight: 900, color: '#F1F5F9', fontSize: 14 }}>{eng.progress?.completed ?? 0}/{eng.progress?.total ?? 0}</span>
+                <span style={{ color: '#CBD5E1', fontWeight: 600, fontSize: 12 }}>Areas Done</span>
+              </span>
+              {/* A job raised by mistake has to be removable. Signed off ones
+                  are history and the server refuses them. */}
+              {canDelete && (
+                <button onClick={remove} disabled={busy} style={{
+                  cursor: 'pointer', color: '#FEE2E2', fontWeight: 700, fontFamily: F,
+                  background: 'rgba(220,38,38,0.35)', border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: 8, padding: '4px 12px', fontSize: 12, whiteSpace: 'nowrap',
+                }}>
+                  Delete
+                </button>
+              )}
             </span>
           }
         />

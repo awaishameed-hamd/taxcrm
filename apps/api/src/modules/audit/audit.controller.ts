@@ -62,6 +62,11 @@ export class AuditController {
     return this.svc.updateEngagement(id, dto, req.user)
   }
 
+  @Delete('engagements/:id')
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.svc.deleteEngagement(id, req.user)
+  }
+
   @Post('engagements/:id/team')
   setTeam(@Param('id') id: string, @Body() dto: SetTeamDto, @Req() req: any) {
     return this.svc.setTeam(id, dto, req.user)
