@@ -7,6 +7,9 @@ import { Role } from '@ca-firm/shared'
 import { useAuth, usePermission } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import { TaskFormModal } from '@/components/tasks/GeneralTasksPage'
+import ModalHeader from '@/components/ui/ModalHeader'
+import NewEngagementPanel from '@/components/audit/NewEngagementPanel'
+import { useDeptView } from '@/components/ui/DeptToggle'
 import { getSocket } from '@/lib/socket'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
@@ -296,6 +299,7 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
 
   // ── New Task modal state ──────────────────────────────────────────────────
   const [showNewTask,      setShowNewTask]      = useState(false)
+  const [showNewAudit,     setShowNewAudit]     = useState(false)
   const [ntForm,           setNtForm]           = useState<any>({ ...BLANK_FORM })
   const [ntClients,        setNtClients]        = useState<any[]>([])
   const [ntClientsLoading, setNtClientsLoading] = useState(false)
@@ -374,9 +378,11 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
   })
 
   // Audit-only people never see the tax task form. Partner and Admin carry both
-  // halves, so they keep the tax button and reach audit from the nav.
+  // halves, so which form New Task opens follows their Tax / Audit switch.
   const isAuditOnly = user?.division === 'AUDIT'
     && user?.role !== Role.ADMIN && user?.role !== Role.PARTNER
+  const { dept: deptView } = useDeptView()
+  const runsBothDepts = user?.role === Role.ADMIN || user?.role === Role.PARTNER
 
   const fetchNavCounts = useCallback(() => {
     if (!user) return
@@ -563,10 +569,13 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
       return d === 'BOTH' || d === item.division
     })
 
-  const canRaiseEngagement = user?.role === Role.MANAGER
-  // The first path segment is the role folder, so Audit is a sibling of
-  // whatever page they are on.
-  const goNewTask = () => router.push(`/${(pathname || '').split('/')[1]}/tasks`)
+  // New Task raises an audit job for audit staff, and for Admin and the
+  // Director while their switch is on Audit. The form is the audit one, opened
+  // in the same modal the tax form uses, because an audit job is not a tax task
+  // with a different label.
+  const auditNewTask = isAuditOnly || (runsBothDepts && deptView === 'AUDIT')
+  // A manager names the lead and the team. Anyone else is raising their own job.
+  const selfRaised = user?.role !== Role.MANAGER && user?.role !== Role.ADMIN && user?.role !== Role.PARTNER
 
   // Sub-items for each collapsible group. The group's own key list sets the
   // order, not the nav array, so a flyout can lead with its approval queue while
@@ -744,14 +753,11 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
       </div>
 
       {/* ── New Task quick button (all internal roles) ──
-           Audit staff get New Engagement instead: an audit job is not a tax task
-           with a different label, and raising one needs the client, period, team
-           and lead, so it goes to the Audit page rather than a quick modal.
-           Audit trainees and team leads do not raise engagements at all, so they
-           get no button. ── */}
-      {user?.role !== Role.CLIENT && !(isAuditOnly && !canRaiseEngagement) && (
+           Audit staff get the audit form in the same modal, so a task is raised
+           the same way in both departments. ── */}
+      {user?.role !== Role.CLIENT && (
         <div style={{ padding: '8px 12px 4px', minWidth: 256, flexShrink: 0 }}>
-          <button onClick={isAuditOnly ? goNewTask : openNewTask} style={{
+          <button onClick={auditNewTask ? () => setShowNewAudit(true) : openNewTask} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
             width: '100%', padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
             background: '#7EC8D0',
@@ -1052,6 +1058,28 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
           onSubmit={submitNewTask}
           submitLabel="Create Task"
         />
+      )}
+
+      {/* ── New Task modal, audit side. Same overlay and header as the tax one,
+             the audit form inside it. ── */}
+      {showNewAudit && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <ModalHeader title="New Task" onClose={() => setShowNewAudit(false)} radius={16} />
+            <div style={{ padding: '16px 20px 0', overflowY: 'auto', flex: 1 }}>
+              <NewEngagementPanel
+                embedded
+                selfOnly={selfRaised}
+                onClose={() => setShowNewAudit(false)}
+                onSaved={() => {
+                  setShowNewAudit(false)
+                  fetchNavCounts()
+                  router.push(`/${(pathname || '').split('/')[1]}/tasks`)
+                }}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </aside>
   )

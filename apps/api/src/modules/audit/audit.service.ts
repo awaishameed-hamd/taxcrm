@@ -226,7 +226,25 @@ export class AuditService implements OnModuleInit {
 
   async createEngagement(dto: CreateEngagementDto, actor: Actor) {
     this.assertAudit(actor)
-    if (!this.isManagerOrAbove(actor.role)) throw new ForbiddenException('Only a manager can raise an engagement')
+
+    // Anyone in the department can raise a job, the way a tax trainee raises
+    // their own task. A manager names the lead and the team. Anyone else is
+    // raising their own work: it lands on them, and the review goes to whoever
+    // they report to, or straight to the manager when they report to nobody.
+    const isManager = this.isManagerOrAbove(actor.role)
+    let teamLeadId = dto.teamLeadId
+    let memberIds  = dto.memberIds ?? []
+    let ownerId    = dto.teamLeadId
+    if (!isManager) {
+      const me = await this.prisma.user.findUnique({
+        where:  { id: actor.id },
+        select: { teamLeadId: true },
+      })
+      // A team lead's own job comes back to them, a trainee's to their lead
+      teamLeadId = actor.role === Role.TEAM_LEAD ? actor.id : (me?.teamLeadId ?? actor.id)
+      memberIds  = [actor.id]
+      ownerId    = actor.id
+    }
 
     const eng = await this.prisma.auditEngagement.create({
       data: {
@@ -239,15 +257,15 @@ export class AuditService implements OnModuleInit {
         dueDate:       dto.dueDate ? new Date(dto.dueDate) : undefined,
         materiality:   dto.materiality,
         performanceMateriality: dto.performanceMateriality,
-        teamLeadId:    dto.teamLeadId,
+        teamLeadId,
         createdById:   actor.id,
         startedAt:     new Date(),
         // The team is named at creation: the lead plus whoever else is on it
         team: {
           create: [
-            ...(dto.teamLeadId ? [{ userId: dto.teamLeadId, teamRole: AuditTeamRole.TEAM_LEAD }] : []),
-            ...(dto.memberIds ?? [])
-              .filter(id => id !== dto.teamLeadId)
+            ...(teamLeadId ? [{ userId: teamLeadId, teamRole: AuditTeamRole.TEAM_LEAD }] : []),
+            ...memberIds
+              .filter(id => id !== teamLeadId)
               .map(id => ({ userId: id, teamRole: AuditTeamRole.MEMBER })),
           ],
         },
@@ -256,14 +274,17 @@ export class AuditService implements OnModuleInit {
     })
 
     // A one-person job opens ready to work on rather than empty. The owner is
-    // whoever was named as lead, since that is the only person on it.
-    const soloSteps = SOLO_STEPS[eng.taskType]
+    // whoever was named as lead, or the person who raised it themselves.
+    // A self-raised job gets one too whatever its type, because allocating
+    // working papers is the team lead's job: without this a trainee would be
+    // looking at a job they cannot start.
+    const soloSteps = SOLO_STEPS[eng.taskType] ?? (isManager ? null : SOLO_STEPS.GENERAL)
     if (soloSteps) {
       await this.prisma.auditWorkingPaper.create({
         data: {
           engagementId: eng.id,
           areaName:     eng.taskType === 'FS_PREPARATION' ? 'Financial Statements' : eng.title,
-          assignedToId: dto.teamLeadId,
+          assignedToId: ownerId,
           steps: { create: soloSteps.map((name, i) => ({ name, sortOrder: i })) },
         },
       })
