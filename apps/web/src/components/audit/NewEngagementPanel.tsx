@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import StyledSelect from '@/components/ui/StyledSelect'
-import { F, NAVY, TEAL, TASK_TYPES, PanelHeader, inputStyle, labelStyle, btn } from './auditShared'
+import MultiSelect from '@/components/ui/MultiSelect'
+import { F, TEAL, TASK_TYPES, PanelHeader, inputStyle, labelStyle, btn } from './auditShared'
 
 // A manager raises the engagement and names the team on the same screen, because
 // an audit without a team allocated is not yet a job anybody can start.
@@ -49,9 +50,6 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
   // works full width on the Audit page and inside the sidebar modal on a phone.
   const grid2: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14, marginBottom: 16 }
   const grid4: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 14, marginBottom: 16 }
-
-  const toggleMember = (id: string) =>
-    setMemberIds(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
 
   async function save() {
     if (!clientId)  { setError('Pick a client'); return }
@@ -150,34 +148,24 @@ export default function NewEngagementPanel({ onClose, onSaved, embedded = false,
               This is your own job. It lands on you to work on and goes to your reviewer when you submit it.
             </p>
           ) : isTeamJob ? (
-            <>
-              <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: F, marginBottom: 8 }}>
-                Members the team lead can allocate heads to
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
-                {staff.filter((s: any) => s.id !== teamLeadId).map((s: any) => {
-                  const on = memberIds.includes(s.id)
-                  return (
-                    <label key={s.id} style={{
-                      display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer',
-                      padding: '5px 10px', borderRadius: 8, fontFamily: F, fontSize: 12, fontWeight: 600,
-                      border: `1.5px solid ${on ? TEAL : P.border}`, background: on ? '#E8EEF7' : '#fff',
-                      color: on ? TEAL : NAVY,
-                    }}>
-                      <input type="checkbox" checked={on} onChange={() => toggleMember(s.id)}
-                        style={{ accentColor: TEAL, cursor: 'pointer' }} />
-                      {s.fullName}
-                      <span style={{ color: '#94A3B8', fontWeight: 500 }}>{s.userCode}</span>
-                    </label>
-                  )
-                })}
-                {staff.length === 0 && (
-                  <p style={{ margin: 0, fontSize: 12, color: '#94A3B8', fontFamily: F }}>
-                    Nobody is in the Audit department yet. Set a user&apos;s department to Audit in Settings first.
-                  </p>
-                )}
-              </div>
-            </>
+            <div style={{ maxWidth: 360 }}>
+              <label style={labelStyle}>Team Members</label>
+              {/* One dropdown rather than every name laid out on the form. Tick
+                  people off in the list and they land in the box above it. */}
+              <MultiSelect
+                values={memberIds}
+                onChange={setMemberIds}
+                placeholder="Add team members…"
+                emptyText="Nobody is in the Audit department yet"
+                options={staff.filter((s: any) => s.id !== teamLeadId)
+                  .map((s: any) => ({ value: s.id, label: s.fullName, hint: s.userCode }))}
+              />
+              <p style={{ margin: '5px 0 0', fontSize: 11, color: '#94A3B8', fontFamily: F }}>
+                {staff.length === 0
+                  ? 'Set a user’s department to Audit in Settings first.'
+                  : 'The team lead allocates heads to whoever is on the team.'}
+              </p>
+            </div>
           ) : (
             <p style={{ margin: 0, fontSize: 12, color: '#94A3B8', fontFamily: F }}>
               {TASK_TYPES.find(t => t.value === taskType)?.label} is normally handled by one person, so no wider team is needed.
