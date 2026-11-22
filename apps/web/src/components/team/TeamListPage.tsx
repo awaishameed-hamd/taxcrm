@@ -6,6 +6,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import UserProfileModal from './UserProfileModal'
 import PillSelect from '@/components/ui/PillSelect'
+import DeptToggle, { useDeptView } from '@/components/ui/DeptToggle'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -202,12 +203,17 @@ export default function TeamListPage() {
   }, [toast])
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
+  // Tax, Audit or both, for the two roles that oversee the whole firm
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true })
+  const deptSwitch = canSwitchDept ? <DeptToggle value={dept} onChange={setDept} withAll /> : null
+
   const fetchUsers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
       const params: any = { status: statusFilter }
       if (roleFilter) params.role   = roleFilter
       if (search)     params.search = search
+      if (canSwitchDept && dept !== 'ALL') params.division = dept
       const { data } = await api.get('/users', { params })
       const list = Array.isArray(data) ? data : (data?.data ?? [])
       const filtered = list.filter((u: TeamUser) => u.role !== 'CLIENT')
@@ -223,7 +229,7 @@ export default function TeamListPage() {
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [roleFilter, statusFilter, search])
+  }, [roleFilter, statusFilter, search, canSwitchDept, dept])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
   useAutoRefresh(() => fetchUsers(true))
@@ -321,11 +327,14 @@ export default function TeamListPage() {
       )}
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 52, marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26, color: '#1E8496', fontFamily: "'Faster One', cursive", textTransform: 'uppercase', display: 'inline-block' }}>
+      {/* Fixed 52px, scrolls sideways rather than wrapping, so the department
+          switch never changes the height of the band */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 52, marginBottom: 8, gap: 12, overflowX: 'auto', overflowY: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+          <h1 style={{ margin: 0, fontSize: 26, color: '#1E8496', fontFamily: "'Faster One', cursive", textTransform: 'uppercase', display: 'inline-block', whiteSpace: 'nowrap' }}>
             MY TEAM
           </h1>
+          {deptSwitch}
         </div>
         {canCreate && (
           <button onClick={() => setShowCreate(true)}

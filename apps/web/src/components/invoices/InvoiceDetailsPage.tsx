@@ -6,6 +6,7 @@ import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import PillSelect from '@/components/ui/PillSelect'
 import DataTable from '@/components/ui/DataTable'
+import DeptToggle, { useDeptView } from '@/components/ui/DeptToggle'
 import { SERVICE_LABEL } from '@/components/invoices/InvoiceFormPanel'
 
 const NAVY = '#132E57'
@@ -191,13 +192,17 @@ export default function InvoiceDetailsPage() {
   // Presets fill the two date boxes, Custom hands them back to the user
   const dates = useMemo(() => range === 'custom' ? { from: from || undefined, to: to || undefined } : rangeDates(range), [range, from, to])
 
+  // Tax, Audit or both. A manager opens on their own department, Admin and
+  // the Director on everything.
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true, includeManagers: true })
+
   const fetchRows = useCallback((silent = false) => {
     if (!silent) setLoading(true)
-    api.get('/invoices/register', { params: { ...dates, ...(search ? { search } : {}) } })
+    api.get('/invoices/register', { params: { ...dates, ...(search ? { search } : {}), ...(dept === 'ALL' ? {} : { division: dept }) } })
       .then(({ data }) => { const d = data.data ?? data; setRows(Array.isArray(d) ? d : []) })
       .catch(() => { if (!silent) setRows([]) })
       .finally(() => { if (!silent) setLoading(false) })
-  }, [dates, search])
+  }, [dates, search, dept])
 
   useEffect(() => { fetchRows() }, [fetchRows])
   useAutoRefresh(() => fetchRows(true))
@@ -226,10 +231,13 @@ export default function InvoiceDetailsPage() {
   return (
     <div className="flex flex-col" style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
 
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: TEAL }}>
+      {/* Fixed 52px, scrolls sideways rather than wrapping, so the department
+          switch never changes the height of the band */}
+      <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginBottom: 8, overflowX: 'auto', overflowY: 'hidden' }}>
+        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: TEAL, flexShrink: 0, whiteSpace: 'nowrap' }}>
           Invoicing Details
         </h1>
+        {canSwitchDept && <DeptToggle value={dept} onChange={setDept} withAll />}
       </div>
 
       {openId ? (

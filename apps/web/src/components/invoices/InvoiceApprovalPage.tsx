@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import DataTable from '@/components/ui/DataTable'
+import DeptToggle, { useDeptView } from '@/components/ui/DeptToggle'
 import PillSelect from '@/components/ui/PillSelect'
 import InvoiceFormPanel from '@/components/invoices/InvoiceFormPanel'
 
@@ -96,13 +97,17 @@ export default function InvoiceApprovalPage() {
   const [priceInv,   setPriceInv]   = useState<any>(null)
   const [confirmDel, setConfirmDel] = useState<any>(null)
 
+  // Tax, Audit or both. A manager opens on their own department, Admin and
+  // the Director on everything.
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true, includeManagers: true })
+
   const fetchDrafts = useCallback((silent = false) => {
     if (!silent) setLoading(true)
-    api.get('/invoices', { params: { status: 'DRAFT', ...(search ? { search } : {}) } })
+    api.get('/invoices', { params: { status: 'DRAFT', ...(search ? { search } : {}), ...(dept === 'ALL' ? {} : { division: dept }) } })
       .then(({ data }) => setRows(Array.isArray(data) ? data : data.data ?? []))
       .catch(() => { if (!silent) setRows([]) })
       .finally(() => { if (!silent) setLoading(false) })
-  }, [search])
+  }, [search, dept])
 
   useEffect(() => { fetchDrafts() }, [fetchDrafts])
   useAutoRefresh(() => fetchDrafts(true))
@@ -141,10 +146,13 @@ export default function InvoiceApprovalPage() {
   return (
     <div className="flex flex-col" style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
 
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
+      {/* Fixed 52px, scrolls sideways rather than wrapping, so the department
+          switch never changes the height of the band */}
+      <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginBottom: 8, overflowX: 'auto', overflowY: 'hidden' }}>
+        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496', flexShrink: 0, whiteSpace: 'nowrap' }}>
           Invoice Approval
         </h1>
+        {canSwitchDept && <DeptToggle value={dept} onChange={setDept} withAll />}
       </div>
 
       {priceInv ? (

@@ -63,7 +63,7 @@ const PAD: Record<string, number> = {
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(actorRole: Role, roleFilter?: Role, search?: string, status?: string, actorDivision?: string) {
+  async findAll(actorRole: Role, roleFilter?: Role, search?: string, status?: string, actorDivision?: string, wantDivision?: string) {
     const visibleRoles = this.getVisibleRoles(actorRole)
 
     const where: any = {
@@ -78,6 +78,13 @@ export class UsersService {
     if (actorRole !== Role.ADMIN && actorRole !== Role.PARTNER
         && actorDivision && actorDivision !== 'BOTH') {
       where.division = actorDivision
+    } else if (actorRole === Role.ADMIN || actorRole === Role.PARTNER) {
+      // Their Tax / Audit switch. A staff member marked Both belongs to either
+      // side, so they stay on screen whichever one is picked.
+      const want = String(wantDivision ?? '').toUpperCase()
+      if (want === 'TAX' || want === 'AUDIT') {
+        where.division = { in: [want, 'BOTH'] as any }
+      }
     }
 
     if (status === 'active')   where.isActive = true

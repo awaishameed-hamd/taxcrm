@@ -267,9 +267,9 @@ function GenStepList({ steps, role, genStepLoading, genStepFormVal, setGenStepFo
   )
 }
 
-interface Props { role: 'trainee' | 'manager' | 'team_lead' | 'admin'; defaultManagerView?: 'my' | 'approval'; completedOnly?: boolean; incompleteOnly?: boolean }
+interface Props { role: 'trainee' | 'manager' | 'team_lead' | 'admin'; defaultManagerView?: 'my' | 'approval'; completedOnly?: boolean; incompleteOnly?: boolean; deptSwitch?: React.ReactNode }
 
-export default function TasksPage({ role, defaultManagerView = 'approval', completedOnly = false, incompleteOnly = false }: Props) {
+export default function TasksPage({ role, defaultManagerView = 'approval', completedOnly = false, incompleteOnly = false, deptSwitch }: Props) {
   const { permissions } = useAuth()
   const canDeleteTask        = role === 'admin' || (permissions as any)['task_delete']        === true
   const canMarkIncomplete    = role === 'admin' || (permissions as any)['task_mark_incomplete'] === true
@@ -871,8 +871,11 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
   // ── Pills row ───────────────────────────────────────────────────────────────
   const PillsRow = (
     <div style={{ flexShrink:0, overflow:'visible' }}>
-      <div style={{ display:'flex', justifyContent:'center', padding:'14px 24px 8px', background:'#f7f8fa', overflow:'visible' }}>
-        <div style={{ display:'flex', gap:2, background:'#fff', border:`1px solid ${P.border}`, borderRadius:8, padding:3, overflow:'visible' }}>
+      {/* The department switch sits in this same row rather than above it, so the
+          band keeps its height. When the two together are wider than the screen
+          the row scrolls sideways instead of wrapping and growing taller. */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, justifyContent: deptSwitch ? 'safe center' : 'center', padding:'14px 24px 8px', background:'#f7f8fa', overflowX: deptSwitch ? 'auto' : 'visible', overflowY: deptSwitch ? 'hidden' : 'visible' }}>
+        <div style={{ display:'flex', gap:2, background:'#fff', border:`1px solid ${P.border}`, borderRadius:8, padding:3, overflow:'visible', flexShrink:0 }}>
           {TAX_TABS.map(tab => {
             const active = activeTax === tab.key
             const cnt    = tabCounts[tab.key] ?? 0
@@ -894,6 +897,7 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
             )
           })}
         </div>
+        {deptSwitch}
       </div>
       <div style={{ display:'flex', gap:3, padding:'0 20px', height:3, flexShrink:0 }}>
         {TAX_TABS.map(tab => (
@@ -1286,8 +1290,9 @@ export default function TasksPage({ role, defaultManagerView = 'approval', compl
 
           {/* Header + tax pills on same row */}
           <div style={{ background:'#EDF0F3', flexShrink:0 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 20px 8px', gap:12 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 20px 8px', gap:12, overflowX:'auto', overflowY:'hidden' }}>
               <h2 style={{ margin:0, fontSize: 26, fontFamily:"'Faster One', cursive", textTransform: 'uppercase', color: '#1E8496', flexShrink:0, display:'inline-block' }}>{incompleteOnly ? 'Incomplete Tasks' : 'Completed Tasks'}</h2>
+              {deptSwitch}
               <div style={{ display:'flex', gap:2, background:'#fff', border:`1px solid ${P.border}`, borderRadius:8, padding:3, flexShrink:0 }}>
                 {TAX_TABS.map(tab => {
                   const isActive = activeTax === tab.key

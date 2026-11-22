@@ -15,7 +15,10 @@ export class DashboardController {
     @Query('period') period?: 'daily' | 'weekly' | 'monthly' | 'custom',
     @Query('from_date') fromDate?: string,
     @Query('to_date') toDate?: string,
+    // Admin and the Director carry both departments, so they can ask for the
+    // other one's dashboard. Anyone else is pinned to their own division.
+    @Query('division') division?: string,
   ) {
-    return this.dashboardService.getStats(user.id, user.role, period, fromDate, toDate, user.division)
+    return this.dashboardService.getStats(user.id, user.role, period, fromDate, toDate, user.division, division)
   }
 }

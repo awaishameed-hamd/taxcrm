@@ -373,8 +373,32 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
     tasks: 0, taskApproval: 0, attApproval: 0, messages: 0, invoiceApproval: 0,
   })
 
+  // Audit-only people never see the tax task form. Partner and Admin carry both
+  // halves, so they keep the tax button and reach audit from the nav.
+  const isAuditOnly = user?.division === 'AUDIT'
+    && user?.role !== Role.ADMIN && user?.role !== Role.PARTNER
+
   const fetchNavCounts = useCallback(() => {
     if (!user) return
+
+    // An audit person's Tasks and Task Approval hold engagements, so counting
+    // sales tax tasks would badge their sidebar with another department's work.
+    if (isAuditOnly) {
+      api.get('/audit/summary').then(r => {
+        const d = r.data?.data ?? r.data
+        setNavCounts(c => ({ ...c, tasks: d.inProgress ?? 0, taskApproval: d.awaitingApproval ?? 0 }))
+      }).catch(() => {})
+      api.get('/attendance/pending-count').then(r => {
+        const d = r.data?.data ?? r.data
+        setNavCounts(c => ({ ...c, attApproval: typeof d === 'number' ? d : (d.count ?? 0) }))
+      }).catch(() => {})
+      api.get('/chat/unread-count').then(r => {
+        const d = r.data?.data ?? r.data
+        setNavCounts(c => ({ ...c, messages: typeof d === 'number' ? d : (d.count ?? 0) }))
+      }).catch(() => {})
+      return
+    }
+
     if (user.role !== Role.CLIENT) {
       api.get('/sales-tax-tasks/summary-counts', { params: { view: 'my' } }).then(r => {
         const d = r.data?.data ?? r.data
@@ -539,10 +563,6 @@ export default function Sidebar({ collapsed, onToggle, compact = false }: Sideba
       return d === 'BOTH' || d === item.division
     })
 
-  // Audit-only people never see the tax task form. Partner and Admin carry both
-  // halves, so they keep the tax button and reach audit from the nav.
-  const isAuditOnly = user?.division === 'AUDIT'
-    && user?.role !== Role.ADMIN && user?.role !== Role.PARTNER
   const canRaiseEngagement = user?.role === Role.MANAGER
   // The first path segment is the role folder, so Audit is a sibling of
   // whatever page they are on.

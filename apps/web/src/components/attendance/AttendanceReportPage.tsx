@@ -5,6 +5,7 @@ import type ExcelJS from 'exceljs'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import PillSelect from '@/components/ui/PillSelect'
+import DeptToggle, { useDeptView } from '@/components/ui/DeptToggle'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { formatTime12h } from '@/lib/utils'
@@ -715,14 +716,19 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
     else if (month > maxM) setMonth(maxM)
   }, [year]) // eslint-disable-line
 
+  // Tax, Audit or both, for the two roles that oversee the whole firm
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true })
+  const deptSwitch = canSwitchDept ? <DeptToggle value={dept} onChange={setDept} withAll /> : null
+
   const fetchReport = useCallback(async (silent = false) => {
     if (!silent) { setLoading(true); setSelected(null) }
     try {
       const params: any = viewMode === 'all' ? { mode: 'all' } : { month, year }
+      if (canSwitchDept && dept !== 'ALL') params.division = dept
       const { data } = await api.get('/attendance/report', { params })
       setRecords(data.data ?? [])
     } catch { /* ignore */ } finally { if (!silent) setLoading(false) }
-  }, [viewMode, month, year])
+  }, [viewMode, month, year, canSwitchDept, dept])
 
   useEffect(() => { fetchReport() }, [fetchReport])
   useAutoRefresh(() => fetchReport(true))
@@ -766,13 +772,16 @@ export default function AttendanceReportPage({ isPartner = false }: { isPartner?
     <div className="flex flex-col" style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
 
       {/* Header */}
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
+      {/* Fixed 52px, scrolls sideways rather than wrapping, so the department
+          switch never changes the height of the band */}
+      <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0, marginBottom: 16, overflowX: 'auto', overflowY: 'hidden' }}>
+        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496', flexShrink: 0, whiteSpace: 'nowrap' }}>
           Attendance Report
         </h1>
+        {deptSwitch}
         <button onClick={() => exportExcel(summaries, month, year, viewMode)} disabled={loading || summaries.length === 0}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-60"
-          style={{ background: '#16a34a' }}
+          style={{ background: '#16a34a', flexShrink: 0 }}
           onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#15803d' }}
           onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#16a34a'}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

@@ -1724,7 +1724,7 @@ export default function ClientsListPage() {
   // Which book of clients is on screen. Defaults to the viewer's own department
   // but either can be opened, so an audit person finds an existing tax client
   // and switches Audit Services on rather than adding them a second time.
-  const [book, setBook] = useState<'TAX' | 'AUDIT'>(user?.division === 'AUDIT' ? 'AUDIT' : 'TAX')
+  const [book, setBook] = useState<'TAX' | 'AUDIT' | 'ALL'>(user?.division === 'AUDIT' ? 'AUDIT' : 'TAX')
   const canCreateClient    = usePermission('clients_create')
   const canEditClient      = usePermission('clients_edit')
   const canViewReps        = usePermission('representatives')
@@ -2022,6 +2022,7 @@ export default function ClientsListPage() {
               {([
                 { key: 'TAX',   label: 'Tax Clients'   },
                 { key: 'AUDIT', label: 'Audit Clients' },
+                { key: 'ALL',   label: 'All'            },
               ] as const).map(b => (
                 <button key={b.key} onClick={() => setBook(b.key)} style={{
                   background: book === b.key ? P.teal : 'transparent',

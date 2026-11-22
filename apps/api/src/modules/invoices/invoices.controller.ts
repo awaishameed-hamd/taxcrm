@@ -21,8 +21,9 @@ export class InvoicesController {
     @Query('status') status?: string,
     @Query('clientId') clientId?: string,
     @Query('search') search?: string,
+    @Query('division') division?: string,
   ) {
-    return this.svc.list(status, clientId, search, req.user)
+    return this.svc.list(status, clientId, search, req.user, division)
   }
 
   @Get('summary')
@@ -38,22 +39,26 @@ export class InvoicesController {
     @Query('to') to?: string,
     @Query('clientId') clientId?: string,
     @Query('search') search?: string,
+    @Query('division') division?: string,
   ) {
-    return this.svc.register(from, to, clientId, search, req.user)
+    return this.svc.register(from, to, clientId, search, req.user, division)
   }
 
+  // `division` is the Tax / Audit / All filter on the Client Ledgers rail
   @Get('clients')
-  clients(@Req() req: any, @Query('search') search?: string) {
-    return this.svc.clientsWithBalances(search, req.user)
+  clients(@Req() req: any, @Query('search') search?: string, @Query('division') division?: string) {
+    return this.svc.clientsWithBalances(search, req.user, division)
   }
 
   @Get('ledger/:clientId')
   ledger(
+    @Req() req: any,
     @Param('clientId') clientId: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('division') division?: string,
   ) {
-    return this.svc.clientLedger(clientId, from, to)
+    return this.svc.clientLedger(clientId, from, to, req.user, division)
   }
 
   @Get('open/:clientId')

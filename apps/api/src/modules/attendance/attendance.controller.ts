@@ -49,9 +49,12 @@ export class AttendanceController {
     @Query('month',  new DefaultValuePipe(new Date().getMonth() + 1), ParseIntPipe) month: number = 0,
     @Query('year',   new DefaultValuePipe(new Date().getFullYear()),  ParseIntPipe) year:  number = 0,
     @Query('userId') userId?: string,
+    // Admin and the Director oversee both departments, so they can narrow the
+    // report to one of them. Everyone else stays inside their own.
+    @Query('division') division?: string,
   ) {
     const all = mode === 'all'
-    return this.svc.getReport(all ? null : month, all ? null : year, user.role, user.id, userId, user.division)
+    return this.svc.getReport(all ? null : month, all ? null : year, user.role, user.id, userId, user.division, division)
   }
 
   // ── Daily snapshot ─────────────────────────────────────────────────────────
@@ -60,9 +63,10 @@ export class AttendanceController {
   getDailyAttendance(
     @CurrentUser() user: any,
     @Query('date') date?: string,
+    @Query('division') division?: string,
   ) {
     const d = date ?? new Date().toISOString().split('T')[0]
-    return this.svc.getDailyAttendance(d, user.role, user.id, user.division)
+    return this.svc.getDailyAttendance(d, user.role, user.id, user.division, division)
   }
 
   // ── Opening balance ────────────────────────────────────────────────────────

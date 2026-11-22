@@ -13,13 +13,18 @@ export class DashboardService {
     fromDate?: string,
     toDate?: string,
     actorDivision?: string,
+    wantDivision?: string,
   ) {
     // An audit person's dashboard is about engagements, not tax returns. The
     // tax figures below would all read zero for them, which looks like a broken
     // page rather than a different department.
     const isAuditOnly = actorDivision === 'AUDIT'
       && actorRole !== Role.ADMIN && actorRole !== Role.PARTNER
-    if (isAuditOnly) return this.auditStats(actorId, actorRole)
+    // Admin and the Director see both halves, so they may ask for the audit one
+    const canSeeBoth = actorRole === Role.ADMIN || actorRole === Role.PARTNER
+    if (isAuditOnly || (canSeeBoth && String(wantDivision).toUpperCase() === 'AUDIT')) {
+      return this.auditStats(actorId, actorRole)
+    }
     const dateFilter = this.buildDateFilter(period, fromDate, toDate)
     const createdFilter = dateFilter ? { createdAt: dateFilter } : {}
 

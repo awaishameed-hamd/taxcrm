@@ -5,9 +5,10 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import PillSelect from '@/components/ui/PillSelect'
 import EngagementDetail from './EngagementDetail'
 import NewEngagementPanel from './NewEngagementPanel'
-import { F, NAVY, TEAL, STATUS_META, PHASE_LABEL, fmtDate } from './auditShared'
+import { F, NAVY, TEAL, STATUS_META, PHASE_LABEL, PHASES, fmtDate } from './auditShared'
 
 // The same five-pill shape Tasks uses, so the two departments read as one app.
 // Colours come from the same family: each tab owns one, the rail under the pills
@@ -21,8 +22,8 @@ const AUDIT_TABS = [
 
 const TAB_KEY = 'auditActiveTab'
 
-export default function AuditPage({ approvalOnly = false, completedOnly = false }: {
-  approvalOnly?: boolean; completedOnly?: boolean
+export default function AuditPage({ approvalOnly = false, completedOnly = false, incompleteOnly = false, deptSwitch }: {
+  approvalOnly?: boolean; completedOnly?: boolean; incompleteOnly?: boolean; deptSwitch?: React.ReactNode
 }) {
   const { user } = useAuth()
   const isManager = ['ADMIN', 'PARTNER', 'MANAGER'].includes(String(user?.role))
@@ -35,10 +36,22 @@ export default function AuditPage({ approvalOnly = false, completedOnly = false 
   const [creating,  setCreating]  = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
+  // Filters, only on the Completed and Incomplete lists, same set Tasks carries
+  const [filterLead,   setFilterLead]   = useState('all')
+  const [filterPhase,  setFilterPhase]  = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterTime,   setFilterTime]   = useState<'all' | 'this_month' | 'this_year' | 'custom'>('all')
+  const [filterFrom,   setFilterFrom]   = useState('')
+  const [filterTo,     setFilterTo]     = useState('')
+
+  // The tab is remembered per view, so Completed does not drag the tab you were
+  // last on in Tasks along with it
+  const tabKey = completedOnly ? `${TAB_KEY}_completed` : incompleteOnly ? `${TAB_KEY}_incomplete` : TAB_KEY
+
   // Remember the tab between visits, the way Tasks does
   useEffect(() => {
-    try { const t = sessionStorage.getItem(TAB_KEY); if (t) setActiveTab(t) } catch { /* private mode */ }
-  }, [])
+    try { const t = sessionStorage.getItem(tabKey); if (t) setActiveTab(t) } catch { /* private mode */ }
+  }, [tabKey])
 
   const fetchRows = useCallback((silent = false) => {
     if (!silent) setLoading(true)
@@ -59,6 +72,26 @@ export default function AuditPage({ approvalOnly = false, completedOnly = false 
     return r.status !== 'COMPLETED'
   }), [rows, approvalOnly, completedOnly])
 
+  // Team leads on the engagements in view, for the filter dropdown
+  const leadOptions = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of forView) if (r.teamLead?.id) m.set(r.teamLead.id, r.teamLead.fullName)
+    return [...m.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [forView])
+
+  // A completed engagement is dated by its sign off, an open one by its year end
+  const inTimeRange = useCallback((d?: string | null) => {
+    if (filterTime === 'all') return true
+    if (!d) return false
+    const dt  = new Date(d)
+    const now = new Date()
+    if (filterTime === 'this_month') return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear()
+    if (filterTime === 'this_year')  return dt.getFullYear() === now.getFullYear()
+    if (filterFrom && dt < new Date(filterFrom)) return false
+    if (filterTo) { const to = new Date(filterTo); to.setHours(23, 59, 59, 999); if (dt > to) return false }
+    return true
+  }, [filterTime, filterFrom, filterTo])
+
   const tabCounts = useMemo(() => {
     const c: Record<string, number> = {}
     for (const r of forView) c[r.taskType] = (c[r.taskType] ?? 0) + 1
@@ -66,14 +99,26 @@ export default function AuditPage({ approvalOnly = false, completedOnly = false 
   }, [forView])
 
   const listed = useMemo(() => {
-    const q = search.trim().toLowerCase()
+    const q       = search.trim().toLowerCase()
+    const isList  = completedOnly || incompleteOnly
     return forView
       .filter(r => r.taskType === activeTab)
       .filter(r => !q
         || r.title?.toLowerCase().includes(q)
         || r.client?.businessName?.toLowerCase().includes(q)
         || r.client?.user?.fullName?.toLowerCase().includes(q))
-  }, [forView, activeTab, search])
+      .filter(r => {
+        if (!isList) return true
+        if (filterLead  !== 'all' && r.teamLead?.id !== filterLead) return false
+        if (filterPhase !== 'all' && r.phase !== filterPhase) return false
+        if (incompleteOnly && filterStatus !== 'all') {
+          if (filterStatus === 'sentback'   && r.status !== 'SENT_BACK')   return false
+          if (filterStatus === 'inprogress' && r.status !== 'IN_PROGRESS') return false
+        }
+        return inTimeRange(completedOnly ? (r.signedOffAt ?? r.completedAt) : r.periodEndDate)
+      })
+  }, [forView, activeTab, search, completedOnly, incompleteOnly,
+      filterLead, filterPhase, filterStatus, inTimeRange])
 
   const current = listed.find(r => r.id === selected) ?? null
   const tabCfg  = AUDIT_TABS.find(t => t.key === activeTab)!
@@ -85,14 +130,17 @@ export default function AuditPage({ approvalOnly = false, completedOnly = false 
   // ── Pills row, lifted from Tasks so the two look identical ────────────────
   const PillsRow = (
     <div style={{ flexShrink: 0, overflow: 'visible' }}>
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 24px 8px', background: '#f7f8fa', overflow: 'visible' }}>
-        <div style={{ display: 'flex', gap: 2, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: 3, overflow: 'visible' }}>
+      {/* The department switch shares this row so the band keeps its height. If
+          the two together outgrow the screen the row scrolls sideways rather
+          than wrapping and pushing everything down. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: deptSwitch ? 'safe center' : 'center', padding: '14px 24px 8px', background: '#f7f8fa', overflowX: deptSwitch ? 'auto' : 'visible', overflowY: deptSwitch ? 'hidden' : 'visible' }}>
+        <div style={{ display: 'flex', gap: 2, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: 3, overflow: 'visible', flexShrink: 0 }}>
           {AUDIT_TABS.map(tab => {
             const active = activeTab === tab.key
             const cnt    = tabCounts[tab.key] ?? 0
             return (
               <button key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setSelected(null); try { sessionStorage.setItem(TAB_KEY, tab.key) } catch {} }}
+                onClick={() => { setActiveTab(tab.key); setSelected(null); try { sessionStorage.setItem(tabKey, tab.key) } catch {} }}
                 style={{ flexShrink: 0, paddingTop: 5, paddingBottom: 5, paddingLeft: 14, paddingRight: cnt > 0 ? 4 : 14, borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12, fontWeight: active ? 700 : 500, transition: 'all .15s', border: 'none', background: active ? tab.color : 'transparent', color: active ? '#fff' : '#5C5C5C', whiteSpace: 'nowrap', display: 'flex', alignItems: 'stretch', gap: 5 }}>
                 <span style={{ display: 'flex', alignItems: 'center' }}>{tab.label}</span>
                 {cnt > 0 && (
@@ -107,6 +155,7 @@ export default function AuditPage({ approvalOnly = false, completedOnly = false 
             )
           })}
         </div>
+        {deptSwitch}
       </div>
       <div style={{ display: 'flex', gap: 3, padding: '0 20px', height: 3, flexShrink: 0 }}>
         {AUDIT_TABS.map(tab => (
@@ -115,6 +164,178 @@ export default function AuditPage({ approvalOnly = false, completedOnly = false 
       </div>
     </div>
   )
+
+  // ── Completed and Incomplete: one wide table, exactly the shape Tasks uses
+  //    for the same two pages. Title and pills share a row, then the teal
+  //    filter bar, then the gold-headed table, and View opens a centre modal ──
+  if (completedOnly || incompleteOnly) {
+    const cols = '40px 1fr 160px 150px 110px 120px 150px 75px'
+    const hdrs = ['#', 'Client', 'Task', 'Team Lead', 'Year End', 'Phase',
+                  incompleteOnly ? 'Status' : 'Signed Off', '']
+    const sep  = { width: 1, height: 22, background: 'rgba(255,255,255,0.3)', flexShrink: 0, margin: '0 2px' }
+    const emptyLabel = incompleteOnly
+      ? `No incomplete ${tabCfg.label} tasks.`
+      : `No completed ${tabCfg.label} tasks yet.`
+
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#f7f8fa' }}>
+
+        {/* Header + audit pills on same row */}
+        <div style={{ background: '#EDF0F3', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 8px', gap: 12, overflowX: 'auto', overflowY: 'hidden' }}>
+            <h2 style={{ margin: 0, fontSize: 26, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', color: TEAL, flexShrink: 0, display: 'inline-block' }}>
+              {incompleteOnly ? 'Incomplete Tasks' : 'Completed Tasks'}
+            </h2>
+            {deptSwitch}
+            <div style={{ display: 'flex', gap: 2, background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, padding: 3, flexShrink: 0 }}>
+              {AUDIT_TABS.map(tab => {
+                const isActive = activeTab === tab.key
+                return (
+                  <button key={tab.key}
+                    onClick={() => { setActiveTab(tab.key); setSelected(null); try { sessionStorage.setItem(tabKey, tab.key) } catch {} }}
+                    style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12, fontWeight: isActive ? 700 : 500, transition: 'all .15s', border: 'none', background: isActive ? tab.color : 'transparent', color: isActive ? '#fff' : '#5C5C5C', whiteSpace: 'nowrap' }}>
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 3, padding: '0 20px', height: 3, flexShrink: 0 }}>
+            {AUDIT_TABS.map(tab => (
+              <div key={tab.key} style={{ flex: 1, background: tab.color, borderRadius: 2, opacity: activeTab === tab.key ? 1 : 0.35, transition: 'opacity .2s' }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Filter bar */}
+        <div style={{ background: '#EDF0F3', flexShrink: 0, padding: '10px 16px', borderBottom: `1px solid ${P.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: TEAL, borderRadius: 40, padding: '5px 8px' }}>
+
+            <PillSelect value={filterLead} onChange={setFilterLead} dimValue="all"
+              options={[{ value: 'all', label: 'All Team Leads' }, ...leadOptions.map(l => ({ value: l.id, label: l.name }))]} />
+
+            <div style={sep} />
+
+            <PillSelect value={filterPhase} onChange={setFilterPhase} dimValue="all"
+              options={[{ value: 'all', label: 'All Phases' }, ...PHASES.map(p => ({ value: p.value, label: p.label }))]} />
+
+            {incompleteOnly && (
+              <PillSelect value={filterStatus} onChange={setFilterStatus} dimValue="all"
+                options={[{ value: 'all', label: 'All Status' }, { value: 'inprogress', label: 'In Progress' }, { value: 'sentback', label: 'Sent Back' }]} />
+            )}
+
+            <div style={sep} />
+
+            {([['all', 'All'], ['this_month', 'This Month'], ['this_year', 'This Year'], ['custom', 'Custom']] as const).map(([key, label]) => (
+              <button key={key} onClick={() => setFilterTime(key)}
+                style={{ flexShrink: 0, padding: '4px 12px', borderRadius: 40, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: F, transition: 'all .15s', whiteSpace: 'nowrap',
+                  background: filterTime === key ? NAVY : 'transparent',
+                  color: filterTime === key ? '#fff' : 'rgba(255,255,255,0.85)' }}>
+                {label}
+              </button>
+            ))}
+
+            <div style={sep} />
+
+            <div style={{ position: 'relative', width: 220, flexShrink: 0 }}>
+              <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.8)" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="completed-search"
+                style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 28, paddingRight: 8, paddingTop: 4, paddingBottom: 4, borderRadius: 30, border: '1.5px solid rgba(255,255,255,0.35)', fontSize: 12, outline: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: F }} />
+            </div>
+
+            <span style={{ flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', paddingLeft: 4, paddingRight: 4 }}>
+              {listed.length} tasks
+            </span>
+          </div>
+
+          {filterTime === 'custom' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, paddingLeft: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#64748B' }}>From:</span>
+              <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
+                style={{ padding: '4px 6px', borderRadius: 8, border: `1px solid ${P.border}`, background: '#fff', color: NAVY, fontSize: 12, outline: 'none' }} />
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#64748B' }}>To:</span>
+              <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
+                style={{ padding: '4px 6px', borderRadius: 8, border: `1px solid ${P.border}`, background: '#fff', color: NAVY, fontSize: 12, outline: 'none' }} />
+              <button onClick={() => { setFilterFrom(''); setFilterTo('') }}
+                style={{ padding: '4px 12px', borderRadius: 8, border: `1px solid ${P.border}`, background: '#fff', color: '#64748B', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Table */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 16px' }}>
+          {loading && <div style={{ padding: 32, textAlign: 'center', color: P.textMuted, fontSize: 13 }}>Loading…</div>}
+
+          {!loading && (
+            <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: cols, background: '#F2AC18', padding: '7px 18px', alignItems: 'center' }}>
+                {hdrs.map((h, i) => (
+                  <span key={i} style={{ fontSize: 12, fontWeight: 600, color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: F }}>{h}</span>
+                ))}
+              </div>
+
+              {listed.length === 0 && (
+                <div style={{ padding: 32, textAlign: 'center', color: P.textMuted, fontSize: 13 }}>{emptyLabel}</div>
+              )}
+
+              {listed.map((r, idx) => {
+                const clientName = r.client?.businessName ?? r.client?.user?.fullName ?? 'N/A'
+                const signed     = r.signedOffAt ?? r.completedAt
+                const signedStr  = signed
+                  ? `${new Date(signed).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                  : 'N/A'
+                const sentBack   = r.status === 'SENT_BACK'
+                const isSelected = selected === r.id
+                return (
+                  <div key={r.id} style={{ display: 'grid', gridTemplateColumns: cols, padding: '6px 18px', borderBottom: '1px solid #F1F5F9', alignItems: 'center', background: isSelected ? '#EBF4FF' : '#fff', transition: 'background .15s' }}
+                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}
+                    onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = '#fff' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>{idx + 1}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{clientName}</span>
+                    <span style={{ fontSize: 12, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{r.title}</span>
+                    <span style={{ fontSize: 12, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.teamLead?.fullName ?? 'Not assigned'}</span>
+                    <span style={{ fontSize: 12, color: '#475569' }}>{r.periodLabel || fmtDate(r.periodEndDate)}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: tabCfg.color, background: tabCfg.bg, padding: '2px 8px', borderRadius: 5, width: 'fit-content' }}>
+                      {PHASE_LABEL[r.phase] ?? r.phase}
+                    </span>
+                    {incompleteOnly
+                      ? <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: sentBack ? '#DC2626' : '#F97316', padding: '2px 8px', borderRadius: 5, width: 'fit-content' }}>
+                          {sentBack ? 'Sent Back' : `${r.progress?.completed ?? 0}/${r.progress?.total ?? 0} done`}
+                        </span>
+                      : <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>{signedStr}</span>
+                    }
+                    <button onClick={() => setSelected(r.id)}
+                      style={{ padding: '5px 14px', borderRadius: 7, border: `1.5px solid ${TEAL}`, background: '#F0FAFB', color: TEAL, fontSize: 12, fontWeight: 700, cursor: 'pointer', width: 'fit-content' }}>
+                      View
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* View modal, the same centre panel the tax lists open */}
+        {current && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ width: 'min(960px,95vw)', height: '90vh', background: '#f7f8fa', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+              <button onClick={() => setSelected(null)}
+                style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, width: 30, height: 30, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#F1F5F9', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                <svg width={12} height={12} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                <EngagementDetail id={current.id} embedded onBack={() => setSelected(null)} onChanged={() => fetchRows(true)} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#f7f8fa', overflow: 'hidden' }}>
@@ -176,30 +397,14 @@ export default function AuditPage({ approvalOnly = false, completedOnly = false 
 
       {/* ── Right pane ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 20px', height: 52, flexShrink: 0 }}>
+        {PillsRow}
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 20px', minWidth: 0, position: 'relative' }}>
           {collapsed && (
-            <button onClick={() => setCollapsed(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: P.iconMuted, padding: 4 }}>
+            <button onClick={() => setCollapsed(false)} style={{ position: 'absolute', top: 12, left: 12, zIndex: 20, width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg,${TEAL} 0%,#0E5F6E 100%)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
               <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
             </button>
           )}
-          <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, color: TEAL }}>
-            {approvalOnly ? 'Task Approval' : completedOnly ? 'Completed Tasks' : 'Tasks'}
-          </h1>
-          <div style={{ flex: 1 }} />
-          {isManager && !approvalOnly && !completedOnly && (
-            <button onClick={() => setCreating(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', background: TEAL, color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: F }}>
-              <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              New Task
-            </button>
-          )}
-        </div>
-
-        {PillsRow}
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 20px', minWidth: 0 }}>
           {current ? (
             <EngagementDetail id={current.id} embedded onBack={() => setSelected(null)} onChanged={() => fetchRows(true)} />
           ) : (

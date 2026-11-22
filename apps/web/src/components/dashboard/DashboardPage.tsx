@@ -10,6 +10,7 @@ import {
 import api from '@/lib/api'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { usePhone, useCompact } from '@/hooks/useMediaQuery'
+import DeptToggle, { useDeptView } from '@/components/ui/DeptToggle'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const NAVY   = '#132E57'
@@ -253,10 +254,18 @@ export default function DashboardPage({ title }: Props) {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
 
+  // Tax or Audit, for the two roles that sit above both departments
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView()
+  const deptSwitch = canSwitchDept ? <DeptToggle value={dept} onChange={setDept} /> : null
+
   const load = useCallback(async (silent = false) => {
     if (!silent) { setLoading(true); setError('') }
     try {
-      const params = period === 'overall' ? {} : { period }
+      const params = {
+        ...(period === 'overall' ? {} : { period }),
+        // Only Admin and the Director can ask for the other department's figures
+        ...(canSwitchDept && dept === 'AUDIT' ? { division: 'AUDIT' } : {}),
+      }
       const { data: res } = await api.get('/dashboard/stats', { params })
       setData(res.data)
     } catch {
@@ -264,7 +273,7 @@ export default function DashboardPage({ title }: Props) {
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [period])
+  }, [period, canSwitchDept, dept])
 
   useEffect(() => { load() }, [load])
   useAutoRefresh(() => load(true))
@@ -305,10 +314,11 @@ export default function DashboardPage({ title }: Props) {
         background:BG, minHeight:'100vh', boxSizing:'border-box', fontFamily:F,
         padding: phone ? '14px 12px 14px 58px' : '0 18px 14px',
       }}>
-        <div style={{ display:'flex', alignItems:'center', minHeight: phone ? undefined : 52, marginBottom: phone ? 12 : 8 }}>
-          <h1 style={{ margin:0, fontFamily:"'Faster One', cursive", textTransform:'uppercase', fontSize:26, color:TEAL }}>
-            Dashboard
-          </h1>
+        <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}`}</style>
+        {/* Same header band, same type size as the tax dashboard below */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', minHeight: phone ? undefined : 52, marginBottom: phone ? 12 : 8, gap:8, overflowX:'auto', overflowY:'hidden' }}>
+          <div style={{ fontSize:29, color:TEAL, fontFamily:"'Faster One',cursive", textTransform:'uppercase', display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15, flexShrink:0 }}>{title}</div>
+          {deptSwitch}
         </div>
         {error && <div style={{ background:'#FEE2E2', border:'1px solid #FCA5A5', borderRadius:6, padding:'8px 12px', fontSize:12, color:'#991B1B', marginBottom:10 }}>{error}</div>}
         <AuditDashboard data={data} loading={loading} />
@@ -336,6 +346,7 @@ export default function DashboardPage({ title }: Props) {
             each glyph and lighten it. 26 reads level with the brand. */}
         <div style={{ fontSize:29, color:TEAL, fontFamily:"'Faster One',cursive", textTransform: 'uppercase', display:'inline-block', letterSpacing:'0.01em', lineHeight:1.15 }}>{title}</div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+        {deptSwitch}
         {/* Charts and Summary are two readings of the same data, so they share the
             stat cards and the period filter and only swap what sits below. */}
         <div style={{ display:'flex', gap:2, background:WHITE, border:`1px solid ${BORDER}`, borderRadius:8, padding:3 }}>

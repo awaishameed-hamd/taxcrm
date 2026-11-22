@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { RolesGuard }   from '../../common/guards/roles.guard'
 import { Roles }        from '../../common/decorators/roles.decorator'
@@ -27,13 +27,13 @@ export class LeavesController {
   @Get('pending')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
   getPending(@CurrentUser() user: any) {
-    return this.svc.getPending(user.role)
+    return this.svc.getPending(user.role, user.division)
   }
 
   @Get('all')
   @Roles(Role.ADMIN, Role.PARTNER, Role.MANAGER)
-  getAll(@CurrentUser() user: any) {
-    return this.svc.getAll(user.role)
+  getAll(@CurrentUser() user: any, @Query('division') division?: string) {
+    return this.svc.getAll(user.role, user.division, division)
   }
 
   @Patch(':id/approve')

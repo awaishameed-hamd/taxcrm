@@ -622,7 +622,23 @@ export class AuditService implements OnModuleInit {
     const myPapers = await this.prisma.auditWorkingPaper.count({
       where: { assignedToId: actor.id, status: { notIn: [WorkingPaperStatus.COMPLETED] } },
     })
-    return { total, inProgress, completed, sentBack, myOpenWorkingPapers: myPapers }
+
+    // What is actually sitting on this person's desk for review. A manager is
+    // waiting on manager review, a team lead on team lead review, and a trainee
+    // reviews nothing, so their badge stays at zero instead of showing someone
+    // else's queue.
+    const reviewStatus = this.isManagerOrAbove(actor.role)
+      ? WorkingPaperStatus.MANAGER_REVIEW
+      : actor.role === Role.TEAM_LEAD
+      ? WorkingPaperStatus.TEAM_LEAD_REVIEW
+      : null
+    const awaitingApproval = reviewStatus
+      ? await this.prisma.auditWorkingPaper.count({
+          where: { status: reviewStatus, engagement: where },
+        })
+      : 0
+
+    return { total, inProgress, completed, sentBack, myOpenWorkingPapers: myPapers, awaitingApproval }
   }
 
   // Who a manager or team lead can put on an audit team: audit staff only.

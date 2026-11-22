@@ -18,8 +18,14 @@ const INTERNAL_STAFF_ROLES: Role[] = [Role.ADMIN, Role.PARTNER, Role.MANAGER, Ro
 // and a tax manager approves tax staff. Partner and Admin oversee the whole firm
 // and are never narrowed. Returns a fragment to spread into a user where-clause.
 // The nightly sweeps deliberately do not use this, they cover everyone.
-function divisionOfStaff(actorRole?: Role, actorDivision?: string) {
-  if (actorRole === Role.ADMIN || actorRole === Role.PARTNER) return {}
+// Admin and the Director may pass a department of their own choosing, which is
+// their Tax / Audit switch. Staff marked Both show on either side.
+function divisionOfStaff(actorRole?: Role, actorDivision?: string, wantDivision?: string) {
+  if (actorRole === Role.ADMIN || actorRole === Role.PARTNER) {
+    const want = String(wantDivision ?? '').toUpperCase()
+    if (want === 'TAX' || want === 'AUDIT') return { division: { in: [want, 'BOTH'] } as any }
+    return {}
+  }
   if (!actorDivision || actorDivision === 'BOTH') return {}
   return { division: actorDivision as any }
 }
@@ -487,8 +493,8 @@ export class AttendanceService {
     return attCount + leaveCount
   }
 
-  async getReport(month: number | null, year: number | null, actorRole: Role, actorId: string, targetUserId?: string, actorDivision?: string) {
-    const where: any = { user: { attendanceApplicable: true, role: { in: INTERNAL_STAFF_ROLES }, ...divisionOfStaff(actorRole, actorDivision) } }
+  async getReport(month: number | null, year: number | null, actorRole: Role, actorId: string, targetUserId?: string, actorDivision?: string, wantDivision?: string) {
+    const where: any = { user: { attendanceApplicable: true, role: { in: INTERNAL_STAFF_ROLES }, ...divisionOfStaff(actorRole, actorDivision, wantDivision) } }
     if (month && year) {
       const startDate = new Date(`${year}-${String(month).padStart(2,'0')}-01T00:00:00Z`)
       const endDate   = new Date(year, month, 1)
@@ -548,12 +554,12 @@ export class AttendanceService {
 
   // ── Daily attendance (snapshot of who's in today) ───────────────────────────
 
-  async getDailyAttendance(date: string, actorRole: Role, actorId: string, actorDivision?: string) {
+  async getDailyAttendance(date: string, actorRole: Role, actorId: string, actorDivision?: string, wantDivision?: string) {
     const day       = new Date(date + 'T00:00:00Z')
     const nextDay   = new Date(day.getTime() + 24 * 60 * 60 * 1000)
     const dayOfWeek = day.getDay()
 
-    const userWhere: any = { role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] }, isActive: true, attendanceApplicable: true, ...divisionOfStaff(actorRole, actorDivision) }
+    const userWhere: any = { role: { in: [Role.ADMIN, Role.PARTNER, Role.MANAGER, Role.TEAM_LEAD, Role.TRAINEE] }, isActive: true, attendanceApplicable: true, ...divisionOfStaff(actorRole, actorDivision, wantDivision) }
     if (actorRole === Role.TEAM_LEAD) {
       const trainees = await this.prisma.user.findMany({ where: { teamLeadId: actorId }, select: { id: true } })
       userWhere.id = { in: [actorId, ...trainees.map(t => t.id)] }

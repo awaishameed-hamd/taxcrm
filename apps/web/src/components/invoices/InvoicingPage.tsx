@@ -6,6 +6,7 @@ import { uploadFile } from '@/lib/storage'
 import { P } from '@/lib/palette'
 import PillSelect from '@/components/ui/PillSelect'
 import DataTable from '@/components/ui/DataTable'
+import DeptToggle, { useDeptView } from '@/components/ui/DeptToggle'
 import InvoiceFormPanel, { SERVICE_LABEL } from '@/components/invoices/InvoiceFormPanel'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { usePhone } from '@/hooks/useMediaQuery'
@@ -54,20 +55,25 @@ export default function InvoicingPage() {
     return customFrom && customTo ? { from: customFrom, to: customTo } : {}
   }, [range, customFrom, customTo])
 
+  // Tax, Audit or both. A manager opens on their own department and can look
+  // across, Admin and the Director open on everything.
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true, includeManagers: true })
+  const deptParam = useMemo(() => (dept === 'ALL' ? {} : { division: dept }), [dept])
+
   const fetchClients = useCallback(() => {
-    api.get('/invoices/clients', { params: searchInput ? { search: searchInput } : undefined })
+    api.get('/invoices/clients', { params: { ...(searchInput ? { search: searchInput } : {}), ...deptParam } })
       .then(({ data }) => setClients(Array.isArray(data) ? data : data.data ?? []))
       .catch(() => setClients([]))
-  }, [searchInput])
+  }, [searchInput, deptParam])
 
   const fetchRight = useCallback((silent = false) => {
     if (!selectedId) { setLedger(null); setLoading(false); return }
     if (!silent) setLoading(true)
-    api.get(`/invoices/ledger/${selectedId}`, { params: bounds })
+    api.get(`/invoices/ledger/${selectedId}`, { params: { ...bounds, ...deptParam } })
       .then(({ data }) => setLedger(data?.data ?? data))
       .catch(() => {})
       .finally(() => { if (!silent) setLoading(false) })
-  }, [selectedId, bounds])
+  }, [selectedId, bounds, deptParam])
 
   // Dismiss the right-click menu on any click elsewhere
   useEffect(() => {
@@ -169,6 +175,13 @@ export default function InvoicingPage() {
                   style={{ border: 'none', outline: 'none', flex: 1, fontSize: 12, fontFamily: F, background: 'transparent', color: NAVY }} />
               </div>
             </div>
+            {/* Tax, Audit or both. Its own band with sideways scroll, so the rows
+                below keep their height whatever the rail is narrowed to. */}
+            {canSwitchDept && (
+              <div style={{ padding: '0 14px 10px', display: 'flex', overflowX: 'auto', overflowY: 'hidden' }}>
+                <DeptToggle value={dept} onChange={setDept} withAll />
+              </div>
+            )}
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>

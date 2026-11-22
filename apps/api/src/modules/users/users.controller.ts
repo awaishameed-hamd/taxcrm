@@ -43,8 +43,11 @@ export class UsersController {
     @Query('role')   roleFilter?: Role,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    // Admin and the Director run both departments, so My Team can be narrowed
+    // to one of them. Everyone else stays inside their own.
+    @Query('division') division?: string,
   ) {
-    return this.usersService.findAll(user.role, roleFilter, search, status, user.division)
+    return this.usersService.findAll(user.role, roleFilter, search, status, user.division, division)
   }
 
   @Get(':id')

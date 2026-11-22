@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import DataTable from '@/components/ui/DataTable'
+import DeptToggle, { useDeptView } from '@/components/ui/DeptToggle'
 import { formatTime12h } from '@/lib/utils'
 
 const labelCls     = 'block text-xs font-bold uppercase tracking-widest mb-1'
@@ -110,30 +111,34 @@ export default function AttendanceApprovalPage() {
   const [leaveReason,  setLeaveReason]  = useState('')
   const [leaveActing,  setLeaveActing]  = useState(false)
 
+  // Tax, Audit or both, for the two roles that oversee the whole firm
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true })
+  const deptSwitch = canSwitchDept ? <DeptToggle value={dept} onChange={setDept} withAll /> : null
+
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
       const d    = new Date(date)
       const month = d.getUTCMonth() + 1
       const year  = d.getUTCFullYear()
-      const { data } = await api.get('/attendance/report', { params: { month, year } })
+      const { data } = await api.get('/attendance/report', { params: { month, year, ...(canSwitchDept && dept !== 'ALL' ? { division: dept } : {}) } })
       const all: any[] = data.data ?? []
       // Approval is only for people who actually logged in that day (PRESENT or
       // LATE). Absent rows are system-generated no-shows with nothing to approve,
       // and they get locked at 6pm on their own, so they do not belong here.
       setRecords(all.filter(r => r.date === date && (r.status === 'PRESENT' || r.status === 'LATE')))
     } catch { /* ignore */ } finally { if (!silent) setLoading(false) }
-  }, [date])
+  }, [date, canSwitchDept, dept])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   const fetchLeaves = useCallback(async (silent = false) => {
     if (!silent) setLeaveLoading(true)
     try {
-      const { data } = await api.get('/leaves/all')
+      const { data } = await api.get('/leaves/all', { params: canSwitchDept && dept !== 'ALL' ? { division: dept } : {} })
       setLeaveRecords(data.data ?? [])
     } catch { /* ignore */ } finally { if (!silent) setLeaveLoading(false) }
-  }, [])
+  }, [canSwitchDept, dept])
 
   useEffect(() => { if (moduleTab === 'leaves') fetchLeaves() }, [moduleTab, fetchLeaves])
 
@@ -239,10 +244,13 @@ export default function AttendanceApprovalPage() {
     <div className="flex flex-col" style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px' }}>
 
       {/* Header */}
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
+      {/* Fixed 52px, and it scrolls sideways rather than wrapping, so the
+          department switch cannot change the height of the band */}
+      <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginBottom: 8, overflowX: 'auto', overflowY: 'hidden' }}>
+        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496', flexShrink: 0, whiteSpace: 'nowrap' }}>
           {moduleTab === 'attendance' ? 'Attendance Approval' : 'Leave Approvals'}
         </h1>
+        {deptSwitch}
         {/* Module tabs */}
         <div style={{ display: 'flex', gap: 2, background: P.navy + '15', borderRadius: 10, padding: 4 }}>
           {[{ key: 'attendance', label: 'Attendance' }, { key: 'leaves', label: 'Leave Approvals' }].map(m => (

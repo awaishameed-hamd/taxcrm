@@ -96,7 +96,7 @@ export class LeavesService {
     })
   }
 
-  async getPending(actorRole: string) {
+  async getPending(actorRole: string, actorDivision?: string) {
     const approvableRoles = (CAN_APPROVE[actorRole] ?? [])
       .filter(r => actorRole === Role.MANAGER ? !ADMIN_PARTNER_ONLY.includes(r) : true)
     if (!approvableRoles.length) return []
@@ -104,7 +104,7 @@ export class LeavesService {
     return this.prisma.leaveApplication.findMany({
       where: {
         status:    'pending',
-        applicant: { role: { in: approvableRoles as any } },
+        applicant: { role: { in: approvableRoles as any }, ...this.divisionOfStaff(actorRole, actorDivision) },
       },
       orderBy: { createdAt: 'asc' },
       include: {
@@ -114,13 +114,26 @@ export class LeavesService {
     })
   }
 
-  async getAll(actorRole: string) {
+  // Leaves follow the same department wall as attendance: an audit manager
+  // approves audit staff, a tax manager approves tax staff. Admin and the
+  // Director oversee both and may narrow it with their own switch.
+  private divisionOfStaff(actorRole?: string, actorDivision?: string, wantDivision?: string) {
+    if (actorRole === Role.ADMIN || actorRole === Role.PARTNER) {
+      const want = String(wantDivision ?? '').toUpperCase()
+      if (want === 'TAX' || want === 'AUDIT') return { division: { in: [want, 'BOTH'] } as any }
+      return {}
+    }
+    if (!actorDivision || actorDivision === 'BOTH') return {}
+    return { division: actorDivision as any }
+  }
+
+  async getAll(actorRole: string, actorDivision?: string, wantDivision?: string) {
     const approvableRoles = (CAN_APPROVE[actorRole] ?? [])
       .filter(r => actorRole === Role.MANAGER ? !ADMIN_PARTNER_ONLY.includes(r) : true)
     if (!approvableRoles.length) return []
 
     return this.prisma.leaveApplication.findMany({
-      where:   { applicant: { role: { in: approvableRoles as any } } },
+      where:   { applicant: { role: { in: approvableRoles as any }, ...this.divisionOfStaff(actorRole, actorDivision, wantDivision) } },
       orderBy: { createdAt: 'desc' },
       include: {
         applicant:  { select: { fullName: true, role: true, userCode: true } },

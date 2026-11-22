@@ -59,7 +59,9 @@ const INVOICE_INCLUDE = {
 }
 
 const PAYMENT_INCLUDE = {
-  allocations: { include: { invoice: { select: { id: true, invoiceNumber: true, description: true } } } },
+  // division is carried so the ledger can show one department's half of a
+  // payment when the Tax / Audit filter is on
+  allocations: { include: { invoice: { select: { id: true, invoiceNumber: true, description: true, division: true } } } },
   recordedBy:  { select: { id: true, fullName: true } },
 }
 
@@ -72,7 +74,14 @@ export class InvoicesService {
   // Audit and tax bill separately and meet only at partner level, so every read
   // is narrowed to the viewer's half of the firm. Partner and Admin oversee both
   // and are never narrowed, and so is anyone whose division is BOTH.
-  private divisionWhere(actor?: { role?: string; division?: string }) {
+  // `want` is the Tax / Audit / All filter on the Client Ledgers rail. With
+  // nothing asked for, the viewer gets their own half of the firm, which is
+  // what an audit manager should open on.
+  private divisionWhere(actor?: { role?: string; division?: string }, want?: string) {
+    const w = String(want ?? '').toUpperCase()
+    if (w === 'TAX')   return { division: Division.TAX }
+    if (w === 'AUDIT') return { division: Division.AUDIT }
+    if (w === 'ALL')   return {}
     if (!actor) return {}
     if (actor.role === 'ADMIN' || actor.role === 'PARTNER') return {}
     if (!actor.division || actor.division === 'BOTH') return {}
@@ -130,9 +139,9 @@ export class InvoicesService {
   }
 
   // ── Listing ────────────────────────────────────────────────────────────────
-  async list(status?: string, clientId?: string, search?: string, actor?: any) {
+  async list(status?: string, clientId?: string, search?: string, actor?: any, want?: string) {
     await this.sweepOverdue()
-    const where: Prisma.InvoiceWhereInput = { ...this.divisionWhere(actor) }
+    const where: Prisma.InvoiceWhereInput = { ...this.divisionWhere(actor, want) }
     if (status && status !== 'ALL') where.status = status as InvoiceStatus
     if (clientId) where.clientId = clientId
     if (search) {
@@ -170,10 +179,10 @@ export class InvoicesService {
   //   partial something has been settled but not all of it
   //   paid    settled in full, by cash, discount or tax withheld at source
   // The caller groups and totals by that, so the pills can switch without a refetch.
-  async register(from?: string, to?: string, clientId?: string, search?: string, actor?: any) {
+  async register(from?: string, to?: string, clientId?: string, search?: string, actor?: any, want?: string) {
     await this.sweepOverdue()
 
-    const where: Prisma.InvoiceWhereInput = { status: { in: BILLABLE }, ...this.divisionWhere(actor) }
+    const where: Prisma.InvoiceWhereInput = { status: { in: BILLABLE }, ...this.divisionWhere(actor, want) }
     if (clientId) where.clientId = clientId
     if (from || to) {
       where.issueDate = {
@@ -267,9 +276,9 @@ export class InvoicesService {
   }
 
   // Every client with their running account totals, powers the client sidebar.
-  async clientsWithBalances(search?: string, actor?: any) {
+  async clientsWithBalances(search?: string, actor?: any, want?: string) {
     await this.sweepOverdue()
-    const scope = this.divisionWhere(actor)
+    const scope = this.divisionWhere(actor, want)
     const clients = await this.prisma.clientProfile.findMany({
       where: search
         ? {
@@ -350,8 +359,9 @@ export class InvoicesService {
   // With no `from` it is just the one-time opening balance. Closing balance is always
   // openingBalance + invoiced − received for the window on screen, so the numbers tie out
   // whatever range is picked.
-  async clientLedger(clientId: string, from?: string, to?: string, actor?: any) {
+  async clientLedger(clientId: string, from?: string, to?: string, actor?: any, want?: string) {
     await this.sweepOverdue()
+    const scope = this.divisionWhere(actor, want) as { division?: Division }
     const client = await this.prisma.clientProfile.findUnique({
       where:  { id: clientId },
       select: {
@@ -366,12 +376,24 @@ export class InvoicesService {
     // Drafts live in Invoice Approval until the manager sends them, this section
     // only shows what has actually been issued to the client.
     const invoices = await this.prisma.invoice.findMany({
-      where:   { clientId, status: { not: InvoiceStatus.DRAFT } },
+      where:   { clientId, status: { not: InvoiceStatus.DRAFT }, ...scope },
       include: INVOICE_INCLUDE,
       orderBy: { issueDate: 'desc' },
     })
 
-    const payments = await this.clientPayments(clientId)
+    // With one department on screen, a payment only belongs here for the part of
+    // it that settled that department's invoices. Credit sitting unapplied, and
+    // the opening balance, belong to the client as a whole and so are left out,
+    // otherwise the column would credit work this view is not showing.
+    const allPayments = await this.clientPayments(clientId)
+    const payments: any[] = !scope.division ? allPayments : allPayments
+      .map(p => {
+        const mine = p.allocations.filter((a: any) => a.invoice?.division === scope.division)
+        if (mine.length === 0) return null
+        const applied = mine.reduce((s: number, a: any) => s + Number(a.amount), 0)
+        return { ...p, allocations: mine, amount: applied, applied, unapplied: 0, bonus: 0 }
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null)
 
     const fromDate = from ? new Date(`${from}T00:00:00.000Z`) : null
     const toDate   = to   ? new Date(`${to}T23:59:59.999Z`)   : null
@@ -387,7 +409,7 @@ export class InvoicesService {
     }
     for (const p of payments) {
       const against = p.allocations.length > 0
-        ? p.allocations.map(a => a.invoice.invoiceNumber).join(', ')
+        ? p.allocations.map((a: any) => a.invoice.invoiceNumber).join(', ')
         : 'Advance'
 
       // Cash. An unapplied advance still credits in full, it reduces what they owe.

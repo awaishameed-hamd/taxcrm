@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
 import { P } from '@/lib/palette'
 import { useAutoRefresh } from '@/hooks/useAutoRefresh'
+import DeptToggle, { useDeptView } from '@/components/ui/DeptToggle'
 import { formatTime12h } from '@/lib/utils'
 
 function todayStr() {
@@ -116,13 +117,19 @@ export default function DailyAttendancePage() {
   const [data,    setData]    = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
+  // Tax, Audit or both, for the two roles that oversee the whole firm
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true })
+  const deptSwitch = canSwitchDept ? <DeptToggle value={dept} onChange={setDept} withAll /> : null
+
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const { data: res } = await api.get('/attendance/daily', { params: { date } })
+      const { data: res } = await api.get('/attendance/daily', {
+        params: { date, ...(canSwitchDept && dept !== 'ALL' ? { division: dept } : {}) },
+      })
       setData(res.data ?? res)
     } catch { if (!silent) setData(null) } finally { if (!silent) setLoading(false) }
-  }, [date])
+  }, [date, canSwitchDept, dept])
 
   useEffect(() => { fetchData() }, [fetchData])
   useAutoRefresh(() => fetchData(true))
@@ -151,10 +158,13 @@ export default function DailyAttendancePage() {
     <div style={{ background: P.bgMain, minHeight: '100vh', padding: '0 20px 20px', display: 'flex', flexDirection: 'column' }}>
 
       {/* Header */}
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 8 }}>
-        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496' }}>
+      {/* Fixed 52px, scrolls sideways rather than wrapping, so the department
+          switch never changes the height of the band */}
+      <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginBottom: 8, overflowX: 'auto', overflowY: 'hidden' }}>
+        <h1 style={{ margin: 0, fontFamily: "'Faster One', cursive", textTransform: 'uppercase', fontSize: 26, display: 'inline-block', color: '#1E8496', flexShrink: 0, whiteSpace: 'nowrap' }}>
           Daily Attendance
         </h1>
+        {deptSwitch}
       </div>
 
       {/* Stat cards */}
