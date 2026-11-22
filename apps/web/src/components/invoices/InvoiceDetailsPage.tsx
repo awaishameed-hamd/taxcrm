@@ -192,9 +192,9 @@ export default function InvoiceDetailsPage() {
   // Presets fill the two date boxes, Custom hands them back to the user
   const dates = useMemo(() => range === 'custom' ? { from: from || undefined, to: to || undefined } : rangeDates(range), [range, from, to])
 
-  // Tax, Audit or both. A manager opens on their own department, Admin and
-  // the Director on everything.
-  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true, includeManagers: true })
+  // Tax, Audit or both, for the two roles that oversee the whole firm. A
+  // manager is pinned to their own department, so they get no switch.
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true })
 
   const fetchRows = useCallback((silent = false) => {
     if (!silent) setLoading(true)

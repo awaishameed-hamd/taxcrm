@@ -97,9 +97,9 @@ export default function InvoiceApprovalPage() {
   const [priceInv,   setPriceInv]   = useState<any>(null)
   const [confirmDel, setConfirmDel] = useState<any>(null)
 
-  // Tax, Audit or both. A manager opens on their own department, Admin and
-  // the Director on everything.
-  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true, includeManagers: true })
+  // Tax, Audit or both, for the two roles that oversee the whole firm. A
+  // manager is pinned to their own department, so they get no switch.
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true })
 
   const fetchDrafts = useCallback((silent = false) => {
     if (!silent) setLoading(true)

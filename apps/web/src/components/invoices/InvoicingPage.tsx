@@ -55,9 +55,9 @@ export default function InvoicingPage() {
     return customFrom && customTo ? { from: customFrom, to: customTo } : {}
   }, [range, customFrom, customTo])
 
-  // Tax, Audit or both. A manager opens on their own department and can look
-  // across, Admin and the Director open on everything.
-  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true, includeManagers: true })
+  // Tax, Audit or both, for the two roles that oversee the whole firm. A
+  // manager is pinned to their own department, so they get no switch.
+  const { dept, setDept, canSwitch: canSwitchDept } = useDeptView({ allowAll: true })
   const deptParam = useMemo(() => (dept === 'ALL' ? {} : { division: dept }), [dept])
 
   const fetchClients = useCallback(() => {

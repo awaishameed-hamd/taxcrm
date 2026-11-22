@@ -78,14 +78,17 @@ export class InvoicesService {
   // nothing asked for, the viewer gets their own half of the firm, which is
   // what an audit manager should open on.
   private divisionWhere(actor?: { role?: string; division?: string }, want?: string) {
+    // The wall comes first and the filter cannot cross it. A manager pinned to
+    // one department stays there however they ask, so the switch is offered to
+    // Admin and the Director only.
+    if (actor && actor.role !== 'ADMIN' && actor.role !== 'PARTNER'
+        && actor.division && actor.division !== 'BOTH') {
+      return { division: actor.division as Division }
+    }
     const w = String(want ?? '').toUpperCase()
     if (w === 'TAX')   return { division: Division.TAX }
     if (w === 'AUDIT') return { division: Division.AUDIT }
-    if (w === 'ALL')   return {}
-    if (!actor) return {}
-    if (actor.role === 'ADMIN' || actor.role === 'PARTNER') return {}
-    if (!actor.division || actor.division === 'BOTH') return {}
-    return { division: actor.division as Division }
+    return {}
   }
 
   // Which half of the firm an invoice raised by this person belongs to
